@@ -92,8 +92,8 @@ var AutoAr = class {
     }
 
     _refreshExtensions() {
-        this._formats = [];
-        this._filters = [];
+        let formats = [];
+        let filters = [];
         this._extensions = {};
         this._combinedExtensions = {};
         if (!GnomeAutoar) {
@@ -109,12 +109,14 @@ var AutoAr = class {
             } catch (e) {
                 continue;
             }
-            this._formats.push(format);
+            formats.push(format);
             let extension = GnomeAutoar.format_get_extension(format);
             if (!extension) {
                 continue;
             }
-            extension = `.${extension}`;
+            if (extension[0] != '.')
+                extension = `.${extension}`;
+            print(extension);
             this._extensions[extension] = {
                 extension,
                 format,
@@ -129,20 +131,22 @@ var AutoAr = class {
             } catch (e) {
                 continue;
             }
-            this._filters.push(filter);
+            filters.push(filter);
             let extension = GnomeAutoar.filter_get_extension(filter);
             if (!extension) {
                 continue;
             }
-            extension = `.${extension}`;
+            if (extension[0] != '.')
+                extension = `.${extension}`;
+            print(extension);
             this._extensions[extension] = {
                 extension,
                 format: null,
                 filter,
             };
         }
-        for (let format of this._formats) {
-            for (let filter of this._filters) {
+        for (let format of formats) {
+            for (let filter of filters) {
                 const extension = GnomeAutoar.format_filter_get_extension(format, filter);
                 if (!extension) {
                     continue;
