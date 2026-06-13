@@ -110,14 +110,15 @@ var AutoAr = class {
                 continue;
             }
             this._formats.push(format);
-            const extension = GnomeAutoar.format_get_extension(format);
+            let extension = GnomeAutoar.format_get_extension(format);
             if (!extension) {
                 continue;
             }
+            extension = `.${extension}`;
             this._extensions[extension] = {
                 extension,
                 format,
-                filter: null,
+                filter: GnomeAutoar.Filter.NONE,
             };
         }
         for (let filter = 0; filter <= lastFilter; filter++) {
@@ -129,10 +130,11 @@ var AutoAr = class {
                 continue;
             }
             this._filters.push(filter);
-            const extension = GnomeAutoar.filter_get_extension(filter);
+            let extension = GnomeAutoar.filter_get_extension(filter);
             if (!extension) {
                 continue;
             }
+            extension = `.${extension}`;
             this._extensions[extension] = {
                 extension,
                 format: null,
@@ -170,12 +172,12 @@ var AutoAr = class {
 
     _getFormatAndFilterForFilename(fileName) {
         for (let extension in this._combinedExtensions) {
-            if (fileName.endsWith(`.${extension}`)) {
+            if (fileName.endsWith(extension)) {
                 return this._combinedExtensions[extension];
             }
         }
         for (let extension in this._extensions) {
-            if (fileName.endsWith(`.${extension}`)) {
+            if (fileName.endsWith(extension)) {
                 return this._extensions[extension];
             }
         }
