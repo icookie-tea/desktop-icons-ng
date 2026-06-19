@@ -1,6 +1,6 @@
 # History of versions #
 
-* Version 50.3.0 (2026-05-22)
+* Version 50.3.0 (2026-06-19)
   * Fix memory leaks
   * Make stacks accessible
   * Take border into account when creating drag surface (Marco Trevisan)
