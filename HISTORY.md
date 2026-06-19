@@ -3,6 +3,10 @@
 * Version 50.3.0 (2026-05-22)
   * Fix memory leaks
   * Make stacks accessible
+  * Take border into account when creating drag surface (Marco Trevisan)
+  * Fix the Gnome Store button always present
+  * Better filename extension detection (Balló György)
+  * Read the clipboard asynchronously (James Railton)
 
 * Version 50.2.0 (2026-05-05)
   * Use proper Gdk context to avoid the "Application is ready" notification (thanks to Marco Trevisan)
