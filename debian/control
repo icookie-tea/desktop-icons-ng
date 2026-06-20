@@ -29,4 +29,4 @@ Description: desktop icon support for GNOME Shell
  of ~/Desktop on the desktop of the Shell. Common file management
  operations such as launching, copy/paste, rename and deleting are
  supported.
-Version: 50.2.0
+Version: 50.3.0
