@@ -46,7 +46,7 @@ rm -rf "${REPO_DIR}/${UUID}.zip" "${LOCAL_PREFIX}/${UUID}.zip"
 cd "${LOCAL_PREFIX}" || exit
 mkdir schemas
 cp "${SCHEMADIR}"/*.xml schemas/
-glib-compile-schemas schemas/
+#glib-compile-schemas schemas/
 cp -r "${EXTENSIONS_DIR}"/* .
 zip -qr "${UUID}.zip" ./*.js ./*.css ./*.json ./locale ./schemas ./app
 mv -f "${UUID}.zip" "${REPO_DIR}/"

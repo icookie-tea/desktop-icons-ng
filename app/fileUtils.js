@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 'use strict';
-const {GLib, Gio} = imports.gi;
+const { GLib, Gio, GObject } = imports.gi;
 
 const DEFAULT_ENUMERATE_BATCH_SIZE = 100;
 const DEFAULT_QUERY_ATTRIBUTES = [
@@ -103,4 +103,46 @@ async function deleteFile(file, info = null, cancellable = null,
             Gio.IOErrorEnum.NOT_SUPPORTED,
             `${file.get_path()} of type ${type} cannot be removed`);
     }
+}
+
+/**
+ * Reads all possible data from the passed input stream
+ * @param {Gio.InputStream} stream The stream from where read data
+ * @returns An Uint8Array with all the read data
+ */
+async function readAll(stream) {
+    const chunks = [];
+    let totalLength = 0;
+    try {
+        while (true) {
+            let readData = await new Promise((resolve, reject) => {
+                stream.read_bytes_async(8192, GLib.PRIORITY_DEFAULT, null, (obj, result) => {
+                    try {
+                        resolve(obj.read_bytes_finish(result));
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
+            });
+            if (readData.get_size() === 0) {
+                break;
+            }
+            const data = readData.get_data();
+            chunks.push(data);
+            totalLength += data.length;
+        }
+    } finally {
+        try {
+            stream.close(null);
+        } catch (e) {
+            // ignore close errors
+        }
+    }
+    const returnData = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+        returnData.set(chunk, offset);
+        offset += chunk.length;
+    }
+    return returnData;
 }

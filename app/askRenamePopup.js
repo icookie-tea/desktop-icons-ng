@@ -17,16 +17,19 @@
  */
 /* exported AskRenamePopup */
 'use strict';
-const Atk = imports.gi.Atk;
 const Gtk = imports.gi.Gtk;
 const Gio = imports.gi.Gio;
 const GLib = imports.gi.GLib;
+const Adw = imports.gi.Adw;
 const DBusUtils = imports.dbusUtils;
 const DesktopIconsUtil = imports.desktopIconsUtil;
 const Gettext = imports.gettext.domain('ding');
 const SignalManager = imports.signalManager;
 
 const _ = Gettext.gettext;
+
+const RENAME_ENTRY_MIN_CHARS=30;
+const RENAME_ENTRY_MAX_CHARS=50;
 
 var AskRenamePopup = class extends SignalManager.SignalManager {
     constructor(extensionManager, fileItem, allowReturnOnSameName, closeCB) {
@@ -36,42 +39,51 @@ var AskRenamePopup = class extends SignalManager.SignalManager {
         this._allowReturnOnSameName = allowReturnOnSameName;
         this._desktopPath = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DESKTOP);
         this._fileItem = fileItem;
-        this._popover = new Gtk.Popover({
-            relative_to: fileItem._iconContainer,
-            modal: true,
-            position: (fileItem.relativeX > 0.5) ? Gtk.PositionType.LEFT : Gtk.PositionType.RIGHT,
+        this._popover = new Gtk.Popover();
+        this._popover.set_parent(fileItem.container);
+        this._popover.set_position((fileItem.relativeX > 0.5) ? Gtk.PositionType.LEFT : Gtk.PositionType.RIGHT);
+        let contentBox = new Gtk.Box({
+            margin_start: 18,
+            margin_end: 18,
+            margin_top: 18,
+            margin_bottom: 18,
+            orientation: Gtk.Orientation.VERTICAL,
         });
-        let contentBox = new Gtk.Grid({
-            row_spacing: 6,
-            column_spacing: 6,
-            margin: 10,
+        this._popover.set_child(contentBox);
+        const label = new Gtk.Label({
+            label: fileItem.isDirectory ? _('Rename folder') : _('Rename file'),
+            justify: Gtk.Justification.CENTER,
+            halign: Gtk.Align.CENTER,
+            margin_bottom: 12,
         });
-        this._popover.add(contentBox);
-        let label = new Gtk.Label({
-            label: fileItem.isDirectory ? _('Folder name') : _('File name'),
-            justify: Gtk.Justification.LEFT,
-            halign: Gtk.Align.START,
+        label.add_css_class("title-2");
+        contentBox.append(label);
+        this._textArea = new Gtk.Entry({
+            margin_bottom: 12,
         });
-        contentBox.attach(label, 0, 0, 2, 1);
-        contentBox.get_accessible().add_relationship(Atk.RelationType.LABELLED_BY, label.get_accessible());
-        this._textArea = new Gtk.Entry();
+        this._textArea.update_property([Gtk.AccessibleProperty.LABEL], [_("New filename")]);
         this._textArea.text = fileItem.fileName;
-        contentBox.attach(this._textArea, 0, 1, 1, 1);
-        this._button = new Gtk.Button({label: allowReturnOnSameName ? _('OK') : _('Rename')});
-        contentBox.attach(this._button, 1, 1, 1, 1);
+        this._textArea.set_width_chars(DesktopIconsUtil.clamp(fileItem.displayName, RENAME_ENTRY_MIN_CHARS, RENAME_ENTRY_MAX_CHARS))
+        contentBox.append(this._textArea);
+        this._button = new Gtk.Button({
+            label: allowReturnOnSameName ? _('OK') : _('Rename'),
+            halign: Gtk.Align.END,
+        });
+        this._button.add_css_class("suggested-action");
+        contentBox.append(this._button);
         this.connectSignal(this._button, 'clicked', this._do_rename.bind(this));
         this.connectSignal(this._textArea, 'changed', this._validate.bind(this));
         this.connectSignal(this._textArea, 'activate', this._do_rename.bind(this));
         this.connectSignal(this._popover, 'closed', this._cleanAll.bind(this));
         this._extensionManager.showPopup();
-        this._textArea.set_can_default(true);
+        //this._textArea.set_can_default(true);
         this._popover.set_default_widget(this._textArea);
-        this._button.get_style_context().add_class('suggested-action');
-        contentBox.show_all();
+        this._button.add_css_class('suggested-action');
+        contentBox.show();
         this._popover.popup();
         this._validate();
         this._textArea.grab_focus_without_selecting();
-        this._textArea.select_region(0, DesktopIconsUtil.getFileExtensionOffset(fileItem.fileName, {'isDirectory': fileItem.isDirectory}).offset);
+        this._textArea.select_region(0, DesktopIconsUtil.getFileExtensionOffset(fileItem.fileName, { 'isDirectory': fileItem.isDirectory }).offset);
     }
 
     _cleanAll() {
@@ -98,8 +110,8 @@ var AskRenamePopup = class extends SignalManager.SignalManager {
         let finalPath = `${this._desktopPath}/${text}`;
         let finalFile = Gio.File.new_for_commandline_arg(finalPath);
         if ((text == '') || (text.indexOf('/') !== -1) ||
-           ((text == this._fileItem.fileName) && !this._allowReturnOnSameName) ||
-           (finalFile.query_exists(null) && (text !== this._fileItem.fileName))) {
+            ((text == this._fileItem.fileName) && !this._allowReturnOnSameName) ||
+            (finalFile.query_exists(null) && (text !== this._fileItem.fileName))) {
             this._button.sensitive = false;
         } else {
             this._button.sensitive = true;
@@ -116,7 +128,9 @@ var AskRenamePopup = class extends SignalManager.SignalManager {
         }
         DBusUtils.RemoteFileOperations.RenameURIRemote(
             this._fileItem.file.get_uri(), this._textArea.text
-        );
+        ).catch(e => {
+            print(e);
+        });
     }
 
     closeWindow() {

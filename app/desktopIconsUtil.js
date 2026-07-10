@@ -18,13 +18,11 @@
 /* exported getModifiersInDnD, getDesktopDir, getScriptsDir, getTemplatesDir, clamp,
    spawnCommandLine, launchTerminal, getFilteredEnviron, distanceBetweenPoints, getExtraFolders,
    getMounts, getFileExtensionOffset, getFilesFromNautilusDnD, writeTextFileToDesktop,
-   windowHidePagerTaskbarModal, waitDelayMs, createDesktopMenu */
+   windowHidePagerTaskbarModal, waitDelayMs */
 'use strict';
 const Gio = imports.gi.Gio;
 const GLib = imports.gi.GLib;
 const Gdk = imports.gi.Gdk;
-const Gtk = imports.gi.Gtk;
-const GObject = imports.gi.GObject;
 const Prefs = imports.preferences;
 const Enums = imports.enums;
 const Gettext = imports.gettext.domain('ding');
@@ -57,7 +55,7 @@ function getDesktopDir() {
  *
  */
 function getScriptsDir() {
-    let scriptsDir =  GLib.build_filenamev([GLib.get_home_dir(), Enums.NAUTILUS_SCRIPTS_DIR]);
+    let scriptsDir = GLib.build_filenamev([GLib.get_home_dir(), Enums.NAUTILUS_SCRIPTS_DIR]);
     return Gio.File.new_for_commandline_arg(scriptsDir);
 }
 
@@ -70,6 +68,19 @@ function getTemplatesDir() {
         return null;
     }
     return Gio.File.new_for_commandline_arg(templatesDir);
+}
+
+/**
+ * Returns the state of the modifier keys in the controller
+ */
+function getControllerStatus(controller) {
+    let state = controller.get_current_event_state();
+    return {
+        shift: !!(state & Gdk.ModifierType.SHIFT_MASK),
+        control: !!(state & Gdk.ModifierType.CONTROL_MASK),
+        alt: !!(state & Gdk.ModifierType.ALT_MASK),
+        super: !!(state & Gdk.ModifierType.SUPER_MASK)
+    };
 }
 
 /**
@@ -102,7 +113,7 @@ function spawnCommandLine(commandLine, environ = null) {
  * @param command
  */
 function launchTerminal(workdir, command) {
-    const settings = new Gio.Settings({schema_id: Enums.TERMINAL_SCHEMA});
+    const settings = new Gio.Settings({ schema_id: Enums.TERMINAL_SCHEMA });
     const settingsExec = settings.get_string(Enums.EXEC_KEY);
     const terminals = ['xdg-terminal-exec', settingsExec, 'kgx', 'gnome-terminal'];
     for (const name of terminals) {
@@ -176,7 +187,7 @@ function trySpawn(workdir, argv, environ = null) {
     // Dummy child watch; we don't want to double-fork internally
     // because then we lose the parent-child relationship, which
     // can break polkit.  See https://bugzilla.redhat.com//show_bug.cgi?id=819275
-    GLib.child_watch_add(GLib.PRIORITY_DEFAULT, pid, () => {});
+    GLib.child_watch_add(GLib.PRIORITY_DEFAULT, pid, () => { });
 }
 
 /**
@@ -259,7 +270,7 @@ function getMounts(volumeMonitor) {
  * @param filename
  * @param opts
  */
-function getFileExtensionOffset(filename, opts = {'isDirectory': false}) {
+function getFileExtensionOffset(filename, opts = { 'isDirectory': false }) {
     let offset = filename.length;
     let extension = '';
     if (!opts.isDirectory) {
@@ -279,7 +290,7 @@ function getFileExtensionOffset(filename, opts = {'isDirectory': false}) {
             filename = filename.substring(0, offset);
         }
     }
-    return {offset, 'basename': filename, extension};
+    return { offset, 'basename': filename, extension };
 }
 
 /**
@@ -317,7 +328,7 @@ function getFilesFromNautilusDnD(selection, type) {
  * @param dropCoordinates
  */
 function writeTextFileToDesktop(text, filename, dropCoordinates) {
-    let path = GLib.build_filenamev([GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DESKTOP),  filename]);
+    let path = GLib.build_filenamev([GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DESKTOP), filename]);
     let file = Gio.File.new_for_path(path);
     const PERMISSIONS_MODE = 0o744;
     if (GLib.mkdir_with_parents(file.get_parent().get_path(), PERMISSIONS_MODE) === 0) {
@@ -328,7 +339,7 @@ function writeTextFileToDesktop(text, filename, dropCoordinates) {
         info.set_attribute_string('metadata::nautilus-drop-position', `${dropCoordinates[0]},${dropCoordinates[1]}`);
         try {
             file.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
-        } catch (e) {}
+        } catch (e) { }
     }
 }
 
@@ -338,31 +349,18 @@ function writeTextFileToDesktop(text, filename, dropCoordinates) {
  * @param modal
  */
 function windowHidePagerTaskbarModal(window, modal) {
-    let usingX11 = Gdk.Display.get_default().constructor.$gtype.name === 'GdkX11Display';
-    if (usingX11) {
-        window.set_type_hint(Gdk.WindowTypeHint.NORMAL);
-        window.set_skip_taskbar_hint(true);
-        window.set_skip_pager_hint(true);
-    } else {
-        let title = window.get_title();
-        if (title == null) {
-            title = '';
-        }
-        if (modal) {
-            title += '  ';
-        } else {
-            title += ' ';
-        }
-        window.set_title(title);
+    let title = window.get_title();
+    if (title == null) {
+        title = '';
     }
     if (modal) {
-        window.connect('focus-out-event', () => {
-            window.set_keep_above(true);
-            window.stick();
-            window.grab_focus();
-        });
-        window.grab_focus();
+        title += '  ';
+    } else {
+        title += ' ';
     }
+    window.set_title(title);
+    window.set_modal(modal);
+    window.grab_focus();
 }
 
 /**
@@ -377,32 +375,3 @@ function waitDelayMs(ms) {
         });
     });
 }
-
-/**
- * Creates a new desktop menu with desktop menu theming.
- *
- * @param {string[]} additionalStyleClasses - Additional style classes to add to
- *    the menu and its toplevel.
- * @returns {Gtk.Menu} The created desktop menu.
- */
-function createDesktopMenu(additionalStyleClasses = []) {
-    return new DesktopMenu({ additionalStyleClasses });
-}
-
-const DesktopMenu = GObject.registerClass(
-    class DesktopMenu extends Gtk.Menu {
-        _init(props = {}) {
-            const { additionalStyleClasses } = props;
-            delete props.additionalStyleClasses;
-            const styleClasses = ['desktopmenu', ...(additionalStyleClasses ?? [])];
-
-            super._init(props);
-
-            styleClasses.forEach(styleClass => {
-                this.get_style_context().add_class(styleClass);
-                this.connect('map', () =>
-                    this.get_toplevel()?.get_style_context().add_class(styleClass));
-            })
-        }
-    }
-);

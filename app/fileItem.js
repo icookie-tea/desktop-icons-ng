@@ -18,7 +18,6 @@
  */
 'use strict';
 const Gtk = imports.gi.Gtk;
-const Atk = imports.gi.Atk;
 const Gdk = imports.gi.Gdk;
 const Gio = imports.gi.Gio;
 const GioUnix = imports.gi.GioUnix;
@@ -30,6 +29,7 @@ const ShowErrorPopup = imports.showErrorPopup;
 const Prefs = imports.preferences;
 const Enums = imports.enums;
 const DBusUtils = imports.dbusUtils;
+const dndClipboardUtils = imports.dndClipboardUtils;
 
 const Signals = imports.signals;
 const Gettext = imports.gettext.domain('ding');
@@ -50,7 +50,7 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
         this._savedCoordinates = this._readCoordinatesFromAttribute(fileInfo, 'metadata::nautilus-icon-position');
         this._dropCoordinates = this._readCoordinatesFromAttribute(fileInfo, 'metadata::nautilus-drop-position');
 
-        this._createIconActor();
+        this._createIconActor(Gtk.AccessibleRole.LABEL);
 
         /* Set the metadata and update relevant UI */
         this._updateMetadataFromFileInfo(fileInfo);
@@ -100,9 +100,11 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
                         }
                         break;
                 }
-            }, {destroyCb: () => {
-                this._monitorTrashDir.cancel();
-            }});
+            }, {
+                destroyCb: () => {
+                    this._monitorTrashDir.cancel();
+                }
+            });
         } else {
             this._monitorTrashId = 0;
         }
@@ -110,6 +112,26 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
         if (this._dropCoordinates) {
             this.setSelected();
         }
+        if (this._desktopManager.showDropPlace) {
+            this._setDropDestination(this.container);
+        } else {
+            this._setDropDestination(this._icon);
+            this._setDropDestination(this._label);
+        }
+    }
+
+    _getEmblem() {
+        if (this._isSymlink && (Prefs.showLinkEmblem || this._isBrokenSymlink)) {
+            if (this._isBrokenSymlink) {
+                return Gio.ThemedIcon.new('emblem-unreadable');
+            } else {
+                return Gio.ThemedIcon.new('emblem-symbolic-link');
+            }
+        }
+        if (this._isDesktopFile && (!this._isValidDesktopFile || !this.trustedDesktopFile)) {
+            return Gio.ThemedIcon.new('emblem-unreadable');
+        }
+        return null;
     }
 
     setAccessibleName(filename) {
@@ -175,9 +197,10 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
                 break;
             }
         }
-        const accessible = this._containerAccessibility.get_accessible();
+        /** TRANSLATORS: the "selected" string is for screen readers. It is added at the end of the speaked sentence when the icon
+            is selected. */
         const visibleNameAndRole = name.replace('${VisibleName}', filename);
-        accessible.set_name(visibleNameAndRole);
+        this._accessibleBox.update_property([Gtk.AccessibleProperty.LABEL, Gtk.AccessibleProperty.DESCRIPTION], [visibleNameAndRole, ""]);
     }
 
     setRenamePopup(renameWindow) {
@@ -360,6 +383,10 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
          * https://developer.gnome.org/gio/stable/GFile.html#g-file-query-info
          */
         this._isBrokenSymlink = this._isSymlink && this._fileType == Gio.FileType.SYMBOLIC_LINK;
+        this._acceptsDrop = (this._fileExtra == Enums.FileType.USER_DIRECTORY_TRASH) ||
+                            (this._fileExtra == Enums.FileType.USER_DIRECTORY_HOME) ||
+                            (this._fileExtra == Enums.FileType.EXTERNAL_DRIVE) ||
+                            this._isDirectory;
     }
 
     _logAndPopupError(title, error, logError) {
@@ -367,9 +394,13 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
         this._showerrorpopup(title, error);
     }
 
-    _getDefaultLaunchContext() {
+    _getDefaultLaunchContext(timestamp) {
         const launchContext = Gdk.Display.get_default().get_app_launch_context();
-        launchContext.set_timestamp(Gtk.get_current_event_time());
+        if (timestamp) {
+            launchContext.set_timestamp(timestamp);
+        } else {
+            launchContext.set_timestamp(Gdk.CURRENT_TIME);
+        }
         return launchContext;
     }
 
@@ -434,8 +465,6 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
             return;
         }
 
-        let error;
-
         if (!this._isValidDesktopFile) {
             let title = _('Broken Desktop File');
             let error = _('This .desktop file has errors or points to a program without permissions. It can not be executed.\n\n\t<b>Edit the file to set the correct executable Program.</b>');
@@ -471,25 +500,21 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
      * Button Clicks *
      ***********************/
 
-    _doButtonOnePressed(event, shiftPressed, controlPressed) {
-        super._doButtonOnePressed(event, shiftPressed, controlPressed);
-        if (this.getClickCount() == 2 && !Prefs.CLICK_POLICY_SINGLE) {
-            this.doOpen();
+    _doButtonOnePressed(controller, n_press, x, y) {
+        super._doButtonOnePressed(controller, n_press, x, y);
+        if (n_press == 2 && !Prefs.CLICK_POLICY_SINGLE) {
+            this.doOpen(controller.get_current_event_time());
         }
     }
 
-    _doButtonOneReleased(event) {
+    _doButtonOneReleased(controller, n_press, x, y, state) {
+        super._doButtonOneReleased(controller, n_press, x, y);
         // primaryButtonPressed is TRUE only if the user has pressed the button
         // over an icon, and if (s)he has not started a drag&drop operation
-        if (this._primaryButtonPressed) {
-            this._primaryButtonPressed = false;
-            let shiftPressed = !!(event.get_state()[1] & Gdk.ModifierType.SHIFT_MASK);
-            let controlPressed = !!(event.get_state()[1] & Gdk.ModifierType.CONTROL_MASK);
-            if (!shiftPressed && !controlPressed) {
-                this._desktopManager.selected(this, Enums.Selection.RELEASE);
-                if (Prefs.CLICK_POLICY_SINGLE) {
-                    this.doOpen();
-                }
+        if (!state.shift && !state.control) {
+            this._desktopManager.selected(this, Enums.Selection.RELEASE);
+            if (Prefs.CLICK_POLICY_SINGLE) {
+                this.doOpen(controller.get_current_event_time());
             }
         }
     }
@@ -499,58 +524,54 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
      ***********************/
 
     _setDropDestination(dropDestination) {
-        dropDestination.drag_dest_set(Gtk.DestDefaults.MOTION | Gtk.DestDefaults.DROP, null,
-            Gdk.DragAction.MOVE | Gdk.DragAction.COPY | Gdk.DragAction.DEFAULT);
-        if ((this._fileExtra == Enums.FileType.USER_DIRECTORY_TRASH) ||
-            (this._fileExtra == Enums.FileType.USER_DIRECTORY_HOME) ||
-            (this._fileExtra != Enums.FileType.EXTERNAL_DRIVE) ||
-            this._isDirectory) {
-            let targets = new Gtk.TargetList(null);
-            targets.add(Gdk.atom_intern('x-special/gnome-icon-list', false), 0, 1);
-            targets.add(Gdk.atom_intern('text/uri-list', false), 0, 2);
-            dropDestination.drag_dest_set_target_list(targets);
-            targets = undefined;
-            this.connectSignal(dropDestination, 'drag-data-received', (widget, context, x, y, selection, info, time) => {
-                const forceCopy = context.get_selected_action() === Gdk.DragAction.COPY;
-                if (info === Enums.DndTargetInfo.GNOME_ICON_LIST ||
-                    info === Enums.DndTargetInfo.URI_LIST) {
-                    let fileList = DesktopIconsUtil.getFilesFromNautilusDnD(selection, info);
-                    if (fileList.length != 0) {
-                        if (this._hasToRouteDragToGrid()) {
-                            this._grid.receiveDrop(context, this._x1 + x, this._y1 + y, selection, info, true, forceCopy);
-                            return;
-                        }
-                        if (this._desktopManager.dragItem && ((this._desktopManager.dragItem.uri == this._file.get_uri()) || !(this._isValidDesktopFile || this.isDirectory))) {
-                            // Dragging a file/folder over itself or over another file will do nothing, allow drag to directory or validdesktop file
-                            Gtk.drag_finish(context, false, false, time);
-                            return;
-                        }
-                        if (this._isValidDesktopFile) {
-                            // open the desktopfile with these dropped files as the arguments
-                            this.doOpen(fileList);
-                            Gtk.drag_finish(context, true, false, time);
-                            return;
-                        }
-                        if (this._fileExtra != Enums.FileType.USER_DIRECTORY_TRASH) {
-                            let data = Gio.File.new_for_uri(fileList[0]).query_info('id::filesystem', Gio.FileQueryInfoFlags.NONE, null);
-                            let idFS = data.get_attribute_string('id::filesystem');
-                            if ((this._desktopManager.desktopFsId == idFS) && !forceCopy) {
-                                DBusUtils.RemoteFileOperations.MoveURIsRemote(fileList, this._file.get_uri());
-                                Gtk.drag_finish(context, true, true, time);
-                            } else {
-                                DBusUtils.RemoteFileOperations.CopyURIsRemote(fileList, this._file.get_uri());
-                                Gtk.drag_finish(context, true, false, time);
-                            }
-                        } else {
-                            DBusUtils.RemoteFileOperations.TrashURIsRemote(fileList);
-                            Gtk.drag_finish(context, true, true, time);
-                        }
-                    }
-                } else {
-                    Gtk.drag_finish(context, false, false, time);
-                }
-            });
+        if ((this._fileExtra != Enums.FileType.USER_DIRECTORY_TRASH) &&
+            (this._fileExtra != Enums.FileType.USER_DIRECTORY_HOME) &&
+            (this._fileExtra != Enums.FileType.EXTERNAL_DRIVE) &&
+            (!this._isDirectory)) {
+            return;
         }
+        const dropTarget = new Gtk.DropTargetAsync();
+        const validFormats = Gdk.ContentFormats.new(Enums.MIME_TYPES );
+        dropTarget.set_actions(Gdk.DragAction.MOVE | Gdk.DragAction.COPY | Gdk.DragAction.ASK);
+
+        this.connectSignal(dropTarget, 'drag-enter', (widget, drop) => {
+            drop.status(Gdk.DragAction.COPY | Gdk.DragAction.MOVE | Gdk.DragAction.LINK,
+                Gdk.DragAction.MOVE);
+            return Gdk.DragAction.MOVE;
+        });
+
+        this.connectSignal(dropTarget, 'drag-motion', (widget, drop, x, y) => {
+            this.highLightDropTarget(x, y);
+            return Gdk.DragAction.MOVE;
+        });
+
+        this.connectSignal(dropTarget, 'drag-leave', (widget, drop) => {
+            this.unHighLightDropTarget();
+        });
+
+        this.connectSignal(dropTarget, 'drop', async (widget, drop, x, y) => {
+            const dropInfo = await dndClipboardUtils.manageIconDrop(this, drop, x, y);
+            if (dropInfo === null) {
+                return false;
+            }
+            try {
+                if (dropInfo.action === Gdk.DragAction.MOVE) {
+                    DBusUtils.RemoteFileOperations.MoveURIsRemote(dropInfo.filelist, this.uri);
+                } else {
+                    DBusUtils.RemoteFileOperations.CopyURIsRemote(dropInfo.filelist, this.uri);
+                }
+            } catch(e) {
+                print(`Error: ${e}\n`);
+            }
+            return true;
+        });
+
+        this.connectSignal(dropTarget, 'accept', (widget, drop) => {
+            print(`Asking to drop formats: ${drop.get_formats().get_mime_types()}`);
+            return drop.get_formats().match(validFormats);
+        });
+
+        dropDestination.add_controller(dropTarget);
     }
 
     _hasToRouteDragToGrid() {
@@ -630,11 +651,11 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
         }
     }
 
-    doOpen(fileList) {
+    doOpen(timestamp, fileList) {
         if (!fileList) {
             fileList = [];
         }
-        this._doOpenContext(this._getDefaultLaunchContext(), fileList);
+        this._doOpenContext(this._getDefaultLaunchContext(timestamp), fileList);
     }
 
     onAllowDisallowLaunchingClicked() {
@@ -667,7 +688,7 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
         this._updateName();
     }
 
-    doDiscreteGpu() {
+    doDiscreteGpu(timestamp) {
         if (!DBusUtils.discreteGpuAvailable) {
             let title = _('Could not apply discrete GPU environment');
             let error = 'switcheroo-control not available';
@@ -698,7 +719,7 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
             }
 
             let envS = env.get_strv();
-            const context = this._getDefaultLaunchContext();
+            const context = this._getDefaultLaunchContext(timestamp);
             for (let i = 0; i < envS.length; i += 2) {
                 context.setenv(envS[i], envS[i + 1]);
             }

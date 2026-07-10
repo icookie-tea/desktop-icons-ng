@@ -22,7 +22,7 @@ var SignalManager = class {
         this._signal_list = [];
     }
 
-    connectSignal(obj, signal_name, cb, {destroyCb, after}={destroyCb:null, after: false}) {
+    connectSignal(obj, signal_name, cb, { destroyCb, after } = { destroyCb: null, after: false }) {
         if (after)
             var signal_id = obj.connect_after(signal_name, cb);
         else

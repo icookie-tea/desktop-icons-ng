@@ -29,14 +29,13 @@ var TemplatesScriptsManagerFlags = {
 };
 
 var TemplatesScriptsManager = class extends SignalManager.SignalManager {
-    constructor(baseFolder, flags, activatedCB) {
+    constructor(baseFolder, flags) {
         super();
         // Too many templates can result in resource exhaustion, crashing
         // the desktop. To avoid this, we limit the number of templates to 100.
         // It can happen if the Templates folder points to the wrong folder,
         // or if there is a loop due to a symlink to an already added folder.
-        this._maxNumberOfTemplates = 100;
-        this._activatedCB = activatedCB;
+        this._maxNumberOfSubfolders = 100;
         this._entries = [];
         this._entriesEnumerateCancellable = null;
         this._readingEntries = false;
@@ -97,7 +96,7 @@ var TemplatesScriptsManager = class extends SignalManager.SignalManager {
 
     async _processDirectory(directory) {
         this._processedEntries++;
-        if (this._processedEntries >= this._maxNumberOfTemplates) {
+        if (this._processedEntries >= this._maxNumberOfSubfolders) {
             return [];
         }
         if (directory !== this._entriesDir) {
@@ -164,10 +163,6 @@ var TemplatesScriptsManager = class extends SignalManager.SignalManager {
                             }
                             let child = fileEnum.get_child(info);
                             fileList.push([info.get_name(), isDir ? child : child.get_path(), isDir ? [] : null]);
-                            this._processedEntries++;
-                            if (this._processedEntries >= this._maxNumberOfTemplates) {
-                                break;
-                            }
                         }
                     } catch (e) {
                         if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
@@ -200,7 +195,7 @@ var TemplatesScriptsManager = class extends SignalManager.SignalManager {
         if ((scriptsList == null) || (scriptsList.length == 0)) {
             return null;
         }
-        const scriptSubMenu = DesktopIconsUtil.createDesktopMenu();
+        let scriptSubMenu = new Gio.Menu();
         for (let fileItem of scriptsList) {
             let menuItemName = fileItem[0];
             if (this._flags & TemplatesScriptsManagerFlags.HIDE_EXTENSIONS) {
@@ -209,21 +204,16 @@ var TemplatesScriptsManager = class extends SignalManager.SignalManager {
             let menuItemPath = fileItem[1];
             let subDirs = fileItem[2];
             if (subDirs === null) {
-                let menuItem = new Gtk.MenuItem({label: menuItemName});
-                this.connectSignal(menuItem, 'activate', () => {
-                    this._activatedCB(menuItemPath);
-                });
-                scriptSubMenu.add(menuItem);
+                let menuItem = Gio.MenuItem.new(menuItemName, null);
+                menuItem.set_action_and_target_value("app.create-template", GLib.Variant.new_string(menuItemPath));
+                scriptSubMenu.append_item(menuItem);
             } else {
                 let subMenu = this._createTemplatesScriptsSubMenu(subDirs);
                 if (subMenu !== null) {
-                    let menuItem = new Gtk.MenuItem({label: menuItemName});
-                    menuItem.set_submenu(subMenu);
-                    scriptSubMenu.add(menuItem);
+                    scriptSubMenu.append_submenu(menuItemName, subMenu);
                 }
             }
         }
-        scriptSubMenu.show_all();
         return scriptSubMenu;
     }
 };

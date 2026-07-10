@@ -116,6 +116,10 @@ export class VisibleArea {
         let marginLeft = area.x - geometry.x;
         let marginRight = geometry.width - area.width - marginLeft;
         let marginBottom = geometry.height - area.height - marginTop;
+        const windowMarginTop = marginTop;
+        const windowMarginBottom = marginBottom;
+        const windowMarginLeft = marginLeft;
+        const windowMarginRight = marginRight;
 
         if (monitorIndex in this._usableAreas) {
             // If the margins for this monitor are bigger than the margins calculated previously,
@@ -137,6 +141,10 @@ export class VisibleArea {
             marginBottom,
             marginLeft,
             marginRight,
+            windowMarginTop,
+            windowMarginBottom,
+            windowMarginLeft,
+            windowMarginRight,
         };
     }
 

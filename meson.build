@@ -15,7 +15,6 @@ extensions_dir = join_paths(prefix, 'share', 'gnome-shell', 'extensions', 'ding@
 install_data([
     'emulateX11WindowType.js',
     'extension.js',
-    'gnomeShellOverride.js',
     'metadata.json',
     'prefs.js',
     'visibleArea.js'
