@@ -19,7 +19,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 'use strict';
-const Gdk = imports.gi.Gdk;
+const Gtk = imports.gi.Gtk;
+const Gio = imports.gi.Gio;
+
 const desktopIconItem = imports.desktopIconItem;
 
 const Prefs = imports.preferences;
@@ -40,22 +42,24 @@ var stackItem = class extends desktopIconItem.desktopIconItem {
         this._size = null;
         this._modifiedTime = null;
         this._attributeContentType = attributeContentType;
-        this._createIconActor();
+        this._createIconActor(Gtk.AccessibleRole.TOGGLE_BUTTON);
         this._createStackTopIcon();
         this._setLabelName(this._file);
         this.setAccessibleName(this._getVisibleName());
     }
 
+    _getEmblem() {
+        if (!this.stackUnique)
+            return Gio.ThemedIcon.new('list-add');
+        return null;
+    }
+
     _createStackTopIcon() {
-        const scale = this._icon.get_scale_factor();
-        let pixbuf;
         let folder = 'folder';
         if (Prefs.getUnstackList().includes(this._attributeContentType)) {
             folder = 'folder-open';
         }
-        pixbuf = this._createEmblemedIcon(null, `${folder}`);
-        let surface = Gdk.cairo_surface_create_from_pixbuf(pixbuf, scale, null);
-        this._icon.set_from_surface(surface);
+        this._icon.set_paintable(this._createEmblemedIcon(null, folder));
     }
 
     doOpen() {
@@ -77,19 +81,9 @@ var stackItem = class extends desktopIconItem.desktopIconItem {
     }
 
     setAccessibleName(filename) {
-        /** TRANSLATORS: when using a screen reader, this is the role used when a stack is
-         * unexpanded, or contracted. Example: if a stack named "pictures" is contracted, it will say "pictures Stack Unexpanded".
-         * It is mandatory to say the file name first and the role after. */
-        const unexpanded = _('${VisibleName} Stack Unexpanded');
-        /** TRANSLATORS: when using a screen reader, this is the role used when a stack is
-         * expanded. Example: if a stack named "pictures" is expanded (thus, their content is visible), it will say "pictures Stack Expanded".
-         * It is mandatory to say the file name first and the role after. */
-        const expanded = _('${VisibleName} Stack Expanded');
         const isExpanded = Prefs.getUnstackList().includes(this.attributeContentType);
-
-        const accessible = this._containerAccessibility.get_accessible();
-        const visibleNameAndRole = (isExpanded ? expanded : unexpanded).replace('${VisibleName}', filename);
-        accessible.set_name(visibleNameAndRole);
+        this._accessibleBox.update_property([Gtk.AccessibleProperty.LABEL, Gtk.AccessibleProperty.DESCRIPTION], [filename, ""]);
+        this._accessibleBox.update_state([Gtk.AccessibleState.CHECKED], [isExpanded ? Gtk.AccessibleTristate.TRUE : Gtk.AccessibleTristate.FALSE]);
     }
 
     /** *********************

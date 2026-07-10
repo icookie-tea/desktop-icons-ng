@@ -18,7 +18,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 'use strict';
-imports.gi.versions.GnomeDesktop = '3.0';
+imports.gi.versions.GnomeDesktop = '4.0';
 const GnomeDesktop = imports.gi.GnomeDesktop;
 const Gio = imports.gi.Gio;
 

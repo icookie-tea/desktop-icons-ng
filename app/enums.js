@@ -16,9 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 'use strict';
-var ICON_SIZE = {'tiny': 36, 'small': 48, 'standard': 64, 'large': 96};
-var ICON_WIDTH = {'tiny': 70, 'small': 90, 'standard': 120, 'large': 130};
-var ICON_HEIGHT = {'tiny': 80, 'small': 90, 'standard': 106, 'large': 138};
+var ICON_SIZE = { 'tiny': 36, 'small': 48, 'standard': 64, 'large': 96 };
+var ICON_WIDTH = { 'tiny': 70, 'small': 90, 'standard': 120, 'large': 130 };
+var ICON_HEIGHT = { 'tiny': 80, 'small': 90, 'standard': 106, 'large': 138 };
 
 var START_CORNER = {
     'top-left': [false, false],
@@ -93,11 +93,19 @@ var CompressionType = {
 };
 
 var DndTargetInfo = {
-    DING_ICON_LIST: 0,
-    GNOME_ICON_LIST: 1,
-    URI_LIST: 2,
-    TEXT_PLAIN: 3,
+    DING_ICON_LIST: 'x-special/ding-icon-list',
+    GNOME_ICON_LIST: 'x-special/gnome-icon-list',
+    URI_LIST: 'text/uri-list',
+    TEXT_PLAIN: 'text/plain',
+    TEXT_PLAIN_UTF8: 'text/plain;charset=utf-8',
+    GNOME_CLIPBOARD: 'x-special/gnome-copied-files',
 };
+
+var MIME_TYPES = [DndTargetInfo.DING_ICON_LIST,
+                  DndTargetInfo.GNOME_ICON_LIST,
+                  DndTargetInfo.URI_LIST,
+                  DndTargetInfo.TEXT_PLAIN_UTF8,
+                  DndTargetInfo.TEXT_PLAIN];
 
 var DEFAULT_ATTRIBUTES = 'metadata::*,standard::*,access::*,time::modified,unix::mode';
 var TERMINAL_SCHEMA = 'org.gnome.desktop.default-applications.terminal';

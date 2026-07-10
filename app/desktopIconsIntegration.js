@@ -134,7 +134,7 @@ var DesktopIconsUsableAreaClass = class {
         if (this._timedMarginsID) {
             GLib.source_remove(this._timedMarginsID);
         }
-        this._timedMarginsID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, ()=> {
+        this._timedMarginsID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
             this._sendMarginsToAll();
             this._timedMarginsID = 0;
             return GLib.SOURCE_REMOVE;

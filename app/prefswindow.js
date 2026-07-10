@@ -37,7 +37,7 @@ function get_schema(path, schema) {
         throw new Error(`Schema ${schema} could not be found for extension ` + '. Please check your installation.');
     }
 
-    return new Gio.Settings({settings_schema: schemaObj});
+    return new Gio.Settings({ settings_schema: schemaObj });
 }
 
 /**
@@ -61,7 +61,7 @@ function preferencesFrame(_Gtk, desktopSettings, nautilusSettings, gtkSettings) 
         frame.add = frame.append;
     }
 
-    frame.add(buildSelector(desktopSettings, 'icon-size', _('Size for the desktop icons'), {'tiny': _('Tiny'), 'small': _('Small'), 'standard': _('Standard'), 'large': _('Large')}));
+    frame.add(buildSelector(desktopSettings, 'icon-size', _('Size for the desktop icons'), { 'tiny': _('Tiny'), 'small': _('Small'), 'standard': _('Standard'), 'large': _('Large') }));
     frame.add(buildSwitcher(desktopSettings, 'show-home', _('Show the personal folder in the desktop')));
     frame.add(buildSwitcher(desktopSettings, 'show-trash', _('Show the trash icon in the desktop')));
     frame.add(buildSwitcher(desktopSettings, 'show-volumes', _('Show external drives in the desktop')));
@@ -83,7 +83,7 @@ function preferencesFrame(_Gtk, desktopSettings, nautilusSettings, gtkSettings) 
 
     frame.add(buildSwitcher(desktopSettings, 'dark-text-in-labels', _('Use dark text in icon labels')));
 
-    frame.add(new Gtk.Separator({orientation: Gtk.Orientation.HORIZONTAL}));
+    frame.add(new Gtk.Separator({ orientation: Gtk.Orientation.HORIZONTAL }));
 
 
     // Nautilus options
@@ -91,7 +91,7 @@ function preferencesFrame(_Gtk, desktopSettings, nautilusSettings, gtkSettings) 
         label: `<b>${_('Settings shared with Nautilus')}</b>`,
         use_markup: true,
     });
-    let nautilusFrame = new Gtk.Frame({label_widget: frameLabel});
+    let nautilusFrame = new Gtk.Frame({ label_widget: frameLabel });
     let nautilusBox = new Gtk.Box({
         orientation: Gtk.Orientation.VERTICAL,
         margin_top: 5,
@@ -110,7 +110,7 @@ function preferencesFrame(_Gtk, desktopSettings, nautilusSettings, gtkSettings) 
     if (!nautilusBox.add) {
         nautilusBox.add = nautilusBox.append;
     }
-    nautilusBox.add(buildSelector(nautilusSettings, 'click-policy', _('Click type for open files'), {'single': _('Single click'), 'double': _('Double click')}));
+    nautilusBox.add(buildSelector(nautilusSettings, 'click-policy', _('Click type for open files'), { 'single': _('Single click'), 'double': _('Double click') }));
     nautilusBox.add(buildSwitcher(gtkSettings, 'show-hidden', _('Show hidden files')));
     nautilusBox.add(buildSwitcher(nautilusSettings, 'show-delete-permanently', _('Show a context menu item to delete permanently')));
     // Gnome Shell 40 removed this option
@@ -118,19 +118,19 @@ function preferencesFrame(_Gtk, desktopSettings, nautilusSettings, gtkSettings) 
         nautilusBox.add(buildSelector(nautilusSettings,
             'executable-text-activation',
             _('Action to do when launching a program from the desktop'), {
-                'display': _('Display the content of the file'),
-                'launch': _('Launch the file'),
-                'ask': _('Ask what to do'),
-            }));
+            'display': _('Display the content of the file'),
+            'launch': _('Launch the file'),
+            'ask': _('Ask what to do'),
+        }));
     } catch (e) {
     }
     nautilusBox.add(buildSelector(nautilusSettings,
         'show-image-thumbnails',
         _('Show image thumbnails'), {
-            'never': _('Never'),
-            'local-only': _('Local files only'),
-            'always': _('Always'),
-        }));
+        'never': _('Never'),
+        'local-only': _('Local files only'),
+        'always': _('Always'),
+    }));
     return frame;
 }
 
@@ -141,14 +141,14 @@ function preferencesFrame(_Gtk, desktopSettings, nautilusSettings, gtkSettings) 
  * @param labelText
  */
 function buildSwitcher(settings, key, labelText) {
-    let hbox = new Gtk.Box({orientation: Gtk.Orientation.HORIZONTAL, spacing: 10});
-    let label = new Gtk.Label({label: labelText, xalign: 0});
+    let hbox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 10 });
+    let label = new Gtk.Label({ label: labelText, xalign: 0 });
     if (settings) {
         var status = settings.get_boolean(key);
     } else {
         var status = false;
     }
-    let switcher = new Gtk.Switch({active: status});
+    let switcher = new Gtk.Switch({ active: status });
     label.set_hexpand(true);
     switcher.set_hexpand(false);
     switcher.set_halign(Gtk.Align.END);
@@ -189,9 +189,9 @@ function buildSelector(settings, key, labelText, elements) {
             listStore.set(iter, [0, 1], [visibleText, val]);
         }
     }
-    let hbox = new Gtk.Box({orientation: Gtk.Orientation.HORIZONTAL, spacing: 10});
-    let label = new Gtk.Label({label: labelText, xalign: 0});
-    let combo = new Gtk.ComboBox({model: listStore});
+    let hbox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 10 });
+    let label = new Gtk.Label({ label: labelText, xalign: 0 });
+    let combo = new Gtk.ComboBox({ model: listStore });
     let rendererText = new Gtk.CellRendererText();
     combo.pack_start(rendererText, false);
     combo.add_attribute(rendererText, 'text', 0);

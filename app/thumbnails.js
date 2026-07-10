@@ -18,7 +18,7 @@
 var GnomeDesktop = null;
 const ShowErrorPopup = imports.showErrorPopup;
 try {
-    imports.gi.versions.GnomeDesktop = '3.0';
+    imports.gi.versions.GnomeDesktop = '4.0';
     GnomeDesktop = imports.gi.GnomeDesktop;
 } catch(e) {}
 const GLib = imports.gi.GLib;
@@ -42,7 +42,6 @@ var ThumbnailLoader = class {
             this._thumbnailFactoryLarge = GnomeDesktop.DesktopThumbnailFactory.new(GnomeDesktop.DesktopThumbnailSize.LARGE);
             if (this._thumbnailFactoryLarge.generate_thumbnail_async) {
                 this._useAsyncAPI = true;
-                print('Detected async api for thumbnails');
             } else {
                 this._useAsyncAPI = false;
                 print('Failed to detected async api for thumbnails');
@@ -50,30 +49,28 @@ var ThumbnailLoader = class {
         }
     }
 
-    _generateThumbnail(file, callback) {
-        this._thumbList.push([file, callback]);
+    _generateThumbnail(file, resolve) {
+        this._thumbList.push([file, resolve]);
         if (!this._running) {
             this._launchNewBuild();
         }
     }
 
     _launchNewBuild() {
-        let file, callback;
+        let file, resolve;
         do {
             if (this._thumbList.length == 0) {
                 this._running = false;
                 return;
             }
             // if the file disappeared while waiting in the queue, don't refresh the thumbnail
-            [file, callback] = this._thumbList.shift();
+            [file, resolve] = this._thumbList.shift();
             if (file._destroyed) {
                 continue;
             }
             if (file.file.query_exists(null)) {
                 if (this._thumbnailFactoryLarge.has_valid_failed_thumbnail(file.uri, file.modifiedTime)) {
-                    if (callback) {
-                        callback();
-                    }
+                    this._resolveThumbnail(file, resolve);
                     continue;
                 } else {
                     break;
@@ -82,13 +79,13 @@ var ThumbnailLoader = class {
         } while (true);
         this._running = true;
         if (this._useAsyncAPI) {
-            this._createThumbnailAsync(file, callback);
+            this._createThumbnailAsync(file, resolve);
         } else {
-            this._createThumbnailSubprocess(file, callback);
+            this._createThumbnailSubprocess(file, resolve);
         }
     }
 
-    _createThumbnailAsync(file, callback) {
+    _createThumbnailAsync(file, resolve) {
         let fileInfo = file.file.query_info('standard::content-type,time::modified', Gio.FileQueryInfoFlags.NONE, null);
         this._doCancel = new Gio.Cancellable();
         let modifiedTime = fileInfo.get_attribute_uint64('time::modified');
@@ -98,45 +95,42 @@ var ThumbnailLoader = class {
                 let thumbnailPixbuf = obj.generate_thumbnail_finish(res);
                 this._thumbnailFactoryLarge.save_thumbnail_async(thumbnailPixbuf, file.uri, modifiedTime, this._doCancel, (obj, res) => {
                     obj.save_thumbnail_finish(res);
-                    if (callback) {
-                        callback();
-                    }
+                    this._resolveThumbnail(file, resolve);
                     this._launchNewBuild();
                 });
             } catch (e) {
                 print(`Error while creating thumbnail: ${e.message}\n${e.stack}`);
-                this._createFailedThumbnailAsync(file, modifiedTime, callback);
+                this._createFailedThumbnailAsync(file, modifiedTime, resolve);
             }
         });
         this._timeoutID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, this._timeoutValue, () => {
             print(`Timeout while generating thumbnail for ${file.displayName}`);
             this._timeoutID = 0;
             this._doCancel.cancel();
-            this._createFailedThumbnailAsync(file, modifiedTime, callback);
+            this._createFailedThumbnailAsync(file, modifiedTime, resolve, reject);
             return false;
         });
     }
 
-    _createFailedThumbnailAsync(file, modifiedTime, callback) {
+    _createFailedThumbnailAsync(file, modifiedTime, resolve) {
         this._doCancel = new Gio.Cancellable();
         this._thumbnailFactoryLarge.create_failed_thumbnail_async(file.uri, modifiedTime, this._doCancel, (obj, res) => {
             try {
                 obj.create_failed_thumbnail_finish(res);
+                this._resolveThumbnail(file, resolve);
             } catch (e) {
                 print(`Error while creating failed thumbnail: ${e.message}\n${e.stack}`);
-            }
-            if (callback) {
-                callback();
+                resolve(null);
             }
             this._launchNewBuild();
         });
     }
 
-    _createThumbnailSubprocess(file, callback) {
+    _createThumbnailSubprocess(file, resolve) {
         let args = [];
         args.push(GLib.build_filenamev([this._codePath, 'createThumbnail.js']));
         args.push(file.path);
-        this._proc = new Gio.Subprocess({argv: args});
+        this._proc = new Gio.Subprocess({ argv: args });
         this._proc.init(null);
         this._proc.wait_check_async(null, (source, result) => {
             this._removeTimeout();
@@ -145,15 +139,15 @@ var ThumbnailLoader = class {
                 if (result2) {
                     let status = source.get_status();
                     if (status == 0) {
-                        if (callback) {
-                            callback();
-                        }
+                        this._resolveThumbnail(file, resolve);
                     }
                 } else {
                     print(`Failed to generate thumbnail for ${file.displayName}`);
+                    resolve(null);
                 }
             } catch (error) {
                 print(`Exception when generating thumbnail for ${file.displayName}: ${error}`);
+                resolve(null);
             }
             this._launchNewBuild();
         });
@@ -173,24 +167,33 @@ var ThumbnailLoader = class {
         }
     }
 
-    getThumbnail(file, callback) {
-        if (!this._thumbnailFactoryLarge && !this._thumbnailFactoryNormal) {
-            return null;
-        }
-        try {
-            let thumbnail = this._thumbnailFactoryLarge.lookup(file.uri, file.modifiedTime);
-            if (thumbnail == null) {
-                thumbnail = this._thumbnailFactoryNormal.lookup(file.uri, file.modifiedTime);
-                if ((thumbnail == null) &&
-                    !this._thumbnailFactoryLarge.has_valid_failed_thumbnail(file.uri, file.modifiedTime) &&
-                     this._thumbnailFactoryLarge.can_thumbnail(file.uri, file.attributeContentType, file.modifiedTime)) {
-                    this._generateThumbnail(file, callback);
-                }
+    _resolveThumbnail(file, resolve) {
+        let thumbnail = this._thumbnailFactoryLarge.lookup(file.uri, file.modifiedTime);
+        if (thumbnail == null) {
+            thumbnail = this._thumbnailFactoryNormal.lookup(file.uri, file.modifiedTime);
+            if (thumbnail === null) {
+                return false;
             }
-            return thumbnail;
-        } catch (error) {
-            print(`Error when asking for a thumbnail for ${file.displayName}: ${error.message}\n${error.stack}`);
         }
-        return null;
+        resolve(thumbnail);
+        return true;
+    }
+
+    async getThumbnail(file) {
+        return new Promise((resolve, reject) => {
+            try {
+                if (!this._resolveThumbnail(file, resolve)) {
+                    if (!this._thumbnailFactoryLarge.has_valid_failed_thumbnail(file.uri, file.modifiedTime) &&
+                        this._thumbnailFactoryLarge.can_thumbnail(file.uri, file.attributeContentType, file.modifiedTime)) {
+                        this._generateThumbnail(file, resolve);
+                    } else {
+                        resolve(null);
+                    }
+                }
+            } catch (error) {
+                print(`Error when asking for a thumbnail for ${file.displayName}: ${error.message}\n${error.stack}`);
+                resolve(null);
+            }
+        });
     }
 };

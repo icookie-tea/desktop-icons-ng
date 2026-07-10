@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 'use strict';
-imports.gi.versions.Gtk = '3.0';
+imports.gi.versions.Gtk = '4.0';
 
 const Gtk = imports.gi.Gtk;
 const Gio = imports.gi.Gio;
@@ -52,7 +52,7 @@ function init(path) {
     if (!schemaObj) {
         nautilusSettings = null;
     } else {
-        nautilusSettings = new Gio.Settings({settings_schema: schemaObj});
+        nautilusSettings = new Gio.Settings({ settings_schema: schemaObj });
         nautilusSettings.connect('changed', _onNautilusSettingsChanged);
         _onNautilusSettingsChanged();
     }
@@ -60,7 +60,7 @@ function init(path) {
     if (!compressionSchema) {
         nautilusCompression = null;
     } else {
-        nautilusCompression = new Gio.Settings({settings_schema: compressionSchema});
+        nautilusCompression = new Gio.Settings({ settings_schema: compressionSchema });
     }
     const schemaDarkSettings = schemaSource.lookup(Enums.SCHEMA_DARK_SETTINGS, true);
     if (schemaDarkSettings) {
@@ -78,7 +78,7 @@ function init(path) {
     desktopSettings = PrefsWindow.get_schema(path, Enums.SCHEMA);
     let schemaMutter = schemaSource.lookup(Enums.SCHEMA_MUTTER, true);
     if (schemaMutter) {
-        mutterSettings = new Gio.Settings({settings_schema: schemaMutter});
+        mutterSettings = new Gio.Settings({ settings_schema: schemaMutter });
     }
 }
 
@@ -100,7 +100,7 @@ function showPreferences() {
     DesktopIconsUtil.windowHidePagerTaskbarModal(prefsWindow, true);
     let frame = PrefsWindow.preferencesFrame(Gtk, desktopSettings, nautilusSettings, gtkSettings);
     prefsWindow.add(frame);
-    prefsWindow.show_all();
+    prefsWindow.show();
 }
 
 /**

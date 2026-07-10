@@ -20,7 +20,7 @@
 import Gio from 'gi://Gio'
 import Adw from 'gi://Adw';
 
-import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 export default class DingPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
@@ -34,6 +34,6 @@ export default class DingPreferences extends ExtensionPreferences {
         const page = new Adw.PreferencesPage();
 
         window.add(page);
-        window.connect_after('show', ()=>{window.close();});
+        window.connect_after('show', () => { window.close(); });
     }
 }

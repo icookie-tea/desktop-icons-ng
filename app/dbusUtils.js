@@ -1,7 +1,8 @@
 /* DING: Desktop Icons New Generation for GNOME Shell
  *
- * Copyright (C) 2019-2022 Sergio Costas (rastersoft@gmail.com)
+ * Copyright (C) 2019-2025 Sergio Costas (rastersoft@gmail.com)
  * Based on code original (C) Carlos Soriano
+ * Some code from Gtk4 DING version by (C) Sundeep Mediratta (smedius@gmail.com)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +18,10 @@
  */
 /* exported GtkVfsMetadata, extensionControl, discreteGpuAvailable, RemoteFileOperations, init */
 'use strict';
-const {Gio, GLib, Gdk, Gtk} = imports.gi;
+imports.gi.versions.Gtk = '4.0';
+imports.gi.versions.Gdk = '4.0';
+imports.gi.versions.GdkWayland = '4.0';
+const { Gio, GLib, Gdk, Gtk, GdkWayland } = imports.gi;
 const Signals = imports.signals;
 const DBusInterfaces = imports.dbusInterfaces;
 const DesktopIconsUtil = imports.desktopIconsUtil;
@@ -560,43 +564,65 @@ class DbusOperationsManager {
 
 
 class RemoteFileOperationsManager extends DbusOperationsManager {
-    constructor(fileOperationsManager, freeDesktopFileManager, gnomeNautilusPreview, gnomeArchiveManager) {
+    constructor(mainApp, fileOperationsManager, freeDesktopFileManager, gnomeNautilusPreview, gnomeArchiveManager) {
         super(freeDesktopFileManager, gnomeNautilusPreview, gnomeArchiveManager);
         this.fileOperationsManager = fileOperationsManager;
+        this._mainApp = mainApp;
         this._createPlatformData();
     }
 
     _createPlatformData() {
-        this.platformData = this.fileOperationsManager.platformData = () => {
-            let parentWindow = Gtk.get_current_event()?.get_window();
+        this.getWaylandParentHandle = this.fileOperationsManager.getWaylandParentHandle = topLevel => {
+            return new Promise(resolve => {
+                try {
+                    topLevel.export_handle((actor, handle) => {
+                        if (handle)
+                            resolve(handle);
+                        else
+                            resolve(false);
+                    });
+                } catch (e) {
+                    console.log(`Failed with "${e.message}" while getting wayland parent handle, WaylandHandle`);
+                    resolve(false);
+                }
+            });
+        };
 
+        this.platformData = this.fileOperationsManager.platformData = async () => {
+            const eventParameters = {
+                'parentWindow': this._mainApp.get_active_window(),
+                'timestamp': Gdk.CURRENT_TIME,
+            };
+            const parentWindow = eventParameters.parentWindow;
+            const topLevel = parentWindow.get_surface();
+            const windowPosition = 'center';
+            const timestamp = eventParameters.timestamp;
             let parentHandle = '';
+
             if (parentWindow) {
                 try {
-                    imports.gi.versions.GdkX11 = '3.0';
-                    const {GdkX11} = imports.gi;
-                    const topLevel = parentWindow.get_effective_toplevel();
-
-                    if (topLevel.constructor.$gtype === GdkX11.X11Window.$gtype) {
-                        const xid = GdkX11.X11Window.prototype.get_xid.call(topLevel);
-                        parentHandle = `x11:${xid}`;
-                    } /* else if (topLevel instanceof GdkWayland.Toplevel) {
-                        FIXME: Need Gtk4 to use GdkWayland
-                        const handle = GdkWayland.Toplevel.prototype.export_handle.call(topLevel);
-                        parentHandle = `wayland:${handle}`;
-                    } */
+                    if (topLevel.constructor.$gtype === GdkWayland.WaylandToplevel.$gtype) {
+                        let handle = await this.getWaylandParentHandle(topLevel);
+                        if (handle) {
+                            parentHandle = `wayland:${handle}`;
+                        }
+                    }
                 } catch (e) {
                     console.error(e, 'Impossible to determine the parent window');
                 }
             }
 
             return {
-                'parent-handle': new GLib.Variant('s', parentHandle),
-                'timestamp': new GLib.Variant('u', Gtk.get_current_event_time()),
-                'window-position': new GLib.Variant('s', 'center'),
+                'data': {
+                    'parent-handle': new GLib.Variant('s', parentHandle),
+                    'timestamp': new GLib.Variant('u', timestamp),
+                    'window-position': new GLib.Variant('s', windowPosition),
+                },
+                freePlatformData: () => {topLevel.unexport_handle();},
             };
         };
     }
+
 
     MoveURIsRemote(fileList, uri, callback) {
         if (!this.fileOperationsManager.proxy) {
@@ -638,15 +664,16 @@ class RemoteFileOperationsManager extends DbusOperationsManager {
         );
     }
 
-    RenameURIRemote(fileList, uri, callback) {
+    async RenameURIRemote(fileList, uri, callback) {
         if (!this.fileOperationsManager.proxy) {
             this._sendNoProxyError(callback);
             return;
         }
+        const platformData = await this.platformData().data;
         this.fileOperationsManager.proxy.RenameURIRemote(
             fileList,
             uri,
-            this.platformData(),
+            platformData,
             (result, error) => {
                 if (callback) {
                     callback(result, error);
@@ -917,7 +944,7 @@ class LegacyRemoteFileOperationsManager extends DbusOperationsManager {
 /**
  *
  */
-function init() {
+function init(mainApp) {
     dbusManagerObject = new DBusManager();
 
     let data = dbusManagerObject.getIntrospectionData(
@@ -998,7 +1025,7 @@ function init() {
     });
 
     if (data) {
-        RemoteFileOperations = new RemoteFileOperationsManager(NautilusFileOperations2, FreeDesktopFileManager, GnomeNautilusPreview, GnomeArchiveManager);
+        RemoteFileOperations = new RemoteFileOperationsManager(mainApp, NautilusFileOperations2, FreeDesktopFileManager, GnomeNautilusPreview, GnomeArchiveManager);
     } else {
         RemoteFileOperations = new LegacyRemoteFileOperationsManager(NautilusFileOperations2, FreeDesktopFileManager, GnomeNautilusPreview, GnomeArchiveManager);
     }

@@ -43,10 +43,10 @@ var NotifyX11UnderWayland = class {
         this._window.connect('delete-event', () => {
             this._destroy(closeCB);
         });
-        this.deleteButton.get_style_context().add_class('suggested-action');
-        this._stopShowing = new Gtk.CheckButton({label: _("Don't show this message anymore.")});
+        this.deleteButton.add_css_class('suggested-action');
+        this._stopShowing = new Gtk.CheckButton({ label: _("Don't show this message anymore.") });
         area.add(this._stopShowing);
-        this._window.show_all();
+        this._window.show();
     }
 
     _destroy(closeCB) {
