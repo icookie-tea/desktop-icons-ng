@@ -1,5 +1,8 @@
 # History of versions #
 
+* Version 51.0.0 (2026-07-10)
+  * Port to Gtk4
+
 * Version 50.3.0 (2026-06-19)
   * Fix memory leaks
   * Make stacks accessible

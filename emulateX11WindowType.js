@@ -99,7 +99,7 @@ class ManageWindow {
         const showInAllDesktops = this._showInAllDesktops;
         this._showInAllDesktops = false;
         this._fixed = false;
-        const title = this._window.get_title();
+        let title = this._window.get_title();
         if (title != null) {
             if ((title.length > 0) && (title[title.length - 1] == ' ')) {
                 if ((title.length > 1) && (title[title.length - 2] == ' ')) {

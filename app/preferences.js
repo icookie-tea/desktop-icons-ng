@@ -91,7 +91,6 @@ function showPreferences() {
     }
     prefsWindow = new Gtk.Window({
         resizable: false,
-        window_position: Gtk.WindowPosition.CENTER,
     });
     prefsWindow.connect('destroy', () => {
         prefsWindow = null;
@@ -99,8 +98,8 @@ function showPreferences() {
     prefsWindow.set_title(_('Settings'));
     DesktopIconsUtil.windowHidePagerTaskbarModal(prefsWindow, true);
     let frame = PrefsWindow.preferencesFrame(Gtk, desktopSettings, nautilusSettings, gtkSettings);
-    prefsWindow.add(frame);
-    prefsWindow.show();
+    prefsWindow.set_child(frame);
+    prefsWindow.present();
 }
 
 /**
