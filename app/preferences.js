@@ -92,7 +92,7 @@ function showPreferences() {
     prefsWindow = new Gtk.Window({
         resizable: false,
     });
-    prefsWindow.connect('destroy', () => {
+    prefsWindow.connect('close-request', () => {
         prefsWindow = null;
     });
     prefsWindow.set_title(_('Settings'));
