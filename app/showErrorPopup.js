@@ -25,13 +25,10 @@ const _ = Gettext.gettext;
 var ShowErrorPopup = class {
     constructor(text, secondaryText, modal) {
         this._window = new Gtk.MessageDialog({
-            window_position: Gtk.WindowPosition.CENTER_ON_PARENT,
             transient_for: null,
             message_type: Gtk.MessageType.ERROR,
             buttons: Gtk.ButtonsType.NONE,
         });
-        let labels = this._window.get_message_area().get_children();
-        labels[1].set_justify(Gtk.Justification.CENTER);
         this._window.secondary_use_markup = true;
         this._window.text = text;
         this._window.secondary_text = secondaryText;
@@ -42,7 +39,7 @@ var ShowErrorPopup = class {
             this._window.destroy();
             this._window = null;
         });
-        this._window.connect('delete-event', () => {
+        this._window.connect('close-request', () => {
             this._window.destroy();
             this._window = null;
         });
