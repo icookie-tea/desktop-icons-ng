@@ -1,5 +1,9 @@
 # History of versions #
 
+* Version 51.0.1 (2026-07-13)
+  * Several fixes in popups (Thanks to Balló György)
+  * Fix not being able to re-open settings window (Balló György)
+
 * Version 51.0.0 (2026-07-10)
   * Port to Gtk4
 
