@@ -25,14 +25,11 @@ const _ = Gettext.gettext;
 var NotifyX11UnderWayland = class {
     constructor(closeCB) {
         this._window = new Gtk.MessageDialog({
-            window_position: Gtk.WindowPosition.CENTER_ON_PARENT,
             transient_for: null,
             message_type: Gtk.MessageType.WARNING,
             buttons: Gtk.ButtonsType.NONE,
         });
         let area = this._window.get_message_area();
-        let labels = area.get_children();
-        labels[1].set_justify(Gtk.Justification.CENTER);
         this._window.secondary_use_markup = true;
         this._window.text = _('Desktop Icons NG is running under X11Wayland');
         this._window.secondary_text = _("It seems that you have your system configured to force GTK to use X11. This works, but it's suboptimal. You should check your system configuration to fix this.");
@@ -40,12 +37,12 @@ var NotifyX11UnderWayland = class {
         this.deleteButton.connect('clicked', () => {
             this._destroy(closeCB);
         });
-        this._window.connect('delete-event', () => {
+        this._window.connect('close-request', () => {
             this._destroy(closeCB);
         });
         this.deleteButton.add_css_class('suggested-action');
         this._stopShowing = new Gtk.CheckButton({ label: _("Don't show this message anymore.") });
-        area.add(this._stopShowing);
+        area.append(this._stopShowing);
         this._window.show();
     }
 
