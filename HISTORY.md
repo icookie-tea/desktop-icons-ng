@@ -1,5 +1,11 @@
 # History of versions #
 
+* Version 51.0.3 (2026-07-17)
+  * Fixed "Open in terminal" for the desktop
+
+* Version 51.0.2 (2026-07-15)
+  * Added metadata to run in Gnome 51
+
 * Version 51.0.1 (2026-07-13)
   * Several fixes in popups (Thanks to Balló György)
   * Fix not being able to re-open settings window (Balló György)
