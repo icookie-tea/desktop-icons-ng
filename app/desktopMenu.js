@@ -114,7 +114,7 @@ var DesktopMenu = class extends MenuHelper.MenuHelper {
         this._addNewActionBoolean('sort-special-folders');
         this._addNewActionSelection('arrangeorder');
         this._addNewAction('show-in-files', null, () => this._onOpenDesktopInFilesClicked());
-        this._addNewAction('open-in-terminal', null, () => {
+        this._addNewAction('open-in-terminal-desktop', null, () => {
             DesktopIconsUtil.launchTerminal(this._desktopDir.get_path(), null);
         });
         this._addNewAction('change-background', null, () => {
@@ -222,7 +222,7 @@ var DesktopMenu = class extends MenuHelper.MenuHelper {
 
         section = this._newSection(menuContainer);
         this._newMenuElement(_('Show Desktop in Files'), "show-in-files", section);
-        this._newMenuElement(_('Open in Terminal'), "open-in-terminal", section);
+        this._newMenuElement(_('Open in Terminal'), "open-in-terminal-desktop", section);
 
         section = this._newSection(menuContainer);
         this._newMenuElement(_('Change Background…'), "change-background", section);
