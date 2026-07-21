@@ -654,6 +654,10 @@ var DesktopManager = class {
         if (this._clickCaptured) {
             return;
         }
+        if (this._desktopMenu._lastBgMenu != null) {
+            this._desktopMenu._lastBgMenu.menuPopover.unparent();
+            this._desktopMenu._lastBgMenu = null;
+        }
         this._pressedMouseButton(x, y);
         let state = DesktopIconsUtil.getControllerStatus(controller);
         if (!state.shift && !state.control) {

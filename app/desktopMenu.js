@@ -144,23 +144,28 @@ var DesktopMenu = class extends MenuHelper.MenuHelper {
     async showDesktopMenu(x, y, grid) {
         this._pasteAction.enabled = false;
         if (this._lastBgMenu != null) {
-            this._lastBgMenu.grid.remove(this._lastBgMenu.menuPopover);
+            this._lastBgMenu.menuPopover.unparent();
+            this._lastBgMenu = null;
         }
         let menu = await this._createDesktopBackgroundMenu();
-        let menuPopover = Gtk.PopoverMenu.new_from_model_full(menu, Gtk.PopoverMenuFlags.NESTED);
+        let menuPopover = Gtk.PopoverMenu.new_from_model(menu);
         menuPopover.add_css_class('desktopmenu');
         menuPopover.set_has_arrow(false);
         menuPopover.set_halign(Gtk.Align.START);
         let rect = new Gdk.Rectangle();
         rect.x = x;
         rect.y = y;
-        rect.width = 1;
-        rect.height = 1;
+        rect.width = 0;
+        rect.height = 0;
         menuPopover.set_pointing_to(rect);
-        grid.put(menuPopover, x, y);
+        menuPopover.set_parent(grid);
         menuPopover.show();
         menuPopover.popup();
-        this._lastBgMenu = { menuPopover, grid };
+        this._lastBgMenu = { menuPopover };
+        this.connectSignal(menuPopover, 'closed', () => {
+            menuPopover.grab_focus();
+            this._lastBgMenu = null;
+        });
         this._pasteAction.enabled = await this._desktopManager.updateClipboard();
     }
 
