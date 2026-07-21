@@ -149,6 +149,8 @@ var DesktopMenu = class extends MenuHelper.MenuHelper {
         let menu = await this._createDesktopBackgroundMenu();
         let menuPopover = Gtk.PopoverMenu.new_from_model_full(menu, Gtk.PopoverMenuFlags.NESTED);
         menuPopover.add_css_class('desktopmenu');
+        menuPopover.set_has_arrow(false);
+        menuPopover.set_halign(Gtk.Align.START);
         let rect = new Gdk.Rectangle();
         rect.x = x;
         rect.y = y;
