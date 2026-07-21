@@ -18,6 +18,7 @@
 'use strict';
 import GLib from 'gi://GLib'
 import Meta from 'gi://Meta'
+import Clutter from 'gi://Clutter'
 import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 
 
@@ -220,6 +221,8 @@ export class EmulateX11WindowType {
                 return;
             }
         });
+        this._overviewShowingId = Main.overview.connect('showing', this._onOverviewShowing.bind(this));
+        this._overviewHidingId = Main.overview.connect('hiding', this._onOverviewHiding.bind(this));
     }
 
     disable() {
@@ -241,6 +244,14 @@ export class EmulateX11WindowType {
             global.window_manager.disconnect(this._idDestroy);
             this._idDestroy = null;
         }
+        if (this._overviewShowingId) {
+            Main.overview.disconnect(this._overviewShowingId);
+            this._overviewShowingId = null;
+        }
+        if (this._overviewHidingId) {
+            Main.overview.disconnect(this._overviewHidingId);
+            this._overviewHidingId = null;
+        }
         this.refreshWindowsPosition();
     }
 
@@ -257,6 +268,33 @@ export class EmulateX11WindowType {
 
     refreshWindowsPosition() {
         this._windowList.forEach(window => { window.customJS_ding.refreshWindowPosition(); });
+    }
+
+    _onOverviewShowing() {
+        for (let window of this._windowList) {
+            let actor = window.get_compositor_private();
+            if (actor) {
+                actor.ease({
+                    opacity: 0,
+                    duration: 200,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                });
+            }
+        }
+    }
+
+    _onOverviewHiding() {
+        for (let window of this._windowList) {
+            let actor = window.get_compositor_private();
+            if (actor) {
+                actor.opacity = 0;
+                actor.ease({
+                    opacity: 255,
+                    duration: 250,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                });
+            }
+        }
     }
 
     _clearWindow(window) {
