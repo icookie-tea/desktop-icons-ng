@@ -221,8 +221,9 @@ export class EmulateX11WindowType {
                 return;
             }
         });
-        this._overviewShowingId = Main.overview.connect('showing', this._onOverviewShowing.bind(this));
         this._overviewHidingId = Main.overview.connect('hiding', this._onOverviewHiding.bind(this));
+        this._windowGroupNotifyId = global.window_group.connect('notify::visible',
+            this._onWindowGroupVisible.bind(this));
     }
 
     disable() {
@@ -244,13 +245,13 @@ export class EmulateX11WindowType {
             global.window_manager.disconnect(this._idDestroy);
             this._idDestroy = null;
         }
-        if (this._overviewShowingId) {
-            Main.overview.disconnect(this._overviewShowingId);
-            this._overviewShowingId = null;
-        }
         if (this._overviewHidingId) {
             Main.overview.disconnect(this._overviewHidingId);
             this._overviewHidingId = null;
+        }
+        if (this._windowGroupNotifyId) {
+            global.window_group.disconnect(this._windowGroupNotifyId);
+            this._windowGroupNotifyId = null;
         }
         this.refreshWindowsPosition();
     }
@@ -270,24 +271,24 @@ export class EmulateX11WindowType {
         this._windowList.forEach(window => { window.customJS_ding.refreshWindowPosition(); });
     }
 
-    _onOverviewShowing() {
-        for (let window of this._windowList) {
-            let actor = window.get_compositor_private();
-            if (actor) {
-                actor.ease({
-                    opacity: 0,
-                    duration: 200,
-                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                });
-            }
-        }
-    }
-
     _onOverviewHiding() {
+        this._fadeInNeeded = true;
         for (let window of this._windowList) {
             let actor = window.get_compositor_private();
             if (actor) {
                 actor.opacity = 0;
+            }
+        }
+    }
+
+    _onWindowGroupVisible() {
+        if (!this._fadeInNeeded || !global.window_group.visible) {
+            return;
+        }
+        this._fadeInNeeded = false;
+        for (let window of this._windowList) {
+            let actor = window.get_compositor_private();
+            if (actor) {
                 actor.ease({
                     opacity: 255,
                     duration: 250,
