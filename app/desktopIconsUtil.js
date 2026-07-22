@@ -115,7 +115,7 @@ function spawnCommandLine(commandLine, environ = null) {
 function launchTerminal(workdir, command) {
     const settings = new Gio.Settings({ schema_id: Enums.TERMINAL_SCHEMA });
     const settingsExec = settings.get_string(Enums.EXEC_KEY);
-    const terminals = ['xdg-terminal-exec', settingsExec, 'kgx', 'gnome-terminal'];
+    const terminals = ['xdg-terminal-exec', settingsExec, 'kgx', 'gnome-terminal', 'ptyxis'];
     for (const name of terminals) {
         const exec = GLib.find_program_in_path(name);
         if (exec !== null) {
