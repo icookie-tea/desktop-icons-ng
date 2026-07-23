@@ -553,6 +553,11 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
                 width = Math.floor(height * aspectRatio);
             else
                 height = Math.floor(width / aspectRatio);
+            if (width > icon_size || height > icon_size) {
+                const scale = Math.min(icon_size / width, icon_size / height);
+                width = Math.floor(width * scale);
+                height = Math.floor(height * scale);
+            }
             let iconPaintableSnapshot = Gtk.Snapshot.new();
             iconTexture.snapshot(iconPaintableSnapshot, width, height);
             let icon = iconPaintableSnapshot.to_paintable(null);
