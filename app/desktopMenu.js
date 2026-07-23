@@ -160,13 +160,13 @@ var DesktopMenu = class extends MenuHelper.MenuHelper {
         });
     }
 
-    async showDesktopMenu(x, y, grid) {
+    showDesktopMenu(x, y, grid) {
         if (this._lastBgMenu != null) {
             this._lastBgMenu.menuPopover.unparent();
             this._lastBgMenu = null;
         }
         this._pasteAction.enabled = this._clipboardHasFiles;
-        let menu = await this._createDesktopBackgroundMenu();
+        let menu = this._createDesktopBackgroundMenu();
         let menuPopover = Gtk.PopoverMenu.new_from_model(menu);
         menuPopover.add_css_class('desktopmenu');
         menuPopover.set_has_arrow(false);
@@ -218,7 +218,7 @@ var DesktopMenu = class extends MenuHelper.MenuHelper {
         return arrangeSubMenu;
     }
 
-    async _createDesktopBackgroundMenu() {
+    _createDesktopBackgroundMenu() {
         let menuContainer = new Gio.Menu();
         let section = this._newSection(menuContainer);
         this._newMenuElement(_('New Folder'), "new-folder", section);
