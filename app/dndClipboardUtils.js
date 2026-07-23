@@ -50,20 +50,14 @@ function manageCutCopy(action) {
 // Reads the clipboard for any of the supported mimetypes and returns the first matching type
 async function readClipboard(mimetypes) {
     let clipboard = Gdk.Display.get_default().get_clipboard();
-    const formats = clipboard.get_formats();
-    if (!formats) {
-        return null;
-    }
     for (let mimetype of mimetypes) {
-        if (!formats.contain_mime_type(mimetype)) {
-            continue;
-        }
         try {
-            let success = await clipboard.read_async_promise([mimetype], GLib.PRIORITY_DEFAULT, null);
-            let bytes = await FileUtils.readAll(success[0]);
-            return {"mimetype": mimetype, "data": bytes};
+            let [inputStream] = await clipboard.read_async_promise([mimetype], GLib.PRIORITY_DEFAULT, null);
+            let bytes = await FileUtils.readAll(inputStream);
+            return { mimetype, data: bytes };
         } catch(e) {
-            console.log(`Exception while reading clipboard media-type "${mimetype}": ${e.message}\n${e.stack}`);
+            if (!e.message.includes('No data'))
+                console.log(`Exception while reading clipboard media-type "${mimetype}": ${e.message}\n${e.stack}`);
         }
     }
     return null;

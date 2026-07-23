@@ -56,6 +56,8 @@ var DesktopManager = class {
         this._lastSelected = null;
         this._fileList = [];
         this._desktopMenu = new DesktopMenu.DesktopMenu(this, mainApp, dbusManager);
+        this._clipboardFiles = null;
+        this._isCut = false;
         this.using_X11 = Gdk.Display.get_default().constructor.$gtype.name === 'GdkX11Display';
         if (asDesktop) {
             this.mainApp.hold(); // Don't close the application if there are no desktops
@@ -1132,32 +1134,6 @@ var DesktopManager = class {
         }
     }
 
-    _parseClipboardText(text) {
-        if (text === null) {
-            return [false, false, null];
-        }
-
-        let lines = text.split('\n');
-        let [mime, action, ...files] = lines;
-
-        if (mime != 'x-special/nautilus-clipboard') {
-            return [false, false, null];
-        }
-        if (!['copy', 'cut'].includes(action)) {
-            return [false, false, null];
-        }
-        let isCut = action == 'cut';
-
-        /* Last line is empty due to the split */
-        if (files.length <= 1) {
-            return [false, false, null];
-        }
-        /* Remove last line */
-        files.pop();
-
-        return [true, isCut, files];
-    }
-
     onMotion(x, y) {
         if (this.rubberBand) {
             this.x1 = Math.floor(Math.min(x, this.rubberBandInitX));
@@ -1570,15 +1546,6 @@ var DesktopManager = class {
         this._updateDesktop().catch(e => {
             print(`Exception while updating Desktop from Directory Monitor: ${e.message}\n${e.stack}`);
         });
-    }
-
-    _getClipboardText() {
-        let selection = this.getCurrentSelection(true);
-        if (selection) {
-            return new GLib.Variant('as', selection);
-        } else {
-            return new GLib.Variant('as', []);
-        }
     }
 
     doCopy() {

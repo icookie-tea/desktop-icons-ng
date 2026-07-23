@@ -47,8 +47,27 @@ var DesktopMenu = class extends MenuHelper.MenuHelper {
             TemplatesScriptsManager.TemplatesScriptsManagerFlags.HIDE_EXTENSIONS
         );
         this._desktopDir = DesktopIconsUtil.getDesktopDir();
+        this._clipboardHasFiles = false;
         this._addActions();
-        this._desktopManager.updateClipboard().catch(e => {console.log(`Error updating clipboard: ${e.message}\n${e.stack}`)});
+
+        let clipboard = Gdk.Display.get_default().get_clipboard();
+        clipboard.connect('changed', () => {
+            this._clipboardHasFiles = false;
+            this._pasteAction.enabled = false;
+            this._desktopManager.updateClipboard().then(hasFiles => {
+                this._clipboardHasFiles = hasFiles;
+                this._pasteAction.enabled = hasFiles;
+            }).catch(e => {
+                console.log(`Error updating clipboard on change: ${e.message}\n${e.stack}`);
+            });
+        });
+
+        this._desktopManager.updateClipboard().then(hasFiles => {
+            this._clipboardHasFiles = hasFiles;
+            this._pasteAction.enabled = hasFiles;
+        }).catch(e => {
+            console.log(`Error updating clipboard: ${e.message}\n${e.stack}`);
+        });
     }
 
     setClickCoordinates(x, y) {
@@ -142,11 +161,11 @@ var DesktopMenu = class extends MenuHelper.MenuHelper {
     }
 
     async showDesktopMenu(x, y, grid) {
-        this._pasteAction.enabled = false;
         if (this._lastBgMenu != null) {
             this._lastBgMenu.menuPopover.unparent();
             this._lastBgMenu = null;
         }
+        this._pasteAction.enabled = this._clipboardHasFiles;
         let menu = await this._createDesktopBackgroundMenu();
         let menuPopover = Gtk.PopoverMenu.new_from_model(menu);
         menuPopover.add_css_class('desktopmenu');
@@ -166,7 +185,6 @@ var DesktopMenu = class extends MenuHelper.MenuHelper {
             menuPopover.grab_focus();
             this._lastBgMenu = null;
         });
-        this._pasteAction.enabled = await this._desktopManager.updateClipboard();
     }
 
     _syncUndoRedo() {
