@@ -162,7 +162,7 @@ var DesktopMenu = class extends MenuHelper.MenuHelper {
 
     showDesktopMenu(x, y, grid) {
         if (this._lastBgMenu != null) {
-            this._lastBgMenu.menuPopover.destroy();
+            this._lastBgMenu.menuPopover.unparent();
             this._lastBgMenu = null;
         }
         this._pasteAction.enabled = this._clipboardHasFiles;
@@ -182,9 +182,7 @@ var DesktopMenu = class extends MenuHelper.MenuHelper {
         menuPopover.popup();
         this._lastBgMenu = { menuPopover };
         menuPopover.connect('closed', () => {
-            menuPopover.grab_focus();
-            menuPopover.destroy();
-            this._lastBgMenu = null;
+            grid.grab_focus();
         });
     }
 
