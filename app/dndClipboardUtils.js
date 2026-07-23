@@ -56,8 +56,6 @@ async function readClipboard(mimetypes) {
             let bytes = await FileUtils.readAll(inputStream);
             return { mimetype, data: bytes };
         } catch(e) {
-            if (!e.message.includes('No data'))
-                console.log(`Exception while reading clipboard media-type "${mimetype}": ${e.message}\n${e.stack}`);
         }
     }
     return null;

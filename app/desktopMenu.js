@@ -183,6 +183,7 @@ var DesktopMenu = class extends MenuHelper.MenuHelper {
         this._lastBgMenu = { menuPopover };
         menuPopover.connect('closed', () => {
             menuPopover.grab_focus();
+            menuPopover.destroy();
             this._lastBgMenu = null;
         });
     }
