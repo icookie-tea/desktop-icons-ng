@@ -181,7 +181,7 @@ var DesktopMenu = class extends MenuHelper.MenuHelper {
         menuPopover.show();
         menuPopover.popup();
         this._lastBgMenu = { menuPopover };
-        this.connectSignal(menuPopover, 'closed', () => {
+        menuPopover.connect('closed', () => {
             menuPopover.grab_focus();
             this._lastBgMenu = null;
         });
