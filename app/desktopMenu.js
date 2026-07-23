@@ -162,7 +162,7 @@ var DesktopMenu = class extends MenuHelper.MenuHelper {
 
     showDesktopMenu(x, y, grid) {
         if (this._lastBgMenu != null) {
-            this._lastBgMenu.menuPopover.unparent();
+            this._lastBgMenu.menuPopover.destroy();
             this._lastBgMenu = null;
         }
         this._pasteAction.enabled = this._clipboardHasFiles;
