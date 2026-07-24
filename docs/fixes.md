@@ -1,5 +1,79 @@
 # 修复日志
 
+## 2026-07-21
+
+### 右键菜单弹出位置异常，带三角箭头
+
+**症状：**
+- 右键菜单居中出现在鼠标指针下方/上方，带三角箭头指向鼠标位置
+- 不符合传统右键菜单行为（应出现在鼠标右侧）
+
+**参考：** Nautilus 的右键菜单行为（出现在鼠标右侧，无箭头）
+
+**修复：**
+在 `showDesktopMenu()` 中添加：
+- `menuPopover.set_has_arrow(false)` — 禁用三角箭头
+- `menuPopover.set_halign(Gtk.Align.START)` — 左对齐，菜单出现在鼠标右侧
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktopMenu.js` | 添加箭头禁用和左对齐 |
+
+**提交：** `9d21641`
+
+---
+
+### 点击外部无法关闭右键菜单（NESTED flag 导致 grab 损坏）
+
+**症状：**
+- hover 有 submenu 的 item 后，再 hover 无 submenu 的 item → 点击桌面空白处无法关闭菜单
+- 首次 hover 无 submenu 的 item 时正常关闭
+
+**根因：**
+`Gtk.PopoverMenuFlags.NESTED` 让子菜单在主 popover 内嵌显示。当子菜单打开再关闭时，grab 未能正确恢复给父 popover，导致 auto-hide 机制失效。
+
+附加 bug：`desktopGrid.js:101` 左键控制器的 `propagation_phase` 变量名写错，实际未设置。
+
+**修复：**
+- 构造函数改为 `new_from_model(menu)`（移除 NESTED flag）
+- 旧菜单清理改为 `unparent()` + 立即置 null
+- pointing rect 改为 `width=0, height=0`
+- parent 设置改为 `menuPopover.set_parent(grid)`
+- closed 信号增加 `grab_focus()` 恢复焦点
+- `onPressMainButton()` 新增菜单清理逻辑
+- 修正 `desktopGrid.js` 变量名
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktopMenu.js` | 整个 `showDesktopMenu()` 重写 |
+| `app/desktopManager.js` | 新增 `unparent()` 清理 |
+| `app/desktopGrid.js` | 变量名修正 |
+
+**提交：** `9d00d49`
+
+---
+
+### Overview 退出时桌面图标淡入动画
+
+**症状：**
+- 桌面图标在 Overview 和桌面状态切换时无过渡动画，瞬间消失/出现
+
+**深入分析：**
+- `window_group.visible = false` 在 `'showing'` 信号之前发生，淡出不可能实现
+- 尝试 reparent actor 到 `uiGroup` 破坏了 Mutter 事件路由
+- 最终方案：仅实现退出时的淡入
+
+**修复：**
+通过 `'hiding'` 信号预置 opacity=0，`notify::visible` 触发时启动 ease 动画到 255。
+
+| 文件 | 变更 |
+|------|------|
+| `emulateX11WindowType.js` | 新增信号连接、`_onOverviewHiding()`、`_onWindowGroupVisible()` |
+
+**提交：** `99fcb5e`
+
+---
+
 ## 2026-07-23
 
 ### 桌面右键菜单粘贴始终不可用（Wayland 跨进程剪贴板）
