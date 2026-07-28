@@ -404,6 +404,14 @@ var DesktopGrid = class extends SignalManager.SignalManager {
         }
     }
 
+    updateFileItemUri(oldUri, newUri) {
+        if (oldUri in this._fileItems) {
+            const entry = this._fileItems[oldUri];
+            delete this._fileItems[oldUri];
+            this._fileItems[newUri] = entry;
+        }
+    }
+
     addFileItemCloseTo(fileItem, x, y, coordinatesAction) {
         let addVolumesOpposite = Prefs.desktopSettings.get_boolean('add-volumes-opposite');
         let [column, row] = this._getEmptyPlaceClosestTo(x,

@@ -27,6 +27,10 @@ var FileChangesQueue = class {
         this._handler = null;
     }
 
+    get maxIncremental() {
+        return this._maxIncremental;
+    }
+
     push(event) {
         this._pending.push(event);
         if (this._pending.length >= this._maxIncremental) {
@@ -56,7 +60,11 @@ var FileChangesQueue = class {
         }
         const events = this._pending.splice(0);
         if (this._handler) {
-            this._handler(events);
+            try {
+                this._handler(events);
+            } catch (e) {
+                print(`Error in file changes handler: ${e.message}\n${e.stack}`);
+            }
         }
     }
 
