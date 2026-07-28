@@ -28,8 +28,6 @@ import {InjectionManager} from
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Util from 'resource:///org/gnome/shell/misc/util.js';
 
-const SHOW_ICONS_ON_OVERVIEW = false;
-
 export class GnomeShellOverride {
     constructor() {
         this._injectionManager = new InjectionManager();
@@ -59,7 +57,7 @@ export class GnomeShellOverride {
             const opaque = 255;
             const transparent = 0;
 
-            const adjustment =
+            const overviewAdjustment =
                 Main.overview._overview._controls._stateAdjustment;
 
             function _windowIsOnThisMonitor(metawindow, monitorIndex) {
@@ -98,30 +96,26 @@ export class GnomeShellOverride {
                     offset);
                 desktopLayer.add_constraint(syncAll);
 
-                this._stateAdjustment.connectObject('notify::value',
+                overviewAdjustment.connectObject('notify::value',
                     () => {
                         const params =
-                            adjustment.getStateTransitionParams();
+                            overviewAdjustment.getStateTransitionParams();
                         const {initialState, finalState, progress,
                             transitioning} = params;
 
-                        if (SHOW_ICONS_ON_OVERVIEW) {
-                            desktopLayer.opacity = opaque;
-                            return;
-                        }
-
                         if (transitioning) {
                             if (finalState === ControlsState.HIDDEN)
-                                desktopLayer.opacity = Util.lerp(
-                                    transparent, opaque, progress);
+                                desktopLayer.opacity =
+                                    Util.lerp(transparent, opaque, progress);
                             else if (initialState === ControlsState.HIDDEN)
-                                desktopLayer.opacity = Util.lerp(
-                                    opaque, transparent, progress);
+                                desktopLayer.opacity =
+                                    Util.lerp(opaque, transparent, progress);
                             else
                                 desktopLayer.opacity = transparent;
                         } else {
                             desktopLayer.opacity =
-                                adjustment.value < 0.5 ? opaque : transparent;
+                                overviewAdjustment.value < 0.5
+                                    ? opaque : transparent;
                         }
                     },
                     this
