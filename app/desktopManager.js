@@ -463,7 +463,7 @@ var DesktopManager = class {
 
     _checkApplyDarkModeSetting() {
         try {
-            let displayGtkSettings = Gtk.Settings.get_for_screen(Gdk.Screen.get_default());
+            let displayGtkSettings = Gtk.Settings.get_default();
             displayGtkSettings.gtk_application_prefer_dark_theme = Prefs.schemaGnomeDarkSettings.get_string('color-scheme') === 'prefer-dark';
             return true;
         } catch (e) {
