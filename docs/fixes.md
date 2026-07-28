@@ -1,5 +1,49 @@
 # 修复日志
 
+## 2026-07-28
+
+### Overview 同步过渡：Clutter.Clone + OverviewAdjustment
+
+**症状：**
+- 旧方案使用 `actor.ease()` 事后驱动淡入淡出，与 Shell 的过渡动画不同步
+- HIDDEN ↔ APP_GRID 切换时桌面图标出现闪烁或延迟
+
+**根因：**
+- `window_group.visible = false` 在 `'showing'` 信号之前发生，淡出不可能实现
+- 事后 `ease()` 动画与 Shell 内部过渡进度不同步
+
+**修复：**
+采用 gtk4-ding 的 Clutter.Clone 方案：
+- 新增 `gnomeShellOverride.js`：覆写 `WorkspaceBackground._init`，注入桌面窗口克隆层
+- 克隆层透明度由 Shell 内部 `_stateAdjustment` 驱动，帧同步淡入淡出
+- 移除 `emulateX11WindowType.js` 中旧的 `_onOverviewHiding` / `_onWindowGroupVisible` 处理器
+- 直接在 `OverviewAdjustment` 上监听 `notify::value`（而非 per-workspace 的 `_stateAdjustment`），覆盖所有过渡
+
+| 文件 | 变更 |
+|------|------|
+| `gnomeShellOverride.js` | 新增，覆写 WorkspaceBackground |
+| `emulateX11WindowType.js` | 移除旧 Overview 信号处理器 |
+| `extension.js` | 集成 GnomeShellOverride 生命周期 |
+| `meson.build` | 添加 gnomeShellOverride.js 到安装列表 |
+
+**提交：** `d0f551c` / `fc84044`
+
+---
+
+### 代码风格统一
+
+**修复：**
+- 修复 import 语句分号与空行，统一项目代码风格
+
+| 文件 | 变更 |
+|------|------|
+| `emulateX11WindowType.js` | 移除多余空行 |
+| `gnomeShellOverride.js` | 统一 import 风格 |
+
+**提交：** `b993cae`
+
+---
+
 ## 2026-07-21
 
 ### 右键菜单弹出位置异常，带三角箭头

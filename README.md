@@ -1,6 +1,6 @@
 # DING Desktop Icons New Generation
 
-## What  is it
+## What is it
 
 Desktop Icons NG for GNOME Shell. It is a fork/rewrite of the official 'Desktop Icons' extension,
 with these advantages:
@@ -10,6 +10,37 @@ with these advantages:
 * When hovering or clicking on an icon with a name too large to fit, it shows the full name
 * Doesn't hang the compositor when there is too much activity in the desktop folder
 * And much more...
+
+---
+
+## Changes from Upstream
+
+This branch maintains fixes and enhancements not yet merged to the upstream repository
+(<https://gitlab.com/rastersoft/desktop-icons-ng>). Key improvements:
+
+### Bug Fixes
+
+* **Wayland clipboard paste** - desktop context menu paste is now functional (was always grayed out due to cross-process clipboard format detection failure)
+* **Context menu position & behavior** - removed arrow, aligned to mouse position, fixed grab/close behavior so clicking outside closes the menu
+* **Context menu memory leak** - popover is now properly cleaned up using GTK4/Nautilus deferred cleanup pattern, preventing memory accumulation over long sessions
+* **Unhandled promise rejection** - removed unnecessary `async` on `showDesktopMenu` / `_createDesktopBackgroundMenu`
+* **`connectSignal is not a function`** - fixed pre-existing bug in `DesktopMenu`
+* **Clipboard error log spam** - removed console.log from clipboard read error catch block
+* **Image thumbnail overflow** - constrained thumbnail dimensions to `icon_size`, preventing rounded-corner container widening and icon overlap
+* **Dead code removal** - removed unused `_parseClipboardText` / `_getClipboardText` methods
+
+### New Features
+
+* **Overview transition sync** - desktop icons fade in/out frame-synchronized with Shell overview transitions via Clutter.Clone + OverviewAdjustment (replaces old post-hoc ease animation)
+* **Terminal fallback** - added `ptyxis` to the terminal emulator fallback list
+
+### Documentation
+
+* **Architecture analysis** - detailed breakdown of DING's dual-layer architecture, startup flow, D-Bus communication, and user interaction
+* **Fixes log** - comprehensive changelog of all bug fixes with root cause analysis
+* **Memory leak analysis** - systematic audit of high/medium/low risk resource leaks
+
+---
 
 ## Requirements
 
@@ -159,8 +190,19 @@ To guarantee security, .desktop files can only be launched when several requisit
 
 If any of these items is false, .desktop files won't work.
 
+## Documentation
+
+* [Architecture Analysis](docs/architecture-analysis.md) - DING dual-layer architecture, startup flow, D-Bus communication
+* [Fixes Log](docs/fixes.md) - detailed bug fix history with root cause analysis
+* [Memory Leak Analysis](docs/memory-leak-analysis.md) - resource leak audit (high/medium/low risk)
+
 ## Source code and contacting the author
 
-Sergio Costas  
-<https://gitlab.com/rastersoft/desktop-icons-ng>  
-<rastersoft@gmail.com>  
+Sergio Costas (upstream author)
+<https://gitlab.com/rastersoft/desktop-icons-ng>
+<rastersoft@gmail.com>
+
+icookie (this branch maintainer, for personal use)
+<1024494987@qq.com>
+
+*This branch was developed with assistance from LLMs: DeepSeek V4 Pro and Qwen3-27B.*
