@@ -19,7 +19,6 @@
 import GLib from 'gi://GLib'
 import Meta from 'gi://Meta'
 
-
 class ManageWindow {
     /* This class is added to each managed window, and it's used to
        make it behave like an X11 Desktop window.
@@ -219,7 +218,6 @@ export class EmulateX11WindowType {
                 return;
             }
         });
-
     }
 
     disable() {

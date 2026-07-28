@@ -18,15 +18,15 @@
 
 /* exported GnomeShellOverride */
 'use strict';
-import Clutter from 'gi://Clutter';
-import Meta from 'gi://Meta';
-import GObject from 'gi://GObject';
+import Clutter from 'gi://Clutter'
+import Meta from 'gi://Meta'
+import GObject from 'gi://GObject'
 
-import {WorkspaceBackground} from 'resource:///org/gnome/shell/ui/workspace.js';
+import {WorkspaceBackground} from 'resource:///org/gnome/shell/ui/workspace.js'
 import {InjectionManager} from
-    'resource:///org/gnome/shell/extensions/extension.js';
-import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import * as Util from 'resource:///org/gnome/shell/misc/util.js';
+    'resource:///org/gnome/shell/extensions/extension.js'
+import * as Main from 'resource:///org/gnome/shell/ui/main.js'
+import * as Util from 'resource:///org/gnome/shell/misc/util.js'
 
 export class GnomeShellOverride {
     constructor() {
