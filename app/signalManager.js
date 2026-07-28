@@ -49,7 +49,7 @@ var SignalManager = class {
         const idx = this._signal_list.indexOf(handler);
         if (idx == -1)
             return;
-        delete this._signal_list[idx];
+        this._signal_list.splice(idx, 1);
         handler.obj.disconnect(handler.signal_id);
         if (handler.destroyCb)
             handler.destroyCb();

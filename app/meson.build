@@ -17,6 +17,7 @@ install_data([
     'ding.js',
     'dndClipboardUtils.js',
     'enums.js',
+    'fileChangesQueue.js',
     'fileItem.js',
     'fileItemMenu.js',
     'fileUtils.js',
