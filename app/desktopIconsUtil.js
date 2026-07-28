@@ -17,7 +17,7 @@
  */
 /* exported getModifiersInDnD, getDesktopDir, getScriptsDir, getTemplatesDir, clamp,
    spawnCommandLine, launchTerminal, getFilteredEnviron, distanceBetweenPoints, getExtraFolders,
-   getMounts, getFileExtensionOffset, getFilesFromNautilusDnD, writeDroppedTextFile,
+   getMounts, getFileExtensionOffset, getFilesFromNautilusDnD, generateDropFilename, writeDroppedTextFile,
    windowHidePagerTaskbarModal, waitDelayMs */
 'use strict';
 const Gio = imports.gi.Gio;
@@ -321,34 +321,24 @@ function getFilesFromNautilusDnD(selection, type) {
     return retval;
 }
 
-function _generateDropFilename(text) {
+function generateDropFilename(text) {
     const MAX_LEN = 64;
     const MIN_LEN = 8;
 
-    let trimmed = text.replace(/^\s+|\s+$/g, '');
-    let truncated = trimmed.substring(0, MAX_LEN);
+    let flat = text.replace(/[\n\r\t]/g, ' ').trim();
+    flat = flat.substring(0, MAX_LEN);
+    flat = flat.replace(/[<>:\"\\\/|?*\\x00-\\x1f]/g, '-');
+    flat = flat.replace(/-+/g, '-');
+    flat = flat.replace(/^-+|-+$/g, '').trim();
 
-    let wordEnd = truncated.search(/[^\s\w]/g);
-    if (wordEnd > 0 && wordEnd < truncated.length) {
-        truncated = truncated.substring(0, wordEnd);
-    } else {
-        let spacePos = truncated.lastIndexOf(' ');
-        if (spacePos > 0) {
-            truncated = truncated.substring(0, spacePos);
-        }
-    }
-
-    truncated = truncated.replace(/[\\/]/g, '-');
-
-    if (truncated.length >= MIN_LEN) {
-        return `${truncated}.txt`;
+    if (flat.length >= MIN_LEN) {
+        return `${flat}.txt`;
     }
 
     return _("Dropped Text.txt");
 }
 
-function writeDroppedTextFile(text, dropCoordinates) {
-    let filename = _generateDropFilename(text);
+function writeDroppedTextFile(text, filename, dropCoordinates) {
     let desktopDir = getDesktopDir();
     let file = desktopDir.get_child(filename);
 

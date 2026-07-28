@@ -171,7 +171,7 @@ async function manageIconDrop(fileItem, drop, x, y) {
     let gdkReturnAction = Gdk.DragAction.COPY;
 
     try {
-        const [dropData, mimetype] = await drop.read_async_promise(Enums.MIME_TYPES, GLib.PRIORITY_DEFAULT, null);
+        let [dropData, mimetype] = await drop.read_async_promise(Enums.MIME_TYPES, GLib.PRIORITY_DEFAULT, null);
 
         const data = await FileUtils.readAll(dropData);
         const textDecoder = new TextDecoder();

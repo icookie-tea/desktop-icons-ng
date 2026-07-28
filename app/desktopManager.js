@@ -606,7 +606,9 @@ var DesktopManager = class {
     }
 
     _writeDroppedText(text, dropCoordinates) {
-        DesktopIconsUtil.writeDroppedTextFile(text, dropCoordinates);
+        let filename = DesktopIconsUtil.generateDropFilename(text);
+        filename = this.getDesktopUniqueFileName(filename);
+        DesktopIconsUtil.writeDroppedTextFile(text, filename, dropCoordinates);
     }
 
     clickCaptured() {
