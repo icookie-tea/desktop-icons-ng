@@ -356,7 +356,9 @@ function writeDroppedTextFile(text, filename, dropCoordinates) {
             `${dropCoordinates[0]},${dropCoordinates[1]}`);
         try {
             file.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
-        } catch (e) { }
+        } catch (e) {
+            // File may have been deleted or filesystem may not support metadata attributes
+        }
     }
 }
 
