@@ -17,7 +17,7 @@
  */
 /* exported getModifiersInDnD, getDesktopDir, getScriptsDir, getTemplatesDir, clamp,
    spawnCommandLine, launchTerminal, getFilteredEnviron, distanceBetweenPoints, getExtraFolders,
-   getMounts, getFileExtensionOffset, getFilesFromNautilusDnD, writeTextFileToDesktop,
+   getMounts, getFileExtensionOffset, getFilesFromNautilusDnD, writeDroppedTextFile,
    windowHidePagerTaskbarModal, waitDelayMs */
 'use strict';
 const Gio = imports.gi.Gio;
@@ -321,22 +321,49 @@ function getFilesFromNautilusDnD(selection, type) {
     return retval;
 }
 
-/**
- *
- * @param text
- * @param filename
- * @param dropCoordinates
- */
-function writeTextFileToDesktop(text, filename, dropCoordinates) {
-    let path = GLib.build_filenamev([GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DESKTOP), filename]);
-    let file = Gio.File.new_for_path(path);
-    const PERMISSIONS_MODE = 0o744;
-    if (GLib.mkdir_with_parents(file.get_parent().get_path(), PERMISSIONS_MODE) === 0) {
-        let [success, tag] = file.replace_contents(text, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
+function _generateDropFilename(text) {
+    const MAX_LEN = 64;
+    const MIN_LEN = 8;
+
+    let trimmed = text.replace(/^\s+|\s+$/g, '');
+    let truncated = trimmed.substring(0, MAX_LEN);
+
+    let wordEnd = truncated.search(/[^\s\w]/g);
+    if (wordEnd > 0 && wordEnd < truncated.length) {
+        truncated = truncated.substring(0, wordEnd);
+    } else {
+        let spacePos = truncated.lastIndexOf(' ');
+        if (spacePos > 0) {
+            truncated = truncated.substring(0, spacePos);
+        }
     }
+
+    truncated = truncated.replace(/[\\/]/g, '-');
+
+    if (truncated.length >= MIN_LEN) {
+        return `${truncated}.txt`;
+    }
+
+    return _("Dropped Text.txt");
+}
+
+function writeDroppedTextFile(text, dropCoordinates) {
+    let filename = _generateDropFilename(text);
+    let desktopDir = getDesktopDir();
+    let file = desktopDir.get_child(filename);
+
+    let content = text;
+    if (!content.endsWith('\n')) {
+        content += '\n';
+    }
+
+    file.replace_contents(content, null, false,
+        Gio.FileCreateFlags.REPLACE_DESTINATION, null);
+
     if (dropCoordinates != null) {
         let info = new Gio.FileInfo();
-        info.set_attribute_string('metadata::nautilus-drop-position', `${dropCoordinates[0]},${dropCoordinates[1]}`);
+        info.set_attribute_string('metadata::nautilus-drop-position',
+            `${dropCoordinates[0]},${dropCoordinates[1]}`);
         try {
             file.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
         } catch (e) { }

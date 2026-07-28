@@ -194,6 +194,11 @@ async function manageIconDrop(fileItem, drop, x, y) {
                     }
                 }
                 break;
+            case Enums.DndTargetInfo.TEXT_PLAIN:
+            case Enums.DndTargetInfo.TEXT_PLAIN_UTF8:
+                file_list = [decodedData];
+                mimetype = Enums.DndTargetInfo.TEXT_PLAIN;
+                break;
             default:
                 console.log(`Unknown mime type for DnD: ${mimetype}`);
                 break;

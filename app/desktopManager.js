@@ -600,52 +600,13 @@ var DesktopManager = class {
                 }
                 break;
             case Enums.DndTargetInfo.TEXT_PLAIN:
-                let dropCoordinates = [xDestination, yDestination];
-                this.detectURLorText(dropInfo.filelist, dropCoordinates);
+                this._writeDroppedText(dropInfo.filelist[0], [xDestination, yDestination]);
                 break;
         }
     }
 
-    detectURLorText(fileList, dropCoordinates) {
-        /**
-         *
-         * @param str
-         */
-        function isValidURL(str) {
-            var pattern = new RegExp('^(https|http|ftp|rtsp|mms)?:\\/\\/?' +
-                '((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|' +
-                '((\\d{1,3}\\.){3}\\d{1,3}))' +
-                '(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*' +
-                '(\\?[;&a-z\\d%_.~+=-]*)?' +
-                '(\\#[-a-z\\d_]*)?$', 'i');
-            return !!pattern.test(str);
-        }
-        let text = fileList.toString();
-        if (isValidURL(text)) {
-            this.writeURLlinktoDesktop(text, dropCoordinates);
-        } else {
-            let filename = 'Dragged Text';
-            let now = Date().valueOf().split(' ').join('').replace(/:/g, '-');
-            filename = `${filename}-${now}`;
-            DesktopIconsUtil.writeTextFileToDesktop(text, filename, dropCoordinates);
-        }
-    }
-
-    writeURLlinktoDesktop(link, dropCoordinates) {
-        let filename = link.split('?')[0];
-        filename = filename.split('//')[1];
-        filename = filename.split('/')[0];
-        let now = Date().valueOf().split(' ').join('').replace(/:/g, '-');
-        filename = `${filename}-${now}`;
-        this.writeHTMLTypeLink(filename, link, dropCoordinates);
-    }
-
-
-    writeHTMLTypeLink(filename, link, dropCoordinates) {
-        filename += '.html';
-        let body = ['<html>', '<head>', `<meta http-equiv="refresh" content="0; url=${link}" />`, '</head>', '<body>', '</body>', '</html>'];
-        body = body.join('\n');
-        DesktopIconsUtil.writeTextFileToDesktop(body, filename, dropCoordinates);
+    _writeDroppedText(text, dropCoordinates) {
+        DesktopIconsUtil.writeDroppedTextFile(text, dropCoordinates);
     }
 
     clickCaptured() {
