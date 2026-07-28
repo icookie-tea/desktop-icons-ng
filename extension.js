@@ -27,6 +27,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 
 import * as EmulateX11 from './emulateX11WindowType.js';
 import * as VisibleArea from './visibleArea.js';
+import * as ShellOverride from './gnomeShellOverride.js';
 
 export default class DING extends Extension {
     constructor(metadata) {
@@ -45,6 +46,7 @@ export default class DING extends Extension {
         */
         this.data.x11Manager = null;
         this.data.visibleArea = null;
+        this.data.gnomeShellOverride = null;
 
         /* Ensures that there aren't "rogue" processes.
         * This is a safeguard measure for the case of Gnome Shell being
@@ -64,6 +66,10 @@ export default class DING extends Extension {
             this.DesktopIconsUsableArea = new VisibleArea.VisibleArea();
             this.data.visibleArea = this.DesktopIconsUsableArea;
         }
+        if (!this.data.gnomeShellOverride) {
+            this.data.gnomeShellOverride = new ShellOverride.GnomeShellOverride();
+            this.data.gnomeShellOverride.enable();
+        }
         // If the desktop is still starting up, we wait until it is ready
         if (Main.layoutManager._startingUp) {
             this.data.startupPreparedId = Main.layoutManager.connect('startup-complete', () => this.innerEnable());
@@ -79,6 +85,10 @@ export default class DING extends Extension {
         this.killCurrentProcess();
         this.data.x11Manager.disable();
         this.data.visibleArea.disable();
+        if (this.data.gnomeShellOverride) {
+            this.data.gnomeShellOverride.disable();
+            this.data.gnomeShellOverride = null;
+        }
 
         if (this.data.disableTimerId) {
             this.data.disableTimer.disconnect(this.data.disableTimerId);
