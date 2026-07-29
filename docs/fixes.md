@@ -329,3 +329,46 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 | `app/desktopManager.js` | 移除两个方法 |
 
 **提交：** `08ffc31`
+
+---
+
+## 2026-07-30
+
+### 切换主屏后新图标出现在错误显示器
+
+**症状：**
+- 双屏（笔记本 + 外接显示器）在 GNOME 控制中心切换主屏后，新创建的桌面图标（无 savedCoordinates）出现在旧主屏而非新主屏
+- 已有坐标的图标不受影响（PHASE1 正确恢复）
+
+**根因（3 个 Bug 级联）：**
+
+**Bug 1 — `updateGridWindows` 提前返回不更新 `_primaryScreen`** (`desktopManager.js:389-391`)
+- 主屏切换时 `primaryIndex` 改变但显示器几何/分辨率不变
+- `updateGridWindows` 检测到 `gridschanged.length == 0` 直接 return，跳过 `_primaryScreen` 更新
+- `_primaryScreen` 仍指向旧 `_desktopList` 中的旧 primaryIndex ⇒ 新图标使用错误的显示器坐标
+- 之前被掩盖：随后 GNOME 移动 panel 触发 margins 变化，第二次 `updateGridWindows` 走完整路径才修复
+
+**Bug 2 — `_addSingleFileToDesktop` fallback 跳过坐标归属判断** (`desktopManager.js:1689-1694`)
+- fallback 循环只检查 `getDistance(x, y) !== -1`（任意有空位的桌面）
+- 未如 `_addFilesToDesktop` PHASE3 一样先检查 `=== 0`（坐标属于该桌面）
+- 即使 `_primaryScreen` 正确指向主屏，新图标仍被第一个有空位的 desktop 截获（遍历顺序是 [mon0, mon1] ⇒ 总是 mon0）
+
+**Bug 3 — Fallback 锚点是显示器左上角而非 grid 左上角** (`desktopManager.js:1469-1471, 1687-1688`)
+- `_primaryScreen.x/y` = 显示器左上角
+- `gridGlobalRectangle` 起点 = `monitor.x + windowMarginLeft, monitor.y + windowMarginTop`
+- 当主屏有 panel（marginTop=32），锚点 `(monitor.x, monitor.y)` 落在 grid 矩形上方 ⇒ 不属于任何 grid ⇒ fallback 失效
+
+**附加 — `getDistance` 距离计算公式笔误** (`desktopGrid.js:354`)
+- `Math.pow(x - (...), 2) + Math.pow(x - (...), 2)` 第二个 `x` 应为 `y`
+- 不影响 `=== 0` 和 `!== -1` 判断，但影响 PHASE2 最近桌面计算精度
+
+**修复：**
+
+| Bug | 文件 | 变更 |
+|-----|------|------|
+| Bug 1 | `desktopManager.js:407-414` | early return 前更新 `_primaryScreen` |
+| Bug 2 | `desktopManager.js:1738-1753` | fallback 先 `=== 0` 再 `!== -1` |
+| Bug 3 | `desktopManager.js:1470-1477, 1743-1750` | 改用 `_desktops.find(g => g._monitor === ...)` 取 grid 实例的 `_x/_y` |
+| 笔误 | `desktopGrid.js:357` | `Math.pow(x → y)` |
+
+**提交：**

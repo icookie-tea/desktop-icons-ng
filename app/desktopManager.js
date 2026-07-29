@@ -117,10 +117,13 @@ var DesktopManager = class {
         this.autoAr = new AutoAr.AutoAr(this);
 
         this._primaryIndex = primaryIndex;
+        console.log(`[DING] DesktopManager constructor: primaryIndex=${primaryIndex}, desktopList.length=${desktopList.length}`);
         if (primaryIndex < desktopList.length) {
             this._primaryScreen = desktopList[primaryIndex];
+            console.log(`[DING]   _primaryScreen SET to desktopList[${primaryIndex}]: x=${this._primaryScreen.x}, y=${this._primaryScreen.y}, monitorIndex=${this._primaryScreen.monitorIndex}`);
         } else {
             this._primaryScreen = null;
+            console.log(`[DING]   _primaryScreen = null (primaryIndex ${primaryIndex} >= desktopList.length ${desktopList.length})`);
         }
         this._clickX = 0;
         this._clickY = 0;
@@ -359,15 +362,23 @@ var DesktopManager = class {
     }
 
     updateGridWindows(newdesktoplist) {
-        if ((newdesktoplist.length > 0) && ('primaryMonitor' in newdesktoplist[0])) {
-            this._primaryIndex = newdesktoplist[0].primaryMonitor;
-            console.log(`Primary screen is ${this._primaryIndex}`);
+        console.log(`[DING] updateGridWindows ENTER: newdesktoplist.length=${newdesktoplist.length}, _desktopList.length=${this._desktopList ? this._desktopList.length : 'null'}`);
+        for (let i = 0; i < newdesktoplist.length; i++) {
+            let d = newdesktoplist[i];
+            console.log(`[DING]   newdesktoplist[${i}]: x=${d.x}, y=${d.y}, w=${d.width}, h=${d.height}, monitorIndex=${d.monitorIndex}, primaryMonitor=${d.primaryMonitor}, scale=${d.scaleFactor}`);
         }
-        if (newdesktoplist.length == this._desktopList.length) {
+        let newPrimaryIndex = -1;
+        if ((newdesktoplist.length > 0) && ('primaryMonitor' in newdesktoplist[0])) {
+            newPrimaryIndex = newdesktoplist[0].primaryMonitor;
+            console.log(`[DING] updateGridWindows: newPrimaryIndex=${newPrimaryIndex}, oldPrimaryIndex=${this._primaryIndex}, oldPrimaryScreen=${this._primaryScreen ? `x=${this._primaryScreen.x},y=${this._primaryScreen.y},monitorIndex=${this._primaryScreen.monitorIndex}` : 'null'}`);
+            this._primaryIndex = newPrimaryIndex;
+        }
+        if (this._desktopList && (newdesktoplist.length == this._desktopList.length)) {
             let gridschanged = [];
             for (let index = 0; index < newdesktoplist.length; index++) {
                 let area = newdesktoplist[index];
                 let area2 = this._desktopList[index];
+                let changed = false;
                 if ((area.x != area2.x) ||
                     (area.y != area2.y) ||
                     (area.width != area2.width) ||
@@ -375,6 +386,8 @@ var DesktopManager = class {
                     (area.scaleFactor !== area2.scaleFactor) ||
                     (area.monitorIndex != area2.monitorIndex)) {
                     gridschanged.push(index);
+                    changed = true;
+                    console.log(`[DING]   grid[${index}] GEOMETRY CHANGED: old=[x=${area2.x},y=${area2.y},w=${area2.width},h=${area2.height},scale=${area2.scaleFactor},monIdx=${area2.monitorIndex}], new=[x=${area.x},y=${area.y},w=${area.width},h=${area.height},scale=${area.scaleFactor},monIdx=${area.monitorIndex}]`);
                     continue;
                 }
                 if ((area.marginTop != area2.marginTop) ||
@@ -384,17 +397,32 @@ var DesktopManager = class {
                     if (!gridschanged.includes(index)) {
                         gridschanged.push(index);
                     }
+                    changed = true;
+                    console.log(`[DING]   grid[${index}] MARGINS CHANGED: old=[T:${area2.marginTop},B:${area2.marginBottom},L:${area2.marginLeft},R:${area2.marginRight}], new=[T:${area.marginTop},B:${area.marginBottom},L:${area.marginLeft},R:${area.marginRight}]`);
+                }
+                if (!changed) {
+                    console.log(`[DING]   grid[${index}] UNCHANGED`);
                 }
             }
             if (gridschanged.length == 0) {
+                if (this._primaryIndex < this._desktopList.length) {
+                    this._primaryScreen = this._desktopList[this._primaryIndex];
+                    console.log(`[DING] updateGridWindows EARLY RETURN: _primaryScreen UPDATED to desktopList[${this._primaryIndex}]: x=${this._primaryScreen.x}, y=${this._primaryScreen.y}, monitorIndex=${this._primaryScreen.monitorIndex}`);
+                } else {
+                    this._primaryScreen = null;
+                    console.log(`[DING] updateGridWindows EARLY RETURN: _primaryIndex=${this._primaryIndex} >= _desktopList.length=${this._desktopList.length}, _primaryScreen=null`);
+                }
                 return;
             }
+            console.log(`[DING] updateGridWindows: ${gridschanged.length} grids changed: [${gridschanged}]`);
         }
         this._desktopList = newdesktoplist;
         if (this._primaryIndex < this._desktopList.length) {
             this._primaryScreen = this._desktopList[this._primaryIndex];
+            console.log(`[DING] updateGridWindows: _primaryScreen UPDATED to desktopList[${this._primaryIndex}]: x=${this._primaryScreen.x}, y=${this._primaryScreen.y}, monitorIndex=${this._primaryScreen.monitorIndex}`);
         } else {
             this._primaryScreen = null;
+            console.log(`[DING] updateGridWindows: _primaryIndex=${this._primaryIndex} >= _desktopList.length=${this._desktopList.length}, _primaryScreen=null`);
         }
         this._createGridWindows();
         this._updateDesktop().catch(e => {
@@ -403,14 +431,16 @@ var DesktopManager = class {
     }
 
     _createGridWindows() {
+        console.log(`[DING] _createGridWindows START: desktopList.length=${this._desktopList ? this._desktopList.length : 'null'}, _primaryIndex=${this._primaryIndex}, _primaryScreen=${this._primaryScreen ? `x=${this._primaryScreen.x},y=${this._primaryScreen.y},monitorIndex=${this._primaryScreen.monitorIndex}` : 'null'}`);
         this._removeAllFilesFromGrids();
         for (let desktop of this._desktops) {
             desktop.destroy();
         }
         this._desktops = [];
         for (let desktopIndex in this._desktopList) {
-            console.log(`Creating desktop index ${desktopIndex}`);
             let desktop = this._desktopList[desktopIndex];
+            let isPrimary = (parseInt(desktopIndex) === this._primaryIndex);
+            console.log(`[DING]   creating grid desktopIndex=${desktopIndex}, monitorIndex=${desktop.monitorIndex}, x=${desktop.x}, y=${desktop.y}, isPrimary=${isPrimary}`);
             let desktopName;
             if (this._asDesktop) {
                 // this name must match the one used in emulateX11WindowType
@@ -420,6 +450,7 @@ var DesktopManager = class {
             }
             this._desktops.push(new DesktopGrid.DesktopGrid(this, desktopName, desktop, this._asDesktop));
         }
+        console.log(`[DING] _createGridWindows END: ${this._desktops.length} grids created`);
     }
 
     _configureSelectionColor() {
@@ -1359,9 +1390,11 @@ var DesktopManager = class {
     }
 
     _placeAllFilesOnGrids(redisplay = false) {
+        console.log(`[DING] _placeAllFilesOnGrids ENTER: redisplay=${redisplay}, _fileList.length=${this._fileList ? this._fileList.length : 0}, _primaryScreen=${this._primaryScreen ? `x=${this._primaryScreen.x},y=${this._primaryScreen.y},monitorIndex=${this._primaryScreen.monitorIndex}` : 'null'}`);
         this.keepStacked = Prefs.desktopSettings.get_boolean('keep-stacked');
         this.keepArranged = Prefs.desktopSettings.get_boolean('keep-arranged');
         this.sortSpecialFolders = Prefs.desktopSettings.get_boolean('sort-special-folders');
+        console.log(`[DING]   keepStacked=${this.keepStacked}, keepArranged=${this.keepArranged}, sortSpecialFolders=${this.sortSpecialFolders}`);
         if (this.keepStacked) {
             this.doStacks(redisplay);
         } else if (this.keepArranged) {
@@ -1373,8 +1406,10 @@ var DesktopManager = class {
 
     _addFilesToDesktop(fileList, storeMode) {
         if (this._desktops.length == 0) {
+            console.log(`[DING] _addFilesToDesktop SKIP: no desktops`);
             return;
         }
+        console.log(`[DING] _addFilesToDesktop ENTER: fileList.length=${fileList.length}, storeMode=${storeMode}, _primaryScreen=${this._primaryScreen ? `x=${this._primaryScreen.x},y=${this._primaryScreen.y},monitorIndex=${this._primaryScreen.monitorIndex}` : 'null'}`);
         let outOfDesktops = [];
         let notAssignedYet = [];
 
@@ -1392,11 +1427,13 @@ var DesktopManager = class {
             for (let desktop of this._desktops) {
                 if (desktop.getDistance(itemX, itemY) == 0) {
                     addedToDesktop = true;
+                    console.log(`[DING]   PHASE1: icon "${fileItem._displayName}" placed on desktop with monitorIndex=${desktop._monitor}, savedCoords=(${itemX},${itemY})`);
                     desktop.addFileItemCloseTo(fileItem, itemX, itemY, storeMode);
                     break;
                 }
             }
             if (!addedToDesktop) {
+                console.log(`[DING]   PHASE1: icon "${fileItem._displayName}" OUT_OF_DESKTOP, savedCoords=(${itemX},${itemY})`);
                 outOfDesktops.push(fileItem);
             }
         }
@@ -1417,9 +1454,11 @@ var DesktopManager = class {
                 }
             }
             if (newDesktop == null) {
+                console.log(`[DING]   PHASE2: icon "${fileItem._displayName}" NO SPACE, savedCoords=(${itemX},${itemY})`);
                 print('Not enough space to add icons');
                 break;
             } else {
+                console.log(`[DING]   PHASE2: icon "${fileItem._displayName}" placed on desktop monitorIndex=${newDesktop._monitor}, savedCoords=(${itemX},${itemY}), minDistance=${minDistance}`);
                 newDesktop.addFileItemCloseTo(fileItem, itemX, itemY, storeMode);
             }
         }
@@ -1428,22 +1467,32 @@ var DesktopManager = class {
             let x, y;
             if (fileItem.dropCoordinates == null) {
                 if (this._primaryScreen !== null) {
-                    x = this._primaryScreen.x;
-                    y = this._primaryScreen.y;
+                    const primaryGrid = this._desktops.find(g => g._monitor === this._primaryScreen.monitorIndex);
+                    if (primaryGrid) {
+                        x = primaryGrid._x;
+                        y = primaryGrid._y;
+                    } else {
+                        x = this._primaryScreen.x + this._primaryScreen.windowMarginLeft;
+                        y = this._primaryScreen.y + this._primaryScreen.windowMarginTop;
+                        console.log(`[DING]   PHASE3: grid not found for monitorIndex=${this._primaryScreen.monitorIndex}, using computed coords=(${x},${y})`);
+                    }
                 } else {
                     x = 0;
                     y = 0;
                 }
                 storeMode = Enums.StoredCoordinates.ASSIGN;
+                console.log(`[DING]   PHASE3: icon "${fileItem._displayName}" NEW, using primaryGrid coords=(${x},${y})`);
             } else {
                 [x, y] = fileItem.dropCoordinates;
                 fileItem.dropCoordinates = null;
                 storeMode = Enums.StoredCoordinates.OVERWRITE;
+                console.log(`[DING]   PHASE3: icon "${fileItem._displayName}" DROP, using dropCoords=(${x},${y})`);
             }
             // try first in the designated desktop
             let assigned = false;
             for (let desktop of this._desktops) {
                 if (desktop.getDistance(x, y) == 0) {
+                    console.log(`[DING]   PHASE3: icon "${fileItem._displayName}" placed on desktop monitorIndex=${desktop._monitor} (containing target coords)`);
                     desktop.addFileItemCloseTo(fileItem, x, y, storeMode);
                     assigned = true;
                     break;
@@ -1455,11 +1504,13 @@ var DesktopManager = class {
             // if there is no space in the designated desktop, try in another
             for (let desktop of this._desktops) {
                 if (desktop.getDistance(x, y) != -1) {
+                    console.log(`[DING]   PHASE3: icon "${fileItem._displayName}" placed on desktop monitorIndex=${desktop._monitor} (nearest with space)`);
                     desktop.addFileItemCloseTo(fileItem, x, y, storeMode);
                     break;
                 }
             }
         }
+        console.log(`[DING] _addFilesToDesktop END: outOfDesktops=${outOfDesktops.length}, notAssignedYet=${notAssignedYet.length}`);
     }
 
     _updateWritableByOthers() {
@@ -1674,25 +1725,53 @@ var DesktopManager = class {
     }
 
     _addSingleFileToDesktop(fileItem) {
+        console.log(`[DING] _addSingleFileToDesktop: file="${fileItem._displayName}", _primaryScreen=${this._primaryScreen ? `x=${this._primaryScreen.x},y=${this._primaryScreen.y},monitorIndex=${this._primaryScreen.monitorIndex}` : 'null'}`);
         if (fileItem.savedCoordinates) {
             const [x, y] = fileItem.savedCoordinates;
+            console.log(`[DING]   has savedCoordinates=(${x},${y})`);
             for (let desktop of this._desktops) {
                 if (desktop.getDistance(x, y) === 0) {
+                    console.log(`[DING]   placed on desktop monitorIndex=${desktop._monitor} via savedCoords`);
                     desktop.addFileItemCloseTo(fileItem, x, y,
                         Enums.StoredCoordinates.PRESERVE);
                     return;
                 }
             }
+            console.log(`[DING]   savedCoordinates=(${x},${y}) not on any desktop, falling back`);
         }
-        const x = this._primaryScreen ? this._primaryScreen.x : 0;
-        const y = this._primaryScreen ? this._primaryScreen.y : 0;
+        let x, y;
+        if (this._primaryScreen !== null) {
+            const primaryGrid = this._desktops.find(g => g._monitor === this._primaryScreen.monitorIndex);
+            if (primaryGrid) {
+                x = primaryGrid._x;
+                y = primaryGrid._y;
+            } else {
+                x = this._primaryScreen.x + this._primaryScreen.windowMarginLeft;
+                y = this._primaryScreen.y + this._primaryScreen.windowMarginTop;
+                console.log(`[DING]   grid not found for monitorIndex=${this._primaryScreen.monitorIndex}, using computed coords=(${x},${y})`);
+            }
+        } else {
+            x = 0;
+            y = 0;
+        }
+        console.log(`[DING]   using primaryGrid coords=(${x},${y})`);
         for (let desktop of this._desktops) {
-            if (desktop.getDistance(x, y) !== -1) {
+            if (desktop.getDistance(x, y) === 0) {
+                console.log(`[DING]   placed on desktop monitorIndex=${desktop._monitor} via fallback (containing target coords)`);
                 desktop.addFileItemCloseTo(fileItem, x, y,
                     Enums.StoredCoordinates.ASSIGN);
                 return;
             }
         }
+        for (let desktop of this._desktops) {
+            if (desktop.getDistance(x, y) !== -1) {
+                console.log(`[DING]   placed on desktop monitorIndex=${desktop._monitor} via fallback (nearest with space)`);
+                desktop.addFileItemCloseTo(fileItem, x, y,
+                    Enums.StoredCoordinates.ASSIGN);
+                return;
+            }
+        }
+        console.log(`[DING]   NO desktop accepts fallback coords=(${x},${y})`);
     }
 
     _applyDropCoordinates(fileItem) {
