@@ -46,6 +46,7 @@ const SignalManager = imports.signalManager;
 const DesktopMenu = imports.desktopMenu;
 const FileChangesQueue = imports.fileChangesQueue;
 const ThemeManager = imports.themeManager;
+const FileOperations = imports.fileOperations;
 
 const Gettext = imports.gettext.domain('ding');
 
@@ -58,8 +59,7 @@ var DesktopManager = class {
         this._lastSelected = null;
         this._fileList = [];
         this._desktopMenu = new DesktopMenu.DesktopMenu(this, mainApp, dbusManager);
-        this._clipboardFiles = null;
-        this._isCut = false;
+
         this.using_X11 = Gdk.Display.get_default().constructor.$gtype.name === 'GdkX11Display';
         if (asDesktop) {
             this.mainApp.hold(); // Don't close the application if there are no desktops
@@ -89,6 +89,7 @@ var DesktopManager = class {
 
         this.dbusManager = dbusManager;
         this._themeManager = new ThemeManager.ThemeManager(this);
+        this._fileOps = new FileOperations.FileOperations(this);
         this._themeManager.connectAccentColorHandler(() => {
             GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
                 this._themeManager.configureSelectionColor();
@@ -433,25 +434,7 @@ var DesktopManager = class {
     }
 
     clearFileCoordinates(fileList, dropCoordinates) {
-        for (let element of fileList) {
-            let file = Gio.File.new_for_uri(element);
-            if (!file.is_native() || !file.query_exists(null)) {
-                if (dropCoordinates != null) {
-                    this._pendingDropFiles[file.get_basename()] = dropCoordinates;
-                }
-                continue;
-            }
-            let info = new Gio.FileInfo();
-            info.set_attribute_string('metadata::nautilus-icon-position', '');
-            if (dropCoordinates != null) {
-                info.set_attribute_string('metadata::nautilus-drop-position', `${dropCoordinates[0]},${dropCoordinates[1]}`);
-            }
-            try {
-                file.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
-            } catch (e) {
-                // File may have been deleted or filesystem may not support metadata attributes
-            }
-        }
+        this._fileOps.clearFileCoordinates(fileList, dropCoordinates);
     }
 
     doMoveWithDragAndDrop(xOrigin, yOrigin, xDestination, yDestination) {
@@ -880,33 +863,11 @@ var DesktopManager = class {
     }
 
     async updateClipboard() {
-        this._clipboardFiles = null;
-        const clipboardData = await dndClipboardUtils.readClipboard([Enums.DndTargetInfo.GNOME_CLIPBOARD, Enums.DndTargetInfo.URI_LIST]);
-        if (clipboardData === null) {
-            return false;
-        }
-        const data = dndClipboardUtils.processFileList(clipboardData.mimetype, clipboardData.data);
-        if (!['cut', 'copy'].includes(data.action)) {
-            return false;
-        }
-        this._isCut = (data.action === 'cut');
-        this._clipboardFiles = data.files;
-        return true;
+        return this._fileOps.updateClipboard();
     }
 
     async doPaste(refresh) {
-        if (refresh) {
-            await this.updateClipboard();
-        }
-        if (this._clipboardFiles === null) {
-            return;
-        }
-        let desktopDir = this._desktopDir.get_uri();
-        if (this._isCut) {
-            DBusUtils.RemoteFileOperations.MoveURIsRemote(this._clipboardFiles, desktopDir);
-        } else {
-            DBusUtils.RemoteFileOperations.CopyURIsRemote(this._clipboardFiles, desktopDir);
-        }
+        return this._fileOps.doPaste(refresh);
     }
 
     unselectAll() {
@@ -1682,38 +1643,23 @@ var DesktopManager = class {
     }
 
     doCopy() {
-        dndClipboardUtils.manageCutCopy({ copy: true, fileList: this.getCurrentSelection(false) });
+        this._fileOps.doCopy();
     }
 
     doCut() {
-        dndClipboardUtils.manageCutCopy({ copy: false, fileList: this.getCurrentSelection(false) });
+        this._fileOps.doCut();
     }
 
     doTrash() {
-        const selection = this._fileList.filter(i => (i.isSelected || i.isKeyboardSelected) && !i.isSpecial).map(i =>
-            i.file.get_uri());
-
-        if (selection.length) {
-            DBusUtils.RemoteFileOperations.TrashURIsRemote(selection);
-        }
+        this._fileOps.doTrash();
     }
 
     doDeletePermanently() {
-        const toDelete = this._fileList.filter(i => (i.isSelected || i.isKeyboardSelected) && !i.isSpecial).map(i =>
-            i.file.get_uri());
-
-        if (!toDelete.length) {
-            if (this._fileList.some(i => (i.isSelected || i.isKeyboardSelected) && i.isTrash)) {
-                this.doEmptyTrash();
-            }
-            return;
-        }
-
-        DBusUtils.RemoteFileOperations.DeleteURIsRemote(toDelete);
+        this._fileOps.doDeletePermanently();
     }
 
     doEmptyTrash(askConfirmation = true) {
-        DBusUtils.RemoteFileOperations.EmptyTrashRemote(askConfirmation);
+        this._fileOps.doEmptyTrash(askConfirmation);
     }
 
     checkIfSpecialFilesAreSelected() {
@@ -1772,40 +1718,15 @@ var DesktopManager = class {
     }
 
     doRename(fileItem, allowReturnOnSameName) {
-        if (!fileItem || !fileItem.canRename) {
-            return;
-        }
-        this.unselectAll();
-        if (!this._renameWindow) {
-            this._renamingFile = fileItem.fileName;
-            this._renameWindow = new AskRenamePopup.AskRenamePopup(this, fileItem, allowReturnOnSameName, () => {
-                this._renameWindow = null;
-                this.newFolderDoRename = null;
-                this._renamingFile = null;
-            });
-        }
+        this._fileOps.doRename(fileItem, allowReturnOnSameName);
     }
 
     fileExistsOnDesktop(searchName) {
-        const listOfFileNamesOnDesktop = [];
-        this.updateFileList().forEach(f => listOfFileNamesOnDesktop.push(f.fileName));
-        if (listOfFileNamesOnDesktop.includes(searchName)) {
-            return true;
-        } else {
-            return false;
-        }
+        return this._fileOps.fileExistsOnDesktop(searchName);
     }
 
     getDesktopUniqueFileName(fileName) {
-        let fileParts = DesktopIconsUtil.getFileExtensionOffset(fileName);
-        let i = 0;
-        let newName = fileName;
-
-        while (this.fileExistsOnDesktop(newName)) {
-            i += 1;
-            newName = `${fileParts.basename} ${i}${fileParts.extension}`;
-        }
-        return newName;
+        return this._fileOps.getDesktopUniqueFileName(fileName);
     }
 
     doNewFolder(position = null, suggestedName = null, opts = { rename: true }) {

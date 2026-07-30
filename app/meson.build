@@ -20,6 +20,7 @@ install_data([
     'enums.js',
     'fileChangesQueue.js',
     'fileItem.js',
+    'fileOperations.js',
     'fileItemMenu.js',
     'fileUtils.js',
     'menuHelper.js',

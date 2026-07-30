@@ -1,0 +1,194 @@
+/* DING: Desktop Icons New Generation for GNOME Shell
+ *
+ * Copyright (C) 2019 Sergio Costas (rastersoft@gmail.com)
+ * Based on code original (C) Carlos Soriano
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+'use strict';
+const Gio = imports.gi.Gio;
+
+const dndClipboardUtils = imports.dndClipboardUtils;
+const DBusUtils = imports.dbusUtils;
+const DesktopIconsUtil = imports.desktopIconsUtil;
+const AskRenamePopup = imports.askRenamePopup;
+const Enums = imports.enums;
+
+var FileOperations = class {
+    constructor(desktopManager) {
+        this._dm = desktopManager;
+        this._clipboardFiles = null;
+        this._isCut = false;
+    }
+
+    clearFileCoordinates(fileList, dropCoordinates) {
+        for (let element of fileList) {
+            let file = Gio.File.new_for_uri(element);
+            if (!file.is_native() || !file.query_exists(null)) {
+                if (dropCoordinates != null) {
+                    this._dm._pendingDropFiles[file.get_basename()] = dropCoordinates;
+                }
+                continue;
+            }
+            let info = new Gio.FileInfo();
+            info.set_attribute_string('metadata::nautilus-icon-position', '');
+            if (dropCoordinates != null) {
+                info.set_attribute_string('metadata::nautilus-drop-position', `${dropCoordinates[0]},${dropCoordinates[1]}`);
+            }
+            try {
+                file.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
+            } catch (e) {
+            }
+        }
+    }
+
+    doCopy() {
+        dndClipboardUtils.manageCutCopy({ copy: true, fileList: this._dm.getCurrentSelection(false) });
+    }
+
+    doCut() {
+        dndClipboardUtils.manageCutCopy({ copy: false, fileList: this._dm.getCurrentSelection(false) });
+    }
+
+    doTrash() {
+        const selection = this._dm._fileList.filter(i => (i.isSelected || i.isKeyboardSelected) && !i.isSpecial).map(i =>
+            i.file.get_uri());
+
+        if (selection.length) {
+            DBusUtils.RemoteFileOperations.TrashURIsRemote(selection);
+        }
+    }
+
+    doDeletePermanently() {
+        const toDelete = this._dm._fileList.filter(i => (i.isSelected || i.isKeyboardSelected) && !i.isSpecial).map(i =>
+            i.file.get_uri());
+
+        if (!toDelete.length) {
+            if (this._dm._fileList.some(i => (i.isSelected || i.isKeyboardSelected) && i.isTrash)) {
+                this.doEmptyTrash();
+            }
+            return;
+        }
+
+        DBusUtils.RemoteFileOperations.DeleteURIsRemote(toDelete);
+    }
+
+    doEmptyTrash(askConfirmation = true) {
+        DBusUtils.RemoteFileOperations.EmptyTrashRemote(askConfirmation);
+    }
+
+    async updateClipboard() {
+        this._clipboardFiles = null;
+        const clipboardData = await dndClipboardUtils.readClipboard([Enums.DndTargetInfo.GNOME_CLIPBOARD, Enums.DndTargetInfo.URI_LIST]);
+        if (clipboardData === null) {
+            return false;
+        }
+        const data = dndClipboardUtils.processFileList(clipboardData.mimetype, clipboardData.data);
+        if (!['cut', 'copy'].includes(data.action)) {
+            return false;
+        }
+        this._isCut = (data.action === 'cut');
+        this._clipboardFiles = data.files;
+        return true;
+    }
+
+    async doPaste(refresh) {
+        if (refresh) {
+            await this.updateClipboard();
+        }
+        if (this._clipboardFiles === null) {
+            return;
+        }
+        let desktopDir = this._dm._desktopDir.get_uri();
+        if (this._isCut) {
+            DBusUtils.RemoteFileOperations.MoveURIsRemote(this._clipboardFiles, desktopDir);
+        } else {
+            DBusUtils.RemoteFileOperations.CopyURIsRemote(this._clipboardFiles, desktopDir);
+        }
+    }
+
+    doRename(fileItem, allowReturnOnSameName) {
+        if (!fileItem || !fileItem.canRename) {
+            return;
+        }
+        this._dm.unselectAll();
+        if (!this._dm._renameWindow) {
+            this._dm._renamingFile = fileItem.fileName;
+            this._dm._renameWindow = new AskRenamePopup.AskRenamePopup(this._dm, fileItem, allowReturnOnSameName, () => {
+                this._dm._renameWindow = null;
+                this._dm.newFolderDoRename = null;
+                this._dm._renamingFile = null;
+            });
+        }
+    }
+
+    fileExistsOnDesktop(searchName) {
+        const listOfFileNamesOnDesktop = [];
+        this._dm.updateFileList().forEach(f => listOfFileNamesOnDesktop.push(f.fileName));
+        if (listOfFileNamesOnDesktop.includes(searchName)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    getDesktopUniqueFileName(fileName) {
+        let fileParts = DesktopIconsUtil.getFileExtensionOffset(fileName);
+        let i = 0;
+        let newName = fileName;
+
+        while (this.fileExistsOnDesktop(newName)) {
+            i += 1;
+            newName = `${fileParts.basename} ${i}${fileParts.extension}`;
+        }
+        return newName;
+    }
+
+    doNewFolder(position = null, suggestedName = null, opts = { rename: true }) {
+        this._dm.unselectAll();
+
+        if (!position) {
+            position = [this._dm._clickX, this._dm._clickY];
+        }
+
+        const baseName = suggestedName ? suggestedName : _('New Folder');
+        let newName = this.getDesktopUniqueFileName(baseName);
+
+        if (newName) {
+            let dir = DesktopIconsUtil.getDesktopDir().get_child(newName);
+            try {
+                dir.make_directory(null);
+                const info = new Gio.FileInfo();
+                info.set_attribute_string('metadata::nautilus-drop-position', `${position.join(',')}`);
+                info.set_attribute_string('metadata::nautilus-icon-position', '');
+                dir.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
+            } catch (e) {
+                console.error(e, 'Failed to create folder');
+                const header = _('Folder Creation Failed');
+                const text = _('Error while trying to create a Folder');
+                this._dm.dbusManager.doNotify(header, text);
+                if (position || suggestedName) {
+                    return null;
+                }
+                return null;
+            }
+            if (opts.rename) {
+                this._dm.newFolderDoRename = newName;
+            }
+            if (position || suggestedName) {
+                return dir.get_uri();
+            }
+        }
+        return null;
+    }
+};
