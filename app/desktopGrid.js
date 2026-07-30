@@ -346,12 +346,9 @@ var DesktopGrid = class extends SignalManager.SignalManager {
             }
         }
         if (!isFree) {
-            console.log(`[DING] getDistance[mon=${this._monitor}]: x=${x}, y=${y} -> -1 (NO FREE SPACE)`);
             return -1;
         }
-        let belong = this._coordinatesBelongToThisGrid(x, y);
-        console.log(`[DING] getDistance[mon=${this._monitor}]: x=${x}, y=${y}, belong=${belong}, gridRect=[${this.gridGlobalRectangle.x},${this.gridGlobalRectangle.y},${this.gridGlobalRectangle.width},${this.gridGlobalRectangle.height}], _x=${this._x}, _y=${this._y}`);
-        if (belong) {
+        if (this._coordinatesBelongToThisGrid(x, y)) {
             return 0;
         }
         return Math.pow(x - (this._x + this._windowWidth * this._zoom / 2), 2) + Math.pow(y - (this._y + this._windowHeight * this._zoom / 2), 2);
@@ -450,9 +447,7 @@ var DesktopGrid = class extends SignalManager.SignalManager {
 
     _coordinatesBelongToThisGrid(X, Y) {
         let checkRectangle = new Gdk.Rectangle({ x: X, y: Y, width: 1, height: 1 });
-        let [intersects, result] = this.gridGlobalRectangle.intersect(checkRectangle);
-        console.log(`[DING]   _coordsBelong[mon=${this._monitor}]: point=(${X},${Y}), gridRect=[${this.gridGlobalRectangle.x},${this.gridGlobalRectangle.y},${this.gridGlobalRectangle.width},${this.gridGlobalRectangle.height}], intersects=${intersects}, resultRect=[${result.x},${result.y},${result.width},${result.height}]`);
-        return intersects;
+        return this.gridGlobalRectangle.intersect(checkRectangle)[0];
     }
 
     _getEmptyPlaceClosestTo(x, y, coordinatesAction, reverseHorizontal) {

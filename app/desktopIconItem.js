@@ -373,7 +373,8 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
 
     highLightDropTarget() {
         if (this._hasToRouteDragToGrid()) {
-            this._grid.receiveMotion(this._x1, this._y1, true);
+            console.log(`[DING] highLightDropTarget: routing to grid via refreshDrag for "${this._displayName}"`);
+            this._grid.refreshDrag(this._desktopManager._dragList || [[0, 0]], this._x1, this._y1);
             return;
         }
         if (!this.container.has_css_class('desktop-icons-selected')) {
@@ -387,7 +388,7 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
             this._grid.receiveLeave();
             return;
         }
-        if (this.container.has_css_class('desktop-icons-selected')) {
+        if (!this._isSelected && this.container.has_css_class('desktop-icons-selected')) {
             this.container.remove_css_class('desktop-icons-selected');
         }
         this._grid.unHighLightGrids();
@@ -447,6 +448,13 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
         })
         this.connectSignal(dragController, 'drag-begin', () => {
             this._desktopManager.onDragBegin(this);
+            const paintable = this._icon.get_paintable();
+            if (paintable) {
+                dragController.set_icon(paintable,
+                    this._icon.get_width() / 2,
+                    this._icon.get_height() / 2);
+                console.log(`[DING] set drag icon for "${this._displayName}"`);
+            }
         });
         this.connectSignal(dragController, 'drag-end', () => {
             this._desktopManager.onDragEnd();

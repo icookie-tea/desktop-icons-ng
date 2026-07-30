@@ -541,6 +541,14 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
         });
 
         this.connectSignal(dropTarget, 'drag-motion', (widget, drop, x, y) => {
+            if (this._isSelected && this._desktopManager.dragItem) {
+                console.log(`[DING] self-drop detected, rejecting folder DropTarget for "${this._displayName}"`);
+                return 0;
+            }
+            if (this._hasToRouteDragToGrid()) {
+                console.log(`[DING] routing drop to grid for "${this._displayName}"`);
+                return 0;
+            }
             this.highLightDropTarget(x, y);
             return Gdk.DragAction.MOVE;
         });
@@ -550,6 +558,10 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
         });
 
         this.connectSignal(dropTarget, 'drop', async (widget, drop, x, y) => {
+            if (this._isSelected && this._desktopManager.dragItem) {
+                console.log(`[DING] drop rejected: self-drop for "${this._displayName}"`);
+                return false;
+            }
             const dropInfo = await dndClipboardUtils.manageIconDrop(this, drop, x, y);
             if (dropInfo === null) {
                 return false;

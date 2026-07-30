@@ -372,3 +372,60 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 | 笔误 | `desktopGrid.js:357` | `Math.pow(x → y)` |
 
 **提交：** `ecb8791`
+
+---
+
+## 2026-07-30
+
+### 清理 primaryMonitor 调试日志
+
+移除 `ecb8791` 中为诊断主屏切换问题引入的 `console.log` 调试语句，共 35 行。同时移除因日志引入的冗余变量。
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktopManager.js` | 移除 32 处 `console.log`，移除 `changed`/`isPrimary` 冗余变量 |
+| `app/desktopGrid.js` | 移除 3 处 `console.log`，`belong` 变量内联回直接调用 |
+
+### 文件夹自投导致 Nautilus 报错
+
+**症状：**
+- 拖拽桌面文件夹图标放回自身位置时，Nautilus 弹出"无法将文件夹移入自身"错误
+- 多选文件夹 A、B 后拖拽 A，光标经过 B 时松开鼠标：B 触发自投，A 和 B 都被移入 B 自身
+- 拖拽选中文件夹经过另一个选中的文件夹时，路由到 grid 的代码路径调用未定义方法 `receiveMotion()`
+- 拖拽已被选中的文件夹时，原位置图标选中效果消失
+
+**根因（3 个 Bug）：**
+
+**Bug 1 — 文件夹 DropTarget 自投检测不完整：**
+- `drop` 和 `drag-motion` handler 中的 self-drop 守卫只比较 `dragItem.uri === this._file.get_uri()`，多选时拖拽发起者 A 的 URI ≠ B 的 URI，B 不被识别为自投
+- 正确逻辑：检测该文件夹**是否是被拖拽选择的一部分**（`_isSelected && dragItem !== null`）
+
+**Bug 2 — `receiveMotion()` 未定义：**
+- `desktopIconItem.js:376` 调用 `this._grid.receiveMotion()`，该方法在 `DesktopGrid` 中不存在
+- GJS 静默吞掉 TypeError，路由到 grid 的高亮和 drop 均失效
+
+**Bug 3 — `unHighLightDropTarget` 错误移除选中状态：**
+- `drag-leave` 触发 `unHighLightDropTarget()`，无条件删除 `desktop-icons-selected` CSS 类
+- 对于实际已被选中的图标，这错误地去掉了选中效果，区分不了"CSS 类因选中而加"还是"因拖拽高亮而加"
+
+**修复：**
+
+| Bug | 文件 | 变更 |
+|-----|------|------|
+| Bug 1 | `app/fileItem.js:544, 561` | self-drop 检测从 URI 比较改为 `_isSelected && dragItem !== null` |
+| Bug 2 | `app/desktopIconItem.js:376` | `receiveMotion()` → `refreshDrag()` |
+| Bug 3 | `app/desktopIconItem.js:391` | `unHighLightDropTarget` 删除 CSS 类前加 `!_isSelected` 守卫 |
+
+### 拖拽图标缺少跟随鼠标的图标
+
+**症状：**
+- 拖拽桌面图标时，鼠标指针旁只显示 GTK 默认的"文本文件"光标，用户无法感知拖动的是哪个文件
+
+**根因：**
+- `_setDragSource()` 中 `drag-begin` 信号未调用 `gtk_drag_source_set_icon()`
+
+**修复：**
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktopIconItem.js:448-456` | 在 `drag-begin` 中获取 `Gtk.Picture` 的 `GdkPaintable`，调用 `set_icon()` 设置跟随鼠标的图标 |
