@@ -55,6 +55,7 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
         this._clickCount = 0;
         this._isSelected = false;
         this._isKeyboardSelected = false;
+        this._isBeingDragged = false;
         this._isSpecial = false;
         this._savedCoordinates = null;
         this._dropCoordinates = null;
@@ -448,6 +449,7 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
             return dndClipboardUtils.loadDragData({fileList:selection, specialFilesSelected: this._desktopManager.checkIfSpecialFilesAreSelected()});
         })
         this.connectSignal(dragController, 'drag-begin', () => {
+            this._isBeingDragged = true;
             this._desktopManager.onDragBegin(this);
             const paintable = this._createDragIcon();
             if (paintable) {
@@ -455,6 +457,7 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
             }
         });
         this.connectSignal(dragController, 'drag-end', () => {
+            this._isBeingDragged = false;
             this._desktopManager.onDragEnd();
         });
     }

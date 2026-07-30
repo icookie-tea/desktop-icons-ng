@@ -541,7 +541,7 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
         });
 
         this.connectSignal(dropTarget, 'drag-motion', (widget, drop, x, y) => {
-            if (this._isSelected && this._desktopManager.dragItem) {
+            if (this._isBeingDragged) {
                 return 0;
             }
             if (this._hasToRouteDragToGrid()) {
@@ -556,7 +556,7 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
         });
 
         this.connectSignal(dropTarget, 'drop', async (widget, drop, x, y) => {
-            if (this._isSelected && this._desktopManager.dragItem) {
+            if (this._isBeingDragged) {
                 return false;
             }
             const dropInfo = await dndClipboardUtils.manageIconDrop(this, drop, x, y);
