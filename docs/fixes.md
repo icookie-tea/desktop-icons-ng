@@ -547,3 +547,29 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 | 多选 B 自投 | drop handler 没有 `_hasToRouteDragToGrid` 检查 | `fileItem.js:562` | 添加 `dropInfo.filelist.includes(this.uri)` 兜底 |
 | 图标不移动 | `dragItem` 在 async drop handler 完成前被 `drag-end` 清空 | `desktopManager.js:553` | 在 `onDragBegin` 保存 `_dragOriginX/Y`，直接使用 |
 | `GtkSnapshot` 兼容 | `to_paintable()` 在 GJS 中必须传 `null` 参数 | `desktopIconItem.js:552` | `to_paintable(null)` |
+
+### FileOperations 独立模块
+
+将 `doCopy`/`doCut`/`doTrash`/`doDeletePermanently`/`doEmptyTrash`/`doPaste`/`updateClipboard`/`doRename`/`doNewFolder`/`clearFileCoordinates`/`fileExistsOnDesktop`/`getDesktopUniqueFileName` 以及剪贴板状态（`_clipboardFiles`、`_isCut`）从 `desktopManager.js` 提取到 `fileOperations.js`（194 行）。
+
+| 文件 | 变更 |
+|------|------|
+| `app/fileOperations.js` | 新建，包含完整文件操作与剪贴板逻辑 |
+| `app/desktopManager.js` | 移除实现，保留同名 public forwarder 方法委托到 `_fileOps` |
+
+### SortManager 独立模块
+
+将全部排序（byName/byKind/byTime/bySize/byPosition）和堆叠（stacks/unstack/stack markers）相关方法从 `desktopManager.js` 提取到 `sortManager.js`（454 行）。移除 `stackItem` 和 `AskRenamePopup` 不再需要的 import。
+
+| 文件 | 变更 |
+|------|------|
+| `app/sortManager.js` | 新建，包含 17 个排序/堆叠方法 |
+| `app/desktopManager.js` | 移除 450 行实现代码 |
+
+### 重构成果汇总
+
+| 指标 | 重构前 | 重构后 |
+|------|--------|--------|
+| `desktopManager.js` 行数 | 2379 | **1795**（-584） |
+| 新增模块 | 0 | `paintContainer.js`, `themeManager.js`, `fileOperations.js`, `sortManager.js` |
+| 死代码移除 | — | `doUndo()`/`_doRedo()` 调用、冗余 import |
