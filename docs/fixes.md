@@ -429,3 +429,19 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 | 文件 | 变更 |
 |------|------|
 | `app/desktopIconItem.js:448-456` | 在 `drag-begin` 中获取 `Gtk.Picture` 的 `GdkPaintable`，调用 `set_icon()` 设置跟随鼠标的图标 |
+
+### 多选拖拽预览：堆叠图标 + 数量徽章
+
+**症状：**
+- 多选拖拽时鼠标旁只显示一个图标，用户不知道还拖了其他文件
+
+**修复：**
+- 新增 `_createDragIcon()` 方法，多选时使用 `Gtk.Snapshot` 合成堆叠图标
+- 最多堆叠 4 个图标，垂直偏移根据数量调整（2个=10px，3个=6px，4个+=4px）
+- 水平方向交替偏移 ±6px 形成错落效果
+- 右下角绘制圆形深色徽章（20px），白色字体显示总数
+- 拖拽发起者的图标始终在最上层
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktopIconItem.js` | 新增 `_createDragIcon()` 方法，依赖 `Gsk`/`Graphene`/`Pango` |

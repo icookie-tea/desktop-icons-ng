@@ -27,6 +27,8 @@ const GLib = imports.gi.GLib;
 const GObject = imports.gi.GObject;
 const Pango = imports.gi.Pango;
 const GdkPixbuf = imports.gi.GdkPixbuf;
+const Gsk = imports.gi.Gsk;
+const Graphene = imports.gi.Graphene;
 
 const dndClipboardUtils = imports.dndClipboardUtils;
 const DesktopIconsUtil = imports.desktopIconsUtil;
@@ -448,17 +450,106 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
         })
         this.connectSignal(dragController, 'drag-begin', () => {
             this._desktopManager.onDragBegin(this);
-            const paintable = this._icon.get_paintable();
+            const paintable = this._createDragIcon();
             if (paintable) {
-                dragController.set_icon(paintable,
-                    this._icon.get_width() / 2,
-                    this._icon.get_height() / 2);
+                dragController.set_icon(paintable, 32, 32);
                 console.log(`[DING] set drag icon for "${this._displayName}"`);
             }
         });
         this.connectSignal(dragController, 'drag-end', () => {
             this._desktopManager.onDragEnd();
         });
+    }
+
+    _createDragIcon() {
+        const selection = this._desktopManager.getCurrentSelection(false);
+        if (!selection || selection.length === 0)
+            return this._icon.get_paintable();
+
+        const iconSize = 64;
+        const MAX_DRAWN_ICONS = 4;
+        const BADGE_SIZE = 20;
+        const count = selection.length;
+        const drawCount = Math.min(count, MAX_DRAWN_ICONS);
+
+        if (drawCount === 1)
+            return this._icon.get_paintable();
+
+        // Reorder so the drag initiator (this) is last (drawn on top)
+        let ordered = selection.filter(item => item !== this);
+        ordered.push(this);
+        ordered = ordered.slice(-drawCount);
+
+        // Calculate offsets: vertical stacking with horizontal alternation
+        const dy = drawCount === 2 ? 10 : drawCount === 3 ? 6 : 4;
+        let offsets = [];
+        for (let i = 0; i < drawCount; i++) {
+            const dx = i === 0 ? 0 : (i % 2 === 1 ? 6 : -6);
+            offsets.push({dx, dy: dy * i});
+        }
+
+        // Composite size
+        let compWidth = iconSize + BADGE_SIZE / 2;
+        let compHeight = iconSize + BADGE_SIZE / 2;
+        for (let i = 0; i < drawCount; i++) {
+            compWidth = Math.max(compWidth, offsets[i].dx + iconSize);
+            compHeight = Math.max(compHeight, offsets[i].dy + iconSize);
+        }
+
+        const snapshot = new Gtk.Snapshot();
+
+        // Paint icons bottom to top so last is on top
+        for (let i = drawCount - 1; i >= 0; i--) {
+            const item = ordered[i];
+            const paintable = item._icon.get_paintable();
+            if (!paintable) continue;
+            const p = new Graphene.Point();
+            p.init(offsets[i].dx, offsets[i].dy);
+            snapshot.save();
+            snapshot.translate(p);
+            const r = new Graphene.Rect();
+            r.init(0, 0, iconSize, iconSize);
+            snapshot.append_paintable(paintable, r);
+            snapshot.restore();
+        }
+
+        // Count badge at bottom-right
+        const badgeX = compWidth - BADGE_SIZE;
+        const badgeY = compHeight - BADGE_SIZE;
+        const badgeRect = new Graphene.Rect();
+        badgeRect.init(badgeX, badgeY, BADGE_SIZE, BADGE_SIZE);
+
+        const badgeColor = new Gdk.RGBA();
+        badgeColor.parse('#333333dd');
+
+        const roundedRect = new Gsk.RoundedRect();
+        roundedRect.init_from_rect(badgeRect, BADGE_SIZE / 2);
+
+        snapshot.push_rounded_clip(roundedRect);
+        snapshot.append_color(badgeColor, badgeRect);
+        snapshot.pop();
+
+        // Draw count text centered in badge
+        const pangoContext = this._icon.get_pango_context();
+        const layout = Pango.Layout.new(pangoContext);
+        layout.set_text(String(count), -1);
+        layout.set_font_description(Pango.FontDescription.from_string('bold 11'));
+
+        let [inkRect, logicalRect] = layout.get_pixel_extents();
+        const textX = badgeX + (BADGE_SIZE - logicalRect.width) / 2;
+        const textY = badgeY + (BADGE_SIZE - logicalRect.height) / 2;
+
+        const textColor = new Gdk.RGBA();
+        textColor.parse('#ffffff');
+
+        const tp = new Graphene.Point();
+        tp.init(textX, textY);
+        snapshot.save();
+        snapshot.translate(tp);
+        snapshot.append_layout(layout, textColor);
+        snapshot.restore();
+
+        return snapshot.to_paintable();
     }
 
     _calculateOffset(widget) {
