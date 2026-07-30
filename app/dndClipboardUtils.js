@@ -169,9 +169,13 @@ async function manageIconDrop(fileItem, drop, x, y) {
         }
     }
     let gdkReturnAction = Gdk.DragAction.COPY;
+    let dropFinished = false;
 
     try {
         let [dropData, mimetype] = await drop.read_async_promise(Enums.MIME_TYPES, GLib.PRIORITY_DEFAULT, null);
+
+        drop.finish(gdkReturnAction);
+        dropFinished = true;
 
         const data = await FileUtils.readAll(dropData);
         const textDecoder = new TextDecoder();
@@ -203,7 +207,6 @@ async function manageIconDrop(fileItem, drop, x, y) {
                 console.log(`Unknown mime type for DnD: ${mimetype}`);
                 break;
         }
-        drop.finish(gdkReturnAction);
         return {
             'action': gdkDropAction,
             'mimetype': mimetype,
@@ -211,7 +214,9 @@ async function manageIconDrop(fileItem, drop, x, y) {
         };
     } catch (e) {
         console.error(e);
-        drop.finish(0);
+        if (!dropFinished) {
+            drop.finish(0);
+        }
     }
     return null;
 }
