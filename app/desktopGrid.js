@@ -594,7 +594,9 @@ class PaintContainer extends Gtk.Widget {
                 borderColor.alpha = 1.0;
 
                 this._snapshotRoundedRect(snapshot,
-                    x, y, grid._elementWidth, grid._elementHeight,
+                    x + elementSpacing, y + elementSpacing,
+                    grid._elementWidth - 2 * elementSpacing,
+                    grid._elementHeight - 2 * elementSpacing,
                     10, fillColor, borderColor, 0.5);
             }
         }
