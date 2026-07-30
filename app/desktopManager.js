@@ -125,6 +125,8 @@ var DesktopManager = class {
         this._clickY = 0;
         this._dragList = null;
         this.dragItem = null;
+        this._dragOriginX = 0;
+        this._dragOriginY = 0;
         this.thumbnailLoader = new Thumbnails.ThumbnailLoader(this, codePath);
         this._codePath = codePath;
         this._asDesktop = asDesktop;
@@ -500,6 +502,9 @@ var DesktopManager = class {
 
     onDragBegin(item) {
         this.dragItem = item;
+        let [xOrigin, yOrigin] = item.getCoordinates();
+        this._dragOriginX = xOrigin;
+        this._dragOriginY = yOrigin;
     }
 
     onDragMotion(x, y) {
@@ -550,8 +555,7 @@ var DesktopManager = class {
         }
         switch (dropInfo.mimetype) {
             case Enums.DndTargetInfo.DING_ICON_LIST:
-                let [xOrigin, yOrigin, a, b, c] = this.dragItem.getCoordinates();
-                this.doMoveWithDragAndDrop(xOrigin, yOrigin, xDestination, yDestination);
+                this.doMoveWithDragAndDrop(this._dragOriginX, this._dragOriginY, xDestination, yDestination);
                 break;
             case Enums.DndTargetInfo.GNOME_ICON_LIST:
             case Enums.DndTargetInfo.URI_LIST:
