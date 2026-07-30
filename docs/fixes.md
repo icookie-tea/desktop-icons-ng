@@ -445,3 +445,57 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 | 文件 | 变更 |
 |------|------|
 | `app/desktopIconItem.js` | 新增 `_createDragIcon()` 方法，依赖 `Gsk`/`Graphene`/`Pango` |
+
+### GtkSnapshot API 在 GJS 中的兼容性问题
+
+**症状：**
+- 多选拖拽时堆叠图标预览不显示，回退到 GTK 默认文本占位符光标
+
+**根因：**
+- `GtkSnapshot.append_paintable()` 在 GJS GIR 绑定中不存在，静默失败
+- `GtkSnapshot.to_paintable()` 在 GJS 中必须传入 `null` 参数，否则抛出异常
+
+**修复：**
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktopIconItem.js` | `append_paintable()` → `GdkPaintable.snapshot()`；`to_paintable()` → `to_paintable(null)`；添加 try-catch 回退到单图标 |
+
+### Ghost 预览矩形尺寸偏差
+
+**症状：**
+- 拖拽时 grid 指示框的四边与相邻网格略微重叠，多选时更明显
+
+**根因：**
+- Ghost 使用完整网格单元尺寸（`_elementWidth x _elementHeight`）
+- 实际图标容器被 `elementSpacing=2` 内缩 4px，ghost 比图标大 4px
+
+**修复：**
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktopGrid.js:596-598` | Ghost 增加 `elementSpacing` 偏移并收缩尺寸，对齐实际图标容器 |
+
+### 切换主题色后选中效果不刷新
+
+**症状：**
+- 切换 GNOME 主题色后，橡皮筋预选框、图标选中高亮仍显示旧主题色
+- 拖拽中 ghost 预览正确刷新（因持续 redraw）
+
+**根因（2 个 Bug）：**
+
+**Bug 1 — `_configureSelectionColor` 未触发 visual refresh：**
+- `AcwardStyleManager::notify::accent-color-rgba` 信号中调用了 `_configureSelectionColor()`，更新了 `selectColor` 和 CSS provider
+- 但未对 PaintContainer 调用 `queue_draw()`，导致 `vfunc_snapshot()` 继续使用旧颜色
+- CSS provider 重建后也未强制 icon widget 刷新 style，选中高亮不更新
+
+**Bug 2 — `get_accent_color_rgba()` 在 notify 同步调用中返回旧值：**
+- GObject 中 boxed 属性在 notify 信号发射时尚未完成 deep copy
+- 同步调用 `get_accent_color_rgba()` 读到的是**上一个**主题色
+- 需要使用 `GLib.idle_add()` 推迟到下一轮主循环读取
+
+**修复：**
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktopManager.js:95-107` | notify handler 用 `GLib.idle_add` 推迟读取颜色；`_configureSelectionColor` 后对所有 grid 调 `queue_draw()` |
