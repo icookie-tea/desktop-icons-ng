@@ -1598,6 +1598,24 @@ var DesktopManager = class {
                 }
             }
         }
+        if (fileItem.dropCoordinates) {
+            const [x, y] = fileItem.dropCoordinates;
+            fileItem.dropCoordinates = null;
+            for (let desktop of this._desktops) {
+                if (desktop.getDistance(x, y) === 0) {
+                    desktop.addFileItemCloseTo(fileItem, x, y,
+                        Enums.StoredCoordinates.OVERWRITE);
+                    return;
+                }
+            }
+            for (let desktop of this._desktops) {
+                if (desktop.getDistance(x, y) !== -1) {
+                    desktop.addFileItemCloseTo(fileItem, x, y,
+                        Enums.StoredCoordinates.OVERWRITE);
+                    return;
+                }
+            }
+        }
         let x, y;
         if (this._primaryScreen !== null) {
             const primaryGrid = this._desktops.find(g => g._monitor === this._primaryScreen.monitorIndex);
