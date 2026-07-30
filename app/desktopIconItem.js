@@ -375,7 +375,6 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
 
     highLightDropTarget() {
         if (this._hasToRouteDragToGrid()) {
-            console.log(`[DING] highLightDropTarget: routing to grid via refreshDrag for "${this._displayName}"`);
             this._grid.refreshDrag(this._desktopManager._dragList || [[0, 0]], this._x1, this._y1);
             return;
         }
@@ -450,16 +449,9 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
         })
         this.connectSignal(dragController, 'drag-begin', () => {
             this._desktopManager.onDragBegin(this);
-            try {
-                const paintable = this._createDragIcon();
-                if (paintable) {
-                    dragController.set_icon(paintable, 32, 32);
-                    console.log(`[DING] set drag icon for "${this._displayName}"`);
-                } else {
-                    console.log(`[DING] _createDragIcon returned null for "${this._displayName}"`);
-                }
-            } catch(e) {
-                print(`[DING] drag-begin error: ${e.message}\n${e.stack}`);
+            const paintable = this._createDragIcon();
+            if (paintable) {
+                dragController.set_icon(paintable, 32, 32);
             }
         });
         this.connectSignal(dragController, 'drag-end', () => {
@@ -471,7 +463,6 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
         try {
             return this._createDragIconImpl();
         } catch(e) {
-            print(`[DING] _createDragIcon failed: ${e.message}\n${e.stack}`);
             return this._icon.get_paintable();
         }
     }
