@@ -1,117 +1,5 @@
 # 修复日志
 
-## 2026-07-28 (Code Quality)
-
-### 拖拽文本到桌面：对齐 Nautilus 行为
-
-**症状：**
-- 从文本编辑器拖拽文本到桌面完全不工作（journal log: `Unknown mime type for DnD: text/plain;charset=utf-8`）
-- 拖拽文本生成的文件名包含乱码（`Date().valueOf()` 返回字符串而非时间戳）
-- URL 被生成 `.html` 自跳转文件，与 Nautilus 行为不一致
-- 中文文本和 URL 中的 `/`、`:` 等字符导致文件名非法，文件写入失败，桌面出现空图标框
-- 多次拖拽相同内容会覆盖已有文件
-
-**根因：**
-- `text/plain;charset=utf-8` mimetype 在 DnD switch 中未处理
-- `Date()` 不带 `new` 返回字符串，`.valueOf()` 对字符串返回自身
-- JS `\w` 不匹配中文字符，文件名截断逻辑失效
-- 目标目录硬编码 `DIRECTORY_DESKTOP` 而非 `getDesktopDir()`
-
-**参考：** Nautilus `src/nautilus-files-view-dnd.c:get_drop_filename()`
-
-**修复：**
-- DnD switch 增加 `TEXT_PLAIN` / `TEXT_PLAIN_UTF8` case
-- 删除 URL→`.html` 逻辑，统一生成 `.txt` 文件
-- 文件名生成：flatten 多行文本 → 截断64字符 → 清理所有非法文件名字符 → 合并连续 `-` → 加 `.txt`
-- 复用 `getDesktopUniqueFileName()` 防止文件覆盖
-- 目标目录统一使用 `getDesktopDir()`
-- 删除死代码：`detectURLorText()`、`writeURLlinktoDesktop()`、`writeHTMLTypeLink()`、`writeTextFileToDesktop()`
-
-| 文件 | 变更 |
-|------|------|
-| `app/dndClipboardUtils.js` | DnD switch 增加文本处理、const→let |
-| `app/desktopManager.js` | 删除3个旧方法、新增 `_writeDroppedText()` |
-| `app/desktopIconsUtil.js` | `generateDropFilename()` + `writeDroppedTextFile()` |
-
-**提交：** `3525695` / `32dcd0a`
-
----
-
-### 暗色模式废弃 API 替换
-
-**症状：** 无（当前 GTK4 仍能运行）
-
-**根因：** `Gdk.Screen.get_default()` 在 GTK4 已废弃，被 try-catch 包裹静默处理。未来 GTK 版本移除此 API 后，暗色模式设置将失效。
-
-**修复：** 替换为 `Gtk.Settings.get_default()`
-
-| 文件 | 变更 |
-|------|------|
-| `app/desktopManager.js` | `Gtk.Settings.get_for_screen(Gdk.Screen.get_default())` → `Gtk.Settings.get_default()` |
-
-**提交：** `d1ad154`
-
----
-
-### 空 catch 块补充注释
-
-**症状：** 无（行为正确，仅代码可读性问题）
-
-**根因：** 两处 `set_attributes_from_info()` 的 `catch (e) { }` 缺少注释，维护者不清楚为何静默吞掉错误。
-
-**修复：** 添加注释说明静默处理的合理性（文件可能已被删除或文件系统不支持元数据属性）
-
-| 文件 | 变更 |
-|------|------|
-| `app/desktopManager.js` | `clearFileCoordinates()` catch 块 |
-| `app/desktopIconsUtil.js` | `writeDroppedTextFile()` catch 块 |
-
-**提交：** `7f79582`
-
----
-
-### Overview 同步过渡：Clutter.Clone + OverviewAdjustment
-
-**症状：**
-- 旧方案使用 `actor.ease()` 事后驱动淡入淡出，与 Shell 的过渡动画不同步
-- HIDDEN ↔ APP_GRID 切换时桌面图标出现闪烁或延迟
-
-**根因：**
-- `window_group.visible = false` 在 `'showing'` 信号之前发生，淡出不可能实现
-- 事后 `ease()` 动画与 Shell 内部过渡进度不同步
-
-**修复：**
-采用 gtk4-ding 的 Clutter.Clone 方案：
-- 新增 `gnomeShellOverride.js`：覆写 `WorkspaceBackground._init`，注入桌面窗口克隆层
-- 克隆层透明度由 Shell 内部 `_stateAdjustment` 驱动，帧同步淡入淡出
-- 移除 `emulateX11WindowType.js` 中旧的 `_onOverviewHiding` / `_onWindowGroupVisible` 处理器
-- 直接在 `OverviewAdjustment` 上监听 `notify::value`（而非 per-workspace 的 `_stateAdjustment`），覆盖所有过渡
-
-| 文件 | 变更 |
-|------|------|
-| `gnomeShellOverride.js` | 新增，覆写 WorkspaceBackground |
-| `emulateX11WindowType.js` | 移除旧 Overview 信号处理器 |
-| `extension.js` | 集成 GnomeShellOverride 生命周期 |
-| `meson.build` | 添加 gnomeShellOverride.js 到安装列表 |
-
-**提交：** `d0f551c` / `fc84044`
-
----
-
-### 代码风格统一
-
-**修复：**
-- 修复 import 语句分号与空行，统一项目代码风格
-
-| 文件 | 变更 |
-|------|------|
-| `emulateX11WindowType.js` | 移除多余空行 |
-| `gnomeShellOverride.js` | 统一 import 风格 |
-
-**提交：** `b993cae`
-
----
-
 ## 2026-07-21
 
 ### 右键菜单弹出位置异常，带三角箭头
@@ -332,6 +220,118 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 ---
 
+## 2026-07-28 (Code Quality)
+
+### Overview 同步过渡：Clutter.Clone + OverviewAdjustment
+
+**症状：**
+- 旧方案使用 `actor.ease()` 事后驱动淡入淡出，与 Shell 的过渡动画不同步
+- HIDDEN ↔ APP_GRID 切换时桌面图标出现闪烁或延迟
+
+**根因：**
+- `window_group.visible = false` 在 `'showing'` 信号之前发生，淡出不可能实现
+- 事后 `ease()` 动画与 Shell 内部过渡进度不同步
+
+**修复：**
+采用 gtk4-ding 的 Clutter.Clone 方案：
+- 新增 `gnomeShellOverride.js`：覆写 `WorkspaceBackground._init`，注入桌面窗口克隆层
+- 克隆层透明度由 Shell 内部 `_stateAdjustment` 驱动，帧同步淡入淡出
+- 移除 `emulateX11WindowType.js` 中旧的 `_onOverviewHiding` / `_onWindowGroupVisible` 处理器
+- 直接在 `OverviewAdjustment` 上监听 `notify::value`（而非 per-workspace 的 `_stateAdjustment`），覆盖所有过渡
+
+| 文件 | 变更 |
+|------|------|
+| `gnomeShellOverride.js` | 新增，覆写 WorkspaceBackground |
+| `emulateX11WindowType.js` | 移除旧 Overview 信号处理器 |
+| `extension.js` | 集成 GnomeShellOverride 生命周期 |
+| `meson.build` | 添加 gnomeShellOverride.js 到安装列表 |
+
+**提交：** `d0f551c` / `fc84044`
+
+---
+
+### 代码风格统一
+
+**修复：**
+- 修复 import 语句分号与空行，统一项目代码风格
+
+| 文件 | 变更 |
+|------|------|
+| `emulateX11WindowType.js` | 移除多余空行 |
+| `gnomeShellOverride.js` | 统一 import 风格 |
+
+**提交：** `b993cae`
+
+---
+
+### 拖拽文本到桌面：对齐 Nautilus 行为
+
+**症状：**
+- 从文本编辑器拖拽文本到桌面完全不工作（journal log: `Unknown mime type for DnD: text/plain;charset=utf-8`）
+- 拖拽文本生成的文件名包含乱码（`Date().valueOf()` 返回字符串而非时间戳）
+- URL 被生成 `.html` 自跳转文件，与 Nautilus 行为不一致
+- 中文文本和 URL 中的 `/`、`:` 等字符导致文件名非法，文件写入失败，桌面出现空图标框
+- 多次拖拽相同内容会覆盖已有文件
+
+**根因：**
+- `text/plain;charset=utf-8` mimetype 在 DnD switch 中未处理
+- `Date()` 不带 `new` 返回字符串，`.valueOf()` 对字符串返回自身
+- JS `\w` 不匹配中文字符，文件名截断逻辑失效
+- 目标目录硬编码 `DIRECTORY_DESKTOP` 而非 `getDesktopDir()`
+
+**参考：** Nautilus `src/nautilus-files-view-dnd.c:get_drop_filename()`
+
+**修复：**
+- DnD switch 增加 `TEXT_PLAIN` / `TEXT_PLAIN_UTF8` case
+- 删除 URL→`.html` 逻辑，统一生成 `.txt` 文件
+- 文件名生成：flatten 多行文本 → 截断64字符 → 清理所有非法文件名字符 → 合并连续 `-` → 加 `.txt`
+- 复用 `getDesktopUniqueFileName()` 防止文件覆盖
+- 目标目录统一使用 `getDesktopDir()`
+- 删除死代码：`detectURLorText()`、`writeURLlinktoDesktop()`、`writeHTMLTypeLink()`、`writeTextFileToDesktop()`
+
+| 文件 | 变更 |
+|------|------|
+| `app/dndClipboardUtils.js` | DnD switch 增加文本处理、const→let |
+| `app/desktopManager.js` | 删除3个旧方法、新增 `_writeDroppedText()` |
+| `app/desktopIconsUtil.js` | `generateDropFilename()` + `writeDroppedTextFile()` |
+
+**提交：** `3525695` / `32dcd0a`
+
+---
+
+### 暗色模式废弃 API 替换
+
+**症状：** 无（当前 GTK4 仍能运行）
+
+**根因：** `Gdk.Screen.get_default()` 在 GTK4 已废弃，被 try-catch 包裹静默处理。未来 GTK 版本移除此 API 后，暗色模式设置将失效。
+
+**修复：** 替换为 `Gtk.Settings.get_default()`
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktopManager.js` | `Gtk.Settings.get_for_screen(Gdk.Screen.get_default())` → `Gtk.Settings.get_default()` |
+
+**提交：** `d1ad154`
+
+---
+
+### 空 catch 块补充注释
+
+**症状：** 无（行为正确，仅代码可读性问题）
+
+**根因：** 两处 `set_attributes_from_info()` 的 `catch (e) { }` 缺少注释，维护者不清楚为何静默吞掉错误。
+
+**修复：** 添加注释说明静默处理的合理性（文件可能已被删除或文件系统不支持元数据属性）
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktopManager.js` | `clearFileCoordinates()` catch 块 |
+| `app/desktopIconsUtil.js` | `writeDroppedTextFile()` catch 块 |
+
+**提交：** `7f79582`
+
+---
+
 ## 2026-07-30
 
 ### 切换主屏后新图标出现在错误显示器
@@ -371,4 +371,4 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 | Bug 3 | `desktopManager.js:1470-1477, 1743-1750` | 改用 `_desktops.find(g => g._monitor === ...)` 取 grid 实例的 `_x/_y` |
 | 笔误 | `desktopGrid.js:357` | `Math.pow(x → y)` |
 
-**提交：**
+**提交：** `ecb8791`
