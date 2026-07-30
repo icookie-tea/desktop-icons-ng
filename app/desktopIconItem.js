@@ -562,7 +562,7 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
         snapshot.append_layout(layout, textColor);
         snapshot.restore();
 
-        return snapshot.to_paintable();
+        return snapshot.to_paintable(null);
     }
 
     _calculateOffset(widget) {
