@@ -499,3 +499,51 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 | 文件 | 变更 |
 |------|------|
 | `app/desktopManager.js:95-107` | notify handler 用 `GLib.idle_add` 推迟读取颜色；`_configureSelectionColor` 后对所有 grid 调 `queue_draw()` |
+
+---
+
+## 2026-07-30 (Refactoring)
+
+### PaintContainer 独立模块
+
+将 `desktopGrid.js` 中嵌套的 `PaintContainer` 类提取到独立文件 `paintContainer.js`（127 行渲染逻辑）。`desktopGrid.js` 减少 130 行，移除 `GObject`/`Gsk`/`Graphene` 依赖。
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktopGrid.js` | 移除 `PaintContainer` 类定义，改为 `imports.paintContainer.PaintContainer` |
+| `app/paintContainer.js` | 新建，完整的渲染类（rubberband + ghost 预览） |
+| `app/meson.build` | 添加 `paintContainer.js` |
+
+### 死代码清理 + 封装修复
+
+- 移除 Ctrl+Z/Ctrl+Shift+Z 快捷键分支（调用未定义的 `doUndo()`/`_doRedo()`）
+- `_dragList` 添加公共 `getDragList()` 方法替代直接访问私有属性
+
+### ThemeManager 独立模块
+
+将 `_configureSelectionColor()`、`_checkApplyDarkModeSetting()`、accent color 信号连接从 `desktopManager.js` 提取到 `themeManager.js`（119 行）。`desktopManager.js` 减少 60 行。
+
+| 文件 | 变更 |
+|------|------|
+| `app/themeManager.js` | 新建 |
+| `app/desktopManager.js` | 删除两个旧方法，添加 `selectColor` getter 委托给 ThemeManager |
+
+### DnD 竞态条件修复（5 个 Bug）
+
+**症状汇总：**
+- 快速连续拖拽时自投守卫不生效，触发 Nautilus "无法将文件夹移入自身"
+- `gdk_drop_finalize` 生命周期警告刷屏
+- 多选 A+B 拖拽 A 放到 B 时 B 被移入自身
+- 拖拽后图标不移动（`dragItem is null` TypeError）
+- `GtkSnapshot.to_paintable()` 缺失参数异常
+
+**根因链与修复：**
+
+| Bug | 根因 | 文件 | 修复 |
+|-----|------|------|------|
+| 自投守卫竞态 | `_isSelected && dragItem` 依赖全局状态，快速拖拽时被覆盖 | `fileItem.js:544,559` | 用实例级 `_isBeingDragged` 替代 |
+| `gdk_drop_finalize` | `drop.finish()` 在两次 `await` 后才调用，GdkDrop 被提前 GC | `dndClipboardUtils.js:176` | 移至第一个 `await` 之后立即调用 |
+| `gdk_drop_finalize` | `GtkDropTargetAsync::drop` handler 返回 false 时不自动 finish | `fileItem.js:560` | ~~加 `drop.finish(0)`~~ → 撤销（导致 grid 读不到数据） |
+| 多选 B 自投 | drop handler 没有 `_hasToRouteDragToGrid` 检查 | `fileItem.js:562` | 添加 `dropInfo.filelist.includes(this.uri)` 兜底 |
+| 图标不移动 | `dragItem` 在 async drop handler 完成前被 `drag-end` 清空 | `desktopManager.js:553` | 在 `onDragBegin` 保存 `_dragOriginX/Y`，直接使用 |
+| `GtkSnapshot` 兼容 | `to_paintable()` 在 GJS 中必须传 `null` 参数 | `desktopIconItem.js:552` | `to_paintable(null)` |
