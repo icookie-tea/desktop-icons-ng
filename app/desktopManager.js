@@ -1447,7 +1447,6 @@ var DesktopManager = class {
         if (this.keepArranged || this.keepStacked) {
             this._scheduleFullRefresh();
             return;
-            return;
         }
         switch (eventType) {
             case Gio.FileMonitorEvent.MOVED_IN:
@@ -1478,7 +1477,6 @@ var DesktopManager = class {
                 return;
             case Gio.FileMonitorEvent.UNMOUNTED:
                 this._scheduleFullRefresh();
-                return;
                 return;
         }
         this._fileChangesQueue.push({ file, otherFile, eventType });

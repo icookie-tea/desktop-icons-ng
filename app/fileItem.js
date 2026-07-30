@@ -563,6 +563,9 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
             if (dropInfo === null) {
                 return false;
             }
+            if (dropInfo.filelist.includes(this.uri)) {
+                return false;
+            }
             try {
                 if (dropInfo.action === Gdk.DragAction.MOVE) {
                     DBusUtils.RemoteFileOperations.MoveURIsRemote(dropInfo.filelist, this.uri);
