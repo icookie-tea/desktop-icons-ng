@@ -45,6 +45,7 @@ const AutoAr = imports.autoAr;
 const SignalManager = imports.signalManager;
 const DesktopMenu = imports.desktopMenu;
 const FileChangesQueue = imports.fileChangesQueue;
+const ThemeManager = imports.themeManager;
 
 const Gettext = imports.gettext.domain('ding');
 
@@ -87,30 +88,19 @@ var DesktopManager = class {
         this._popupCounter = 0;
 
         this.dbusManager = dbusManager;
-        this._cssColorProviderSelection = null;
-        this._adwStyleManager = Adw.StyleManager.get_default();
-        try {
-            if (this._adwStyleManager.get_system_supports_accent_colors()) {
-                this._accentColorsAvailable = true;
-                this._adwStyleManager.connect('notify', (obj, spec) => {
-                    if ((spec.get_name() === 'accent-color') || (spec.get_name() === 'accent-color-rgba')) {
-                        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-                            this._configureSelectionColor();
-                            for (let desktop of this._desktops) {
-                                desktop.queue_draw();
-                                if (desktop._container) {
-                                    desktop._container.queue_draw();
-                                }
-                            }
-                            return GLib.SOURCE_REMOVE;
-                        });
+        this._themeManager = new ThemeManager.ThemeManager(this);
+        this._themeManager.connectAccentColorHandler(() => {
+            GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                this._themeManager.configureSelectionColor();
+                for (let desktop of this._desktops) {
+                    desktop.queue_draw();
+                    if (desktop._container) {
+                        desktop._container.queue_draw();
                     }
-                });
-            }
-        } catch (e) {
-            console.log(`System does not support accent colors: ${e.message}\n${e.stack}`);
-            this._accentColorsAvailable = false;
-        }
+                }
+                return GLib.SOURCE_REMOVE;
+            });
+        });
 
         this._premultiplied = false;
         try {
@@ -162,10 +152,10 @@ var DesktopManager = class {
 
         this._fileItemMenu = new FileItemMenu.FileItemMenu(this, mainApp);
         if (Prefs.schemaGnomeDarkSettings) {
-            if (this._checkApplyDarkModeSetting()) {
+            if (this._themeManager.checkApplyDarkModeSetting()) {
                 Prefs.schemaGnomeDarkSettings.connect('changed', (obj, key) => {
                     if (key === 'color-scheme') {
-                        this._checkApplyDarkModeSetting();
+                        this._themeManager.checkApplyDarkModeSetting();
                     }
                 });
             }
@@ -280,7 +270,7 @@ var DesktopManager = class {
         cssProvider.load_from_file(Gio.File.new_for_path(GLib.build_filenamev([codePath, 'stylesheet.css'])));
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), cssProvider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
         cssProvider = undefined;
-        this._configureSelectionColor();
+        this._themeManager.configureSelectionColor();
         this._createGridWindows();
 
         DBusUtils.GtkVfsMetadata.connectSignalToProxy('AttributeChanged', this._metadataChanged.bind(this));
@@ -436,65 +426,8 @@ var DesktopManager = class {
         }
     }
 
-    _configureSelectionColor() {
-        if (this._cssColorProviderSelection !== null) {
-            Gtk.StyleContext.remove_provider_for_display(
-                Gdk.Display.get_default(),
-                this._cssColorProviderSelection
-            );
-        }
-
-        try {
-            if (this.accentColorsAvailable) {
-                this.selectColor = this._adwStyleManager.get_accent_color_rgba();
-            } else {
-                const box = new Gtk.Label();
-                const styleContext = box.get_style_context();
-                styleContext.add_class('view');
-                const [exists, color] = styleContext.lookup_color('accent_bg_color');
-                if (exists)
-                    this.selectColor = color;
-                else
-                    throw new Error('Style Context does not provide accent_bg_color');
-            }
-        } catch (e) {
-            console.log(e.message);
-            console.log('Setting default accent color to blue');
-            this.selectColor = new Gdk.RGBA({
-                red: 0,
-                green: 0,
-                blue: 0.9,
-                alpha: 1.0,
-            });
-        }
-        let cssColorDefinition =
-            `@define-color desktop_icons_bg_color ${this.selectColor.to_string()};\n`;
-        this._cssColorProviderSelection = new Gtk.CssProvider();
-        // fix for api change Gtk 4.9
-        try {
-            this._cssColorProviderSelection.load_from_data(cssColorDefinition);
-        } catch (e) {
-            const gsizeLength = -1; // NULL terminated string
-            this._cssColorProviderSelection.load_from_data(
-                cssColorDefinition,
-                gsizeLength
-            );
-        }
-        Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(),
-            this._cssColorProviderSelection,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        );
-    }
-
-    _checkApplyDarkModeSetting() {
-        try {
-            let displayGtkSettings = Gtk.Settings.get_default();
-            displayGtkSettings.gtk_application_prefer_dark_theme = Prefs.schemaGnomeDarkSettings.get_string('color-scheme') === 'prefer-dark';
-            return true;
-        } catch (e) {
-            return false;
-        }
+    get selectColor() {
+        return this._themeManager.selectColor;
     }
 
     clearFileCoordinates(fileList, dropCoordinates) {

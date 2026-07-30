@@ -30,6 +30,7 @@ install_data([
     'showErrorPopup.js',
     'signalManager.js',
     'stackItem.js',
+    'themeManager.js',
     'stylesheet.css',
     'templatesScriptsManager.js',
     'thumbnails.js',
