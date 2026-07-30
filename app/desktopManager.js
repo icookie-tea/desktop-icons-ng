@@ -94,13 +94,16 @@ var DesktopManager = class {
                 this._accentColorsAvailable = true;
                 this._adwStyleManager.connect('notify', (obj, spec) => {
                     if ((spec.get_name() === 'accent-color') || (spec.get_name() === 'accent-color-rgba')) {
-                        this._configureSelectionColor();
-                        for (let desktop of this._desktops) {
-                            desktop.queue_draw();
-                            if (desktop._container) {
-                                desktop._container.queue_draw();
+                        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                            this._configureSelectionColor();
+                            for (let desktop of this._desktops) {
+                                desktop.queue_draw();
+                                if (desktop._container) {
+                                    desktop._container.queue_draw();
+                                }
                             }
-                        }
+                            return GLib.SOURCE_REMOVE;
+                        });
                     }
                 });
             }
