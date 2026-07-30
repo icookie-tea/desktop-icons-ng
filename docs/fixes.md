@@ -502,6 +502,28 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 ---
 
+### 拖拽图标时出现窗口范围指示边框
+
+**症状：**
+- 拖拽桌面图标时，窗口边缘出现 1px 主题色（绿/青）细轮廓线
+- 指示图标可排列的桌面范围，拖拽结束后消失
+
+**根因：**
+- GTK4 Adwaita 主题内置 CSS 规则 `:not(decoration):not(window):drop(active) { box-shadow: inset 0 0 0 1px #26a269; }`
+- DING 的 `Gtk.Fixed` 容器（drop target）填满整个窗口，拖拽时 GTK4 自动给它加 `:drop(active)` 伪类
+- 主题的 inset box-shadow 画在容器边缘，看起来像窗口边框
+- CSS `border: none; outline: none;` 无效，因为这是 `box-shadow`
+
+**参考：** gtk4-ding 无此问题（原因不同，但确认可避免）
+
+**修复：**
+
+| 文件 | 变更 |
+|------|------|
+| `app/stylesheet.css` | 添加 `window.desktopwindow *:drop(active) { box-shadow: none; }` 覆盖主题规则 |
+
+---
+
 ## 2026-07-30 (Refactoring)
 
 ### PaintContainer 独立模块

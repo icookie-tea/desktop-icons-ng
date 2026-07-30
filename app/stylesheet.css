@@ -34,6 +34,15 @@ window.desktopwindow {
     background-color: rgba(0, 0, 0, 0.005);
 }
 
+/* Override Adwaita theme's built-in `:drop(active)` rule that draws an
+   inset box-shadow on drop targets during drag-and-drop. DING's grid
+   container (Gtk.Fixed) fills the entire window, so the theme's default
+   inset shadow appears as a 1px colored outline around the whole desktop
+   window — we don't want that. */
+window.desktopwindow *:drop(active) {
+    box-shadow: none;
+}
+
 window.testwindow {
     background-color: rgba(0, 0, 0, 1);
 }
