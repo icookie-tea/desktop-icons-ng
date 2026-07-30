@@ -507,9 +507,7 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
             p.init(offsets[i].dx, offsets[i].dy);
             snapshot.save();
             snapshot.translate(p);
-            const r = new Graphene.Rect();
-            r.init(0, 0, iconSize, iconSize);
-            snapshot.append_paintable(paintable, r);
+            paintable.snapshot(snapshot, iconSize, iconSize);
             snapshot.restore();
         }
 
