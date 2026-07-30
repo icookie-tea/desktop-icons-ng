@@ -33,12 +33,17 @@ This branch maintains fixes and enhancements not yet merged to the upstream repo
 
 * **Overview transition sync** - desktop icons fade in/out frame-synchronized with Shell overview transitions via Clutter.Clone + OverviewAdjustment (replaces old post-hoc ease animation)
 * **Terminal fallback** - added `ptyxis` to the terminal emulator fallback list
+* **Drag text/URLs to desktop** - drag text from editors or URLs into desktop creates `.txt` files, matching Nautilus behavior (handles Chinese, URL sanitization, filename deduplication)
+* **Stacked drag preview for multi-select** - shows stacked icon with count badge (e.g. "3") when dragging multiple selected items
 
-### Documentation
+### Recent Fixes
 
-* **Architecture analysis** - detailed breakdown of DING's dual-layer architecture, startup flow, D-Bus communication, and user interaction
-* **Fixes log** - comprehensive changelog of all bug fixes with root cause analysis
-* **Memory leak analysis** - systematic audit of high/medium/low risk resource leaks
+* **Primary monitor switch icon placement** - new icons now appear on the correct screen after switching primary display in GNOME settings
+* **Folder self-drop routing** - prevents Nautilus "cannot move folder into itself" error and fixes drag-into-selected-folder edge cases
+* **Drag cursor/ghost icon** - ghost preview now follows mouse during drag (was showing default text-file placeholder)
+* **Accent color refresh on theme change** - selection colors update immediately when GNOME accent color changes, no longer requires restart
+* **Ghost preview size fix** - ghost rectangle now matches actual icon container size instead of full grid cell
+* **Drop target box-shadow suppression** - removed 1px green outline from Adwaita `:drop(active)` on desktop window during drag
 
 ---
 
@@ -195,6 +200,8 @@ If any of these items is false, .desktop files won't work.
 * [Architecture Analysis](docs/architecture-analysis.md) - DING dual-layer architecture, startup flow, D-Bus communication
 * [Fixes Log](docs/fixes.md) - detailed bug fix history with root cause analysis
 * [Memory Leak Analysis](docs/memory-leak-analysis.md) - resource leak audit (high/medium/low risk)
+* [Overview Animation](docs/overview-animation.md) - overview mode fade in/out implementation using Clutter.Clone + OverviewAdjustment
+* [Incremental Update Analysis](docs/incremental-update-analysis.md) - desktop full-rebuild refactoring analysis
 
 ## Source code and contacting the author
 
