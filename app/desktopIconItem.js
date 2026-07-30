@@ -450,10 +450,16 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
         })
         this.connectSignal(dragController, 'drag-begin', () => {
             this._desktopManager.onDragBegin(this);
-            const paintable = this._createDragIcon();
-            if (paintable) {
-                dragController.set_icon(paintable, 32, 32);
-                console.log(`[DING] set drag icon for "${this._displayName}"`);
+            try {
+                const paintable = this._createDragIcon();
+                if (paintable) {
+                    dragController.set_icon(paintable, 32, 32);
+                    console.log(`[DING] set drag icon for "${this._displayName}"`);
+                } else {
+                    console.log(`[DING] _createDragIcon returned null for "${this._displayName}"`);
+                }
+            } catch(e) {
+                print(`[DING] drag-begin error: ${e.message}\n${e.stack}`);
             }
         });
         this.connectSignal(dragController, 'drag-end', () => {
@@ -462,6 +468,15 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
     }
 
     _createDragIcon() {
+        try {
+            return this._createDragIconImpl();
+        } catch(e) {
+            print(`[DING] _createDragIcon failed: ${e.message}\n${e.stack}`);
+            return this._icon.get_paintable();
+        }
+    }
+
+    _createDragIconImpl() {
         const selection = this._desktopManager.getCurrentSelection(false);
         if (!selection || selection.length === 0)
             return this._icon.get_paintable();
