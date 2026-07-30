@@ -375,7 +375,7 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
 
     highLightDropTarget() {
         if (this._hasToRouteDragToGrid()) {
-            this._grid.refreshDrag(this._desktopManager._dragList || [[0, 0]], this._x1, this._y1);
+            this._grid.refreshDrag(this._desktopManager.getDragList() || [[0, 0]], this._x1, this._y1);
             return;
         }
         if (!this.container.has_css_class('desktop-icons-selected')) {

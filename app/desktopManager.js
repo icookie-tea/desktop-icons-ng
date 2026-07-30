@@ -595,6 +595,10 @@ var DesktopManager = class {
         }
     }
 
+    getDragList() {
+        return this._dragList;
+    }
+
     onDragLeave() {
         this._dragList = null;
         for (let desktop of this._desktops) {
@@ -847,12 +851,6 @@ var DesktopManager = class {
                 selected.toggleSelected();
                 return true;
             }
-        } else if (isCtrl && isShift && ((keyval == Gdk.KEY_Z) || (keyval == Gdk.KEY_z))) {
-            this._doRedo();
-            return true;
-        } else if (isCtrl && ((keyval == Gdk.KEY_Z) || (keyval == Gdk.KEY_z))) {
-            this.doUndo();
-            return true;
         } else if (isCtrl && ((keyval == Gdk.KEY_C) || (keyval == Gdk.KEY_c))) {
             this.doCopy();
             return true;
