@@ -15,6 +15,7 @@ install_data([
     'desktopManager.js',
     'desktopMenu.js',
     'ding.js',
+    'paintContainer.js',
     'dndClipboardUtils.js',
     'enums.js',
     'fileChangesQueue.js',
