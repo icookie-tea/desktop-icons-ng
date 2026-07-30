@@ -557,7 +557,6 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
 
         this.connectSignal(dropTarget, 'drop', async (widget, drop, x, y) => {
             if (this._isBeingDragged) {
-                drop.finish(0);
                 return false;
             }
             const dropInfo = await dndClipboardUtils.manageIconDrop(this, drop, x, y);
