@@ -30,6 +30,7 @@ install_data([
     'promiseUtils.js',
     'showErrorPopup.js',
     'signalManager.js',
+    'sortManager.js',
     'stackItem.js',
     'themeManager.js',
     'stylesheet.css',

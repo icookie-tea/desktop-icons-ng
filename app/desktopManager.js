@@ -29,14 +29,12 @@ const ByteArray = imports.byteArray;
 
 const dndClipboardUtils = imports.dndClipboardUtils;
 const FileItem = imports.fileItem;
-const stackItem = imports.stackItem;
 const DesktopGrid = imports.desktopGrid;
 const DesktopIconsUtil = imports.desktopIconsUtil;
 const Prefs = imports.preferences;
 const Enums = imports.enums;
 const NotifyX11UnderWayland = imports.notifyX11UnderWayland;
 const DBusUtils = imports.dbusUtils;
-const AskRenamePopup = imports.askRenamePopup;
 const ShowErrorPopup = imports.showErrorPopup;
 const TemplatesScriptsManager = imports.templatesScriptsManager;
 const Thumbnails = imports.thumbnails;
@@ -47,6 +45,7 @@ const DesktopMenu = imports.desktopMenu;
 const FileChangesQueue = imports.fileChangesQueue;
 const ThemeManager = imports.themeManager;
 const FileOperations = imports.fileOperations;
+const SortManager = imports.sortManager;
 
 const Gettext = imports.gettext.domain('ding');
 
@@ -90,6 +89,7 @@ var DesktopManager = class {
         this.dbusManager = dbusManager;
         this._themeManager = new ThemeManager.ThemeManager(this);
         this._fileOps = new FileOperations.FileOperations(this);
+        this._sortManager = new SortManager.SortManager(this);
         this._themeManager.connectAccentColorHandler(() => {
             GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
                 this._themeManager.configureSelectionColor();
@@ -1769,465 +1769,26 @@ var DesktopManager = class {
 
 
     doStacks(restack) {
-        const selected = this._getCurrentKeyboardIcon()?.uri;
-        if (restack) {
-            for (let fileItem of this._fileList) {
-                fileItem.removeFromGrid(false);
-            }
-        }
-        if (!this.stackInitialCoordinates && !this._allFileList) {
-            this._allFileList = [];
-            this._saveStackInitialCoordinates();
-            restack = false;
-        }
-        this._sortAllFilesFromGridsByKindStacked(restack);
-        this._reassignFilesToDesktop();
-        if (selected) {
-            this._fileList.forEach(icon => icon.isKeyboardSelected = (icon.uri === selected));
-        }
-    }
-
-    _unstack() {
-        if (this.stackInitialCoordinates && this._allFileList) {
-            this._fileList.forEach(f => f.removeFromGrid(false));
-            this._restoreStackInitialCoordinates();
-            this._fileList = this._allFileList;
-            this._allFileList = null;
-            if (this.keepArranged) {
-                this.doSorts();
-            } else {
-                this._addFilesToDesktop(this._fileList, Enums.StoredCoordinates.PRESERVE);
-            }
-        }
-    }
-
-    _saveStackInitialCoordinates() {
-        this.stackInitialCoordinates = [];
-        for (let fileItem of this._fileList) {
-            this.stackInitialCoordinates.push([fileItem.fileName, fileItem.savedCoordinates]);
-        }
-    }
-
-    _restoreStackInitialCoordinates() {
-        if (this.stackInitialCoordinates && this.stackInitialCoordinates.length != 0) {
-            this._allFileList.forEach(fileItem => {
-                this.stackInitialCoordinates.forEach(savedItem => {
-                    if (savedItem[0] == fileItem.fileName) {
-                        fileItem.savedCoordinates = savedItem[1];
-                    }
-                });
-            });
-        }
-        this.stackInitialCoordinates = null;
-    }
-
-    _makeStackTopMarkerFolder(type, list) {
-        let stackAttribute = type.split('/')[1];
-        let fileItem = new stackItem.stackItem(
-            this,
-            stackAttribute,
-            type,
-            Enums.FileType.STACK_TOP
-        );
-        list.push(fileItem);
-    }
-
-    _sortAllFilesFromGridsByKindStacked(restack) {
-        /**
-         *
-         */
-        function determineStackTopSizeOrTime() {
-            for (let item of otherFiles) {
-                if (item.isStackMarker) {
-                    for (let unstackitem of stackedFiles) {
-                        if (item.attributeContentType == unstackitem.attributeContentType) {
-                            item.size = unstackitem.fileSize;
-                            item.time = unstackitem.modifiedTime;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        let specialFiles = [];
-        let directoryFiles = [];
-        let validDesktopFiles = [];
-        let otherFiles = [];
-        let stackedFiles = [];
-        let newFileList = [];
-        let stackTopMarkerFolderList = [];
-        let unstackList = Prefs.getUnstackList();
-        if (this._allFileList && restack) {
-            this._fileList = this._allFileList;
-        }
-        this._sortByName(this._fileList);
-        for (let fileItem of this._fileList) {
-            if (fileItem.isSpecial) {
-                specialFiles.push(fileItem);
-                continue;
-            }
-            if (fileItem.isDirectory) {
-                directoryFiles.push(fileItem);
-                continue;
-            }
-            if (fileItem._isValidDesktopFile) {
-                validDesktopFiles.push(fileItem);
-                continue;
-            } else {
-                let type = fileItem.attributeContentType;
-                let stacked = false;
-                for (let item of otherFiles) {
-                    if (type == item.attributeContentType) {
-                        stackedFiles.push(fileItem);
-                        stacked = true;
-                    }
-                }
-                if (!stacked) {
-                    fileItem.isStackTop = true;
-                    otherFiles.push(fileItem);
-                }
-                continue;
-            }
-        }
-        for (let a of otherFiles) {
-            let instack = false;
-            for (let c of stackedFiles) {
-                if (c.attributeContentType == a.attributeContentType) {
-                    instack = true;
-                    break;
-                }
-            }
-            if (!instack) {
-                a.stackUnique = true;
-            }
-            continue;
-        }
-        for (let item of otherFiles) {
-            if (!item.stackUnique) {
-                this._makeStackTopMarkerFolder(item.attributeContentType, stackTopMarkerFolderList);
-                item.isStackTop = false;
-                stackedFiles.push(item);
-            }
-            if (item.stackUnique) {
-                stackTopMarkerFolderList.push(item);
-            }
-            item.updateIcon();
-        }
-        otherFiles = [];
-        this._sortByName(specialFiles);
-        this._sortByName(directoryFiles);
-        this._sortByName(validDesktopFiles);
-        this._sortByKindByName(stackedFiles);
-        this._sortByKindByName(stackTopMarkerFolderList);
-        otherFiles.push(...specialFiles);
-        otherFiles.push(...validDesktopFiles);
-        otherFiles.push(...directoryFiles);
-        otherFiles.push(...stackTopMarkerFolderList);
-        /**
-         *
-         * @param a
-         * @param b
-         */
-        function bySize(a, b) {
-            return a.fileSize - b.fileSize;
-        }
-        /**
-         *
-         * @param a
-         * @param b
-         */
-        function byTime(a, b) {
-            return a._modifiedTime - b._modifiedTime;
-        }
-        switch (Prefs.getSortOrder()) {
-            case Enums.SortOrder.NAME:
-                this._sortByName(otherFiles);
-                break;
-            case Enums.SortOrder.DESCENDINGNAME:
-                this._sortByName(otherFiles);
-                otherFiles.reverse();
-                this._sortByName(stackedFiles);
-                stackedFiles.reverse();
-                break;
-            case Enums.SortOrder.MODIFIEDTIME:
-
-                stackedFiles.sort(byTime);
-                determineStackTopSizeOrTime();
-                otherFiles.sort(byTime);
-                break;
-            case Enums.SortOrder.KIND:
-                break;
-            case Enums.SortOrder.SIZE:
-                stackedFiles.sort(bySize);
-                determineStackTopSizeOrTime();
-                otherFiles.sort(bySize);
-                break;
-            default:
-                break;
-        }
-        for (let item of otherFiles) {
-            newFileList.push(item);
-            let itemtype = item.attributeContentType;
-            for (let unstackitem of stackedFiles) {
-                if (unstackList.includes(unstackitem.attributeContentType) && (unstackitem.attributeContentType == itemtype)) {
-                    newFileList.push(unstackitem);
-                }
-            }
-        }
-        if (this._allFileList) {
-            this._allFileList = this._fileList;
-        }
-        this._fileList = newFileList;
-    }
-
-    _sortByName(fileList) {
-        /**
-         *
-         * @param a
-         * @param b
-         */
-        function byName(a, b) {
-            // sort by label name instead of the the fileName or displayName so that the "Home" folder is sorted in the correct order
-            // alphabetical sort taking into account accent characters & locale, natural language sort for numbers, ie 10.etc before 2.etc
-            // other options for locale are best fit, or by specifying directly in function below for translators
-            return a._label.get_text().localeCompare(b._label.get_text(), { sensitivity: 'accent', numeric: 'true', localeMatcher: 'lookup' });
-        }
-        fileList.sort(byName);
-    }
-
-    _sortByKindByName(fileList) {
-        /**
-         *
-         * @param a
-         * @param b
-         */
-        function byKindByName(a, b) {
-            return a.attributeContentType.localeCompare(b.attributeContentType) ||
-                a._label.get_text().localeCompare(b._label.get_text(), { sensitivity: 'accent', numeric: 'true', localeMatcher: 'lookup' });
-        }
-        fileList.sort(byKindByName);
-    }
-
-    _sortAllFilesFromGridsByName(order) {
-        this._sortByName(this._fileList);
-        if (order == Enums.SortOrder.DESCENDINGNAME) {
-            this._fileList.reverse();
-        }
-        this._reassignFilesToDesktop();
+        this._sortManager.doStacks(restack);
     }
 
     sortAllFilesFromGridsByPosition() {
-        if (this.keepArranged) {
-            return;
-        }
-        this._fileList.forEach(f => f.removeFromGrid(false));
-        let cornerInversion = Prefs.get_start_corner();
-        if (!cornerInversion[0] && !cornerInversion[1]) {
-            this._fileList.sort((a, b) => {
-                if (a._x1 < b._x1) {
-                    return -1;
-                }
-                if (a._x1 > b._x1) {
-                    return 1;
-                }
-                if (a._y1 < b._y1) {
-                    return -1;
-                }
-                if (a._y1 > b._y1) {
-                    return 1;
-                }
-                return 0;
-            });
-        }
-        if (cornerInversion[0] && cornerInversion[1]) {
-            this._fileList.sort((a, b) => {
-                if (a._x1 < b._x1) {
-                    return 1;
-                }
-                if (a._x1 > b._x1) {
-                    return -1;
-                }
-                if (a._y1 < b._y1) {
-                    return 1;
-                }
-                if (a._y1 > b._y1) {
-                    return -1;
-                }
-                return 0;
-            });
-        }
-        if (cornerInversion[0] && !cornerInversion[1]) {
-            this._fileList.sort((a, b) => {
-                if (a._x1 < b._x1) {
-                    return 1;
-                }
-                if (a._x1 > b._x1) {
-                    return -1;
-                }
-                if (a._y1 < b._y1) {
-                    return -1;
-                }
-                if (a._y1 > b._y1) {
-                    return 1;
-                }
-                return 0;
-            });
-        }
-        if (!cornerInversion[0] && cornerInversion[1]) {
-            this._fileList.sort((a, b) => {
-                if (a._x1 < b._x1) {
-                    return -1;
-                }
-                if (a._x1 > b._x1) {
-                    return 1;
-                }
-                if (a._y1 < b._y1) {
-                    return 1;
-                }
-                if (a._y1 > b._y1) {
-                    return -1;
-                }
-                return 0;
-            });
-        }
-        this._reassignFilesToDesktop();
+        this._sortManager.sortAllFilesFromGridsByPosition();
     }
 
-    _sortAllFilesFromGridsByModifiedTime() {
-        /**
-         *
-         * @param a
-         * @param b
-         */
-        function byTime(a, b) {
-            return a._modifiedTime - b._modifiedTime;
-        }
-        this._fileList.sort(byTime);
-        this._reassignFilesToDesktop();
-    }
-
-    _sortAllFilesFromGridsBySize() {
-        /**
-         *
-         * @param a
-         * @param b
-         */
-        function bySize(a, b) {
-            return a.fileSize - b.fileSize;
-        }
-        this._fileList.sort(bySize);
-        this._reassignFilesToDesktop();
-    }
-
-    _sortAllFilesFromGridsByKind() {
-        let specialFiles = [];
-        let directoryFiles = [];
-        let validDesktopFiles = [];
-        let otherFiles = [];
-        let newFileList = [];
-        for (let fileItem of this._fileList) {
-            if (fileItem._isSpecial) {
-                specialFiles.push(fileItem);
-                continue;
-            }
-            if (fileItem._isDirectory) {
-                directoryFiles.push(fileItem);
-                continue;
-            }
-            if (fileItem._isValidDesktopFile) {
-                validDesktopFiles.push(fileItem);
-                continue;
-            } else {
-                otherFiles.push(fileItem);
-                continue;
-            }
-        }
-        this._sortByName(specialFiles);
-        this._sortByName(directoryFiles);
-        this._sortByName(validDesktopFiles);
-        this._sortByKindByName(otherFiles);
-        newFileList.push(...specialFiles);
-        newFileList.push(...validDesktopFiles);
-        newFileList.push(...directoryFiles);
-        newFileList.push(...otherFiles);
-        if (this._fileList.length == newFileList.length) {
-            this._fileList = newFileList;
-        }
-        this._reassignFilesToDesktop();
-    }
-
-    _reassignFilesToDesktop() {
-        if (!this.sortSpecialFolders) {
-            this._reassignFilesToDesktopPreserveSpecialFiles();
-            return;
-        }
-        for (let fileItem of this._fileList) {
-            fileItem.savedCoordinates = null;
-            fileItem.dropCoordinates = null;
-        }
-        this._addFilesToDesktop(this._fileList, Enums.StoredCoordinates.ASSIGN);
-    }
-
-    _reassignFilesToDesktopPreserveSpecialFiles() {
-        let specialFiles = [];
-        let otherFiles = [];
-        let newFileList = [];
-        for (let fileItem of this._fileList) {
-            if (fileItem._isSpecial) {
-                specialFiles.push(fileItem);
-                continue;
-            }
-            if (!fileItem._isSpecial) {
-                otherFiles.push(fileItem);
-                fileItem.savedCoordinates = null;
-                fileItem.dropCoordinates = null;
-                continue;
-            }
-        }
-        newFileList.push(...specialFiles);
-        newFileList.push(...otherFiles);
-        if (this._fileList.length == newFileList.length) {
-            this._fileList = newFileList;
-        }
-        this._addFilesToDesktop(this._fileList, Enums.StoredCoordinates.PRESERVE);
+    _unstack() {
+        this._sortManager._unstack();
     }
 
     doSorts(cleargrids) {
-        if (cleargrids) {
-            this._fileList.forEach(f => f.removeFromGrid(false));
-        }
-        switch (Prefs.getSortOrder()) {
-            case Enums.SortOrder.NAME:
-                this._sortAllFilesFromGridsByName();
-                break;
-            case Enums.SortOrder.DESCENDINGNAME:
-                this._sortAllFilesFromGridsByName(Enums.SortOrder.DESCENDINGNAME);
-                break;
-            case Enums.SortOrder.MODIFIEDTIME:
-                this._sortAllFilesFromGridsByModifiedTime();
-                break;
-            case Enums.SortOrder.KIND:
-                this._sortAllFilesFromGridsByKind();
-                break;
-            case Enums.SortOrder.SIZE:
-                this._sortAllFilesFromGridsBySize();
-                break;
-            default:
-                this._addFilesToDesktop(this._fileList, Enums.StoredCoordinates.PRESERVE);
-                break;
-        }
+        this._sortManager.doSorts(cleargrids);
     }
 
     onToggleStackUnstackThisTypeClicked(type) {
-        let unstackList = Prefs.getUnstackList();
-        let typeInList = unstackList.includes(type);
-        if (typeInList) {
-            let index = unstackList.indexOf(type);
-            unstackList.splice(index, 1);
-        } else {
-            unstackList.push(type);
-        }
-        Prefs.setUnstackList(unstackList);
+        this._sortManager.onToggleStackUnstackThisTypeClicked(type);
+    }
+
+    _getSortManager() {
+        return this._sortManager;
     }
 };
