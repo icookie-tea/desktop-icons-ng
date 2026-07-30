@@ -566,6 +566,21 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 | `app/sortManager.js` | 新建，包含 17 个排序/堆叠方法 |
 | `app/desktopManager.js` | 移除 450 行实现代码 |
 
+### 新建文件/文件夹出现在鼠标点击位置
+
+**症状：**
+- 右键菜单新建文件夹或文件时，图标出现在主屏左上角空位，而非鼠标右键点击的网格位置
+
+**根因：**
+- `doNewFolder` 将鼠标坐标写入 `metadata::nautilus-drop-position`，`FileItem` 构造函数正确读取为 `dropCoordinates`
+- 但 `_addSingleFileToDesktop` 只检查了 `savedCoordinates`，未检查 `dropCoordinates`，直接回退到 `_primaryScreen` 坐标
+
+**修复：**
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktopManager.js:1601-1616` | 在 `_addSingleFileToDesktop` 中 `savedCoordinates` 之后添加 `dropCoordinates` 检查，优先放在鼠标点击位置的网格 |
+
 ### 重构成果汇总
 
 | 指标 | 重构前 | 重构后 |
