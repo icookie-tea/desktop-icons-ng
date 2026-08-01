@@ -1,2 +1,9 @@
 # opencode working directory
 .opencode/
+
+# codegraph index
+.codegraph/
+
+# pi cache
+.pi/git/
+.pi/npm/
