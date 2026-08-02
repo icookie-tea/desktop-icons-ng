@@ -19,7 +19,7 @@ export var GnomeDesktop = null;
  * GJS promise job queue once Gtk windows start rendering (the module's
  * AsyncModuleExecution chain never drains), which stalls every later
  * microtask and leaves the desktop empty. Resolve lazily instead. */
-import('gi://GnomeDesktop?version=4.0').then(
+const gnomeDesktopImport = import('gi://GnomeDesktop?version=4.0').then(
     m => { GnomeDesktop = m.default; },
     () => {});
 import GLib from 'gi://GLib';
@@ -35,18 +35,30 @@ export var ThumbnailLoader = class {
         this._codePath = codePath;
         this._thumbList = [];
         this._running = false;
-        if (!GnomeDesktop) {
-                desktopManager.dbusManager.doNotify(_('GnomeDesktop-3.0 GIR file not found'),
-                                                    _('GnomeDesktop-3.0.gir file is missing. Please, install the required package in your system.'));
-        } else {
-            this._thumbnailFactoryNormal = GnomeDesktop.DesktopThumbnailFactory.new(GnomeDesktop.DesktopThumbnailSize.NORMAL);
-            this._thumbnailFactoryLarge = GnomeDesktop.DesktopThumbnailFactory.new(GnomeDesktop.DesktopThumbnailSize.LARGE);
-            if (this._thumbnailFactoryLarge.generate_thumbnail_async) {
-                this._useAsyncAPI = true;
+        this._thumbnailFactoryNormal = null;
+        this._thumbnailFactoryLarge = null;
+        this._useAsyncAPI = false;
+        // GnomeDesktop loads asynchronously (see gnomeDesktopImport above), so
+        // the factories may not exist yet; getThumbnail() awaits this promise.
+        this._factoriesReady = gnomeDesktopImport.then(() => {
+            if (GnomeDesktop) {
+                this._initFactories();
             } else {
-                this._useAsyncAPI = false;
-                print('Failed to detected async api for thumbnails');
+                desktopManager.dbusManager.doNotify(
+                    _('GnomeDesktop-3.0 GIR file not found'),
+                    _('GnomeDesktop-3.0.gir file is missing. Please, install the required package in your system.'));
             }
+        });
+    }
+
+    _initFactories() {
+        this._thumbnailFactoryNormal = GnomeDesktop.DesktopThumbnailFactory.new(GnomeDesktop.DesktopThumbnailSize.NORMAL);
+        this._thumbnailFactoryLarge = GnomeDesktop.DesktopThumbnailFactory.new(GnomeDesktop.DesktopThumbnailSize.LARGE);
+        if (this._thumbnailFactoryLarge.generate_thumbnail_async) {
+            this._useAsyncAPI = true;
+        } else {
+            this._useAsyncAPI = false;
+            print('Failed to detected async api for thumbnails');
         }
     }
 
@@ -181,6 +193,11 @@ export var ThumbnailLoader = class {
     }
 
     async getThumbnail(file) {
+        await this._factoriesReady;
+        if (!this._thumbnailFactoryLarge) {
+            // GnomeDesktop is unavailable: no thumbnail generation at all.
+            return null;
+        }
         return new Promise((resolve) => {
             try {
                 if (!this._resolveThumbnail(file, resolve)) {
