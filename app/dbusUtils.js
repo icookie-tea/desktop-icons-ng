@@ -460,6 +460,26 @@ class DbusOperationsManager {
         }
     }
 
+    /**
+     * Template for all remote D-Bus calls: proxy availability check, callback
+     * forwarding, error logging. `proxyMethod` overrides the method name called
+     * on the proxy (some proxies use a different name than the public one).
+     */
+    _remoteCall(manager, methodName, errorMessage, args, callback, proxyMethod = null) {
+        if (!manager.proxy) {
+            this._sendNoProxyError(callback);
+            return;
+        }
+        manager.proxy[proxyMethod || methodName](...args, (result, error) => {
+            if (callback) {
+                callback(result, error);
+            }
+            if (error) {
+                console.log(`${errorMessage}: ${error.message}`);
+            }
+        });
+    }
+
     ShowItemPropertiesRemote(selection, timestamp, callback) {
         this._remoteCall(this.freeDesktopFileManager, 'ShowItemPropertiesRemote', 'Error showing properties', [selection, this._getStartupId(selection, timestamp)], callback);
     }
