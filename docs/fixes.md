@@ -610,3 +610,55 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 | `desktopManager.js` 行数 | 2379 | **1795**（-584） |
 | 新增模块 | 0 | `paintContainer.js`, `themeManager.js`, `fileOperations.js`, `sortManager.js` |
 | 死代码移除 | — | `doUndo()`/`_doRedo()` 调用、冗余 import |
+
+---
+
+## 2026-08-02 (Maintainability Refactor)
+
+### 缩略图超时回调引用未定义变量 `reject`（bugs#2 未真正修复）
+
+**症状：** 缩略图生成超时时，`_launchNewBuild` 的 timeout 回调调用 `_createFailedThumbnailAsync(file, modifiedTime, resolve, reject)`，`reject` 从未声明 → `ReferenceError`，后续缩略图任务受影响。
+
+**根因：** 之前的修复只删除了函数签名中的 `reject` 参数，未删除调用点的实参。
+
+**修复：** 调用点改为 `this._createFailedThumbnailAsync(file, modifiedTime, resolve)`（ESLint `no-undef` 发现）。
+
+| 文件 | 变更 |
+|------|------|
+| `app/thumbnails.js:110` | 删除多余 `reject` 实参 |
+
+**提交：** `9ff3873`
+
+### FileOperations 缺少 gettext `_` 定义
+
+**症状：** 新建文件夹/文件夹创建失败提示路径会抛 `ReferenceError: _ is not defined`。
+
+**根因：** `FileOperations` 从 `desktopManager.js` 抽取时未带上 `Gettext` import，`_('New Folder')` 等 3 处调用无定义。
+
+**修复：** 补充标准 gettext 引入块（ESLint `no-undef` 发现）。
+
+| 文件 | 变更 |
+|------|------|
+| `app/fileOperations.js` | 新增 `Gettext`/`_` 定义 |
+
+**提交：** `9ff3873`
+
+### 文本拖放文件名清洗正则失效（`\x00-\x1f` 控制字符范围）
+
+**症状：** 拖文本到桌面生成的文件名被错误清洗：数字 0/1、字母 x/f、连字符全部被替换为 `-`（"2026 report.txt" → "---- report.t-t"），而真正的控制字符（U+0000–U+001F）未被匹配。
+
+**根因：** `generateDropFilename` 的正则 `/[<>:"\\\/|?*\x00-\x1f]/g` 中 `\x00-\x1f` 误写成 `\\x00-\\x1f`（双反斜杠），字符类退化为匹配字面量 `\`、`x`、`0`、`1`、`f`、`-`。
+
+**修复：** 去掉多余反斜杠，恢复控制字符范围语义。修复后数字/字母保留、控制字符被替换。
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktopIconsUtil.js:330` | 正则 `\\x00-\\x1f` → `\x00-\x1f` |
+
+**测试：** `tests/testDropFilename.js` 锁定行为（8 个用例）。
+
+### SortManager localeCompare 选项被静默忽略（待决策，未修复）
+
+**发现：** `_sortByName`/`_sortByKindByName` 中 `localeCompare(b, {sensitivity:'accent', numeric:'true', ...})` 把 options 对象传到了 **locales 参数位**（第 2 参），引擎静默忽略 → 实际为纯字典序（大小写敏感、无数字自然排序，"File10" 排在 "file2" 前）。
+
+**影响：** 桌面"按名称排序"从未实现不区分大小写 + 数字自然排序的意图。修复需把 options 移到第 3 参（行为会变化：排序顺序改变），**待用户决策**。`tests/testSortManager.js` 已锁定当前行为。

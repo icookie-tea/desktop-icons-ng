@@ -327,7 +327,7 @@ function generateDropFilename(text) {
 
     let flat = text.replace(/[\n\r\t]/g, ' ').trim();
     flat = flat.substring(0, MAX_LEN);
-    flat = flat.replace(/[<>:\"\\\/|?*\\x00-\\x1f]/g, '-');
+    flat = flat.replace(/[<>:"\\\/|?*\x00-\x1f]/g, '-');
     flat = flat.replace(/-+/g, '-');
     flat = flat.replace(/^-+|-+$/g, '').trim();
 
