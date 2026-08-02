@@ -54,7 +54,6 @@ var DesktopManager = class {
         this.dbusManager = dbusManager;
         this._lastSelected = null;
         this._fileList = [];
-        this._desktopMenu = new DesktopMenu.DesktopMenu(this, mainApp, dbusManager);
 
         this.using_X11 = Gdk.Display.get_default().constructor.$gtype.name === 'GdkX11Display';
         this._initX11Check(asDesktop);
@@ -63,6 +62,9 @@ var DesktopManager = class {
         this._popupCounter = 0;
 
         this._initThemeAndManagers();
+        // DesktopMenu queries the clipboard state via updateClipboard() in its
+        // constructor, which needs _fileOps — create it first.
+        this._desktopMenu = new DesktopMenu.DesktopMenu(this, mainApp, dbusManager);
         this._initPremultipliedCheck();
         this.autoAr = new AutoAr.AutoAr(this);
         this._initGridState(desktopList, primaryIndex, codePath, asDesktop);
