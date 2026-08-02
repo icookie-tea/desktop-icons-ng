@@ -117,7 +117,7 @@ var DesktopMenu = class extends MenuHelper.MenuHelper {
         this._addNewAction('changeDesktopIconSettings', null, Prefs.showPreferences);
         this._addNewAction('new-folder', ["<Control><Shift>n"], () => this._desktopManager.doNewFolder());
         this._addNewAction('create-template', null, this._newDocument.bind(this), 's');
-        this._pasteAction = this._addNewAction('paste', null, () => this._desktopManager.doPaste(true));
+        this._pasteAction = this._addNewAction('paste', null, () => this._desktopManager.doPaste(false));
         this._addNewAction('undo', ["<Control>z"], () => {
             DBusUtils.RemoteFileOperations.UndoRemote();
         });
