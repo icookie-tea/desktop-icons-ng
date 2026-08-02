@@ -9,6 +9,7 @@ install_data([
     'create-thumbnail.js',
     'dbus-interfaces.js',
     'dbus-utils.js',
+    'dbus-remote-operations.js',
     'desktop-grid.js',
     'desktop-icon-item.js',
     'desktop-icons-integration.js',
