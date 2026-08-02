@@ -102,7 +102,7 @@ var GridLayout = class {
             } else {
                 desktopName = `DING ${desktop.monitorIndex + 1}`;
             }
-            this._dm._desktops.push(new DesktopGrid.DesktopGrid(this, desktopName, desktop, this._dm._asDesktop));
+            this._dm._desktops.push(new DesktopGrid.DesktopGrid(this._dm, desktopName, desktop, this._dm._asDesktop));
         }
     }
     dbusAdvertiseUpdate() {

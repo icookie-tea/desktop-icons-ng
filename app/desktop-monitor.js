@@ -149,7 +149,7 @@ var DesktopMonitor = class {
             print(`Failed to query info for ${file.get_path()}: ${e.message}`);
             return false;
         }
-        const fileItem = new FileItem.FileItem(this, file, fileInfo,
+        const fileItem = new FileItem.FileItem(this._dm, file, fileInfo,
             Enums.FileType.NONE, null);
         if (fileItem.isHidden && !this._dm._showHidden) {
             fileItem._onDestroy();
