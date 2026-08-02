@@ -1703,18 +1703,18 @@ var DesktopManager = class {
     }
 
     getCurrentSelection(getUri = false) {
-        let listToTrash = [];
+        let selection = [];
         for (let fileItem of this._fileList) {
             if ((fileItem.isSelected) || (fileItem.isKeyboardSelected)) {
                 if (getUri) {
-                    listToTrash.push(fileItem.file.get_uri());
+                    selection.push(fileItem.file.get_uri());
                 } else {
-                    listToTrash.push(fileItem);
+                    selection.push(fileItem);
                 }
             }
         }
-        if (listToTrash.length !== 0) {
-            return listToTrash;
+        if (selection.length !== 0) {
+            return selection;
         } else {
             return null;
         }

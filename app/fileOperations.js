@@ -137,13 +137,7 @@ var FileOperations = class {
     }
 
     fileExistsOnDesktop(searchName) {
-        const listOfFileNamesOnDesktop = [];
-        this._dm.updateFileList().forEach(f => listOfFileNamesOnDesktop.push(f.fileName));
-        if (listOfFileNamesOnDesktop.includes(searchName)) {
-            return true;
-        } else {
-            return false;
-        }
+        return this._dm.updateFileList().some(f => f.fileName === searchName);
     }
 
     getDesktopUniqueFileName(fileName) {

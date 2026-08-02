@@ -333,7 +333,7 @@ class DBusManager {
             if (n.startsWith(':')) {
                 continue;
             }
-            if (!(n in availableNames)) {
+            if (!availableNames.includes(n)) {
                 availableNames.push(n);
             }
         }
@@ -342,7 +342,7 @@ class DBusManager {
             if (n.startsWith(':')) {
                 continue;
             }
-            if (!(n in availableNames)) {
+            if (!availableNames.includes(n)) {
                 availableNames.push(n);
             }
         }

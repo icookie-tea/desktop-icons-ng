@@ -357,10 +357,7 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
     }
 
     _hasToRouteDragToGrid() {
-        if (this._grid) {
-            return true;
-        }
-        return false;
+        return !!this._grid;
     }
 
     _updateDragStatus(context, time) {
