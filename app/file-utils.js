@@ -14,8 +14,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-const { GLib, Gio } = imports.gi;
+import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
 
 const DEFAULT_ENUMERATE_BATCH_SIZE = 100;
 const DEFAULT_QUERY_ATTRIBUTES = [
@@ -30,7 +30,7 @@ const DEFAULT_QUERY_ATTRIBUTES = [
  * @param priority
  * @param queryAttributes
  */
-async function enumerateDir(dir, cancellable = null, priority = GLib.PRIORITY_DEFAULT,
+export async function enumerateDir(dir, cancellable = null, priority = GLib.PRIORITY_DEFAULT,
     queryAttributes = DEFAULT_QUERY_ATTRIBUTES) {
     const childrenEnumerator = await dir.enumerate_children_async_promise(queryAttributes,
         Gio.FileQueryInfoFlags.NONE, priority, cancellable);
@@ -64,7 +64,7 @@ async function enumerateDir(dir, cancellable = null, priority = GLib.PRIORITY_DE
  * @param cancellable
  * @param priority
  */
-async function recursivelyDeleteDir(dir, deleteParent, cancellable = null,
+export async function recursivelyDeleteDir(dir, deleteParent, cancellable = null,
     priority = GLib.PRIORITY_DEFAULT) {
     const children = await enumerateDir(dir, cancellable, priority);
     for (let info of children) {
@@ -83,7 +83,7 @@ async function recursivelyDeleteDir(dir, deleteParent, cancellable = null,
  * @param cancellable
  * @param priority
  */
-async function deleteFile(file, info = null, cancellable = null,
+export async function deleteFile(file, info = null, cancellable = null,
     priority = GLib.PRIORITY_DEFAULT) {
     if (!info) {
         info = await file.query_info_async_promise(
@@ -108,7 +108,7 @@ async function deleteFile(file, info = null, cancellable = null,
  * @param {Gio.InputStream} stream The stream from where read data
  * @returns An Uint8Array with all the read data
  */
-async function readAll(stream) {
+export async function readAll(stream) {
     const chunks = [];
     let totalLength = 0;
     try {
@@ -157,12 +157,12 @@ async function readAll(stream) {
  * @param {string} basename     basename of the newly created file
  * @returns {string|null}       matching key, or null
  */
-function stripConflictSuffix(stem) {
+export function stripConflictSuffix(stem) {
     const m = stem.match(/^(.*)\s+\([^()]*\)$/);
     return m ? m[1] : stem;
 }
 
-function matchPendingDropEntry(pendingFiles, basename) {
+export function matchPendingDropEntry(pendingFiles, basename) {
     if (basename in pendingFiles) {
         return basename;
     }

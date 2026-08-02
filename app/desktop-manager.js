@@ -16,41 +16,39 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-/* exported DesktopManager */
-'use strict';
-const GLib = imports.gi.GLib;
-const GLibUnix = imports.gi.GLibUnix;
-const Gtk = imports.gi.Gtk;
-const Gdk = imports.gi.Gdk;
-const Gio = imports.gi.Gio;
-const Adw = imports.gi.Adw;
+import GLib from 'gi://GLib';
+import GLibUnix from 'gi://GLibUnix';
+import Gtk from 'gi://Gtk';
+import Gdk from 'gi://Gdk';
+import Gio from 'gi://Gio';
+import Adw from 'gi://Adw';
 
-const FileItem = imports['file-item'];
-const DesktopIconsUtil = imports['desktop-icons-util'];
-const Prefs = imports.preferences;
-const Enums = imports.enums;
-const NotifyX11UnderWayland = imports['notify-x11-under-wayland'];
-const DBusUtils = imports['dbus-utils'];
-const ShowErrorPopup = imports['show-error-popup'];
-const Thumbnails = imports.thumbnails;
-const FileItemMenu = imports['file-item-menu'];
-const AutoAr = imports['auto-ar'];
-const SignalManager = imports['signal-manager'];
-const DesktopMenu = imports['desktop-menu'];
-const DesktopMonitor = imports['desktop-monitor'];
-const GridLayout = imports['grid-layout'];
-const FileChangesQueue = imports['file-changes-queue'];
-const Constants = imports.constants;
-const DebugLog = imports.log;
-const ThemeManager = imports['theme-manager'];
-const FileOperations = imports['file-operations'];
-const SortManager = imports['sort-manager'];
+import * as FileItem from './file-item.js';
+import * as DesktopIconsUtil from './desktop-icons-util.js';
+import * as Prefs from './preferences.js';
+import * as Enums from './enums.js';
+import * as NotifyX11UnderWayland from './notify-x11-under-wayland.js';
+import * as DBusUtils from './dbus-utils.js';
+import * as ShowErrorPopup from './show-error-popup.js';
+import * as Thumbnails from './thumbnails.js';
+import * as FileItemMenu from './file-item-menu.js';
+import * as AutoAr from './auto-ar.js';
+import * as SignalManager from './signal-manager.js';
+import * as DesktopMenu from './desktop-menu.js';
+import * as DesktopMonitor from './desktop-monitor.js';
+import * as GridLayout from './grid-layout.js';
+import * as FileChangesQueue from './file-changes-queue.js';
+import * as Constants from './constants.js';
+import * as DebugLog from './log.js';
+import * as ThemeManager from './theme-manager.js';
+import * as FileOperations from './file-operations.js';
+import * as SortManager from './sort-manager.js';
 
-const Gettext = imports.gettext.domain('ding');
+import Gettext from 'gettext';
 
 const _ = Gettext.gettext;
 
-var DesktopManager = class {
+export var DesktopManager = class {
     constructor(mainApp, dbusManager, desktopList, codePath, asDesktop, primaryIndex) {
         this.mainApp = mainApp;
         this.dbusManager = dbusManager;

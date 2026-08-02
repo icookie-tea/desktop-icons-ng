@@ -15,14 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-const Gtk = imports.gi.Gtk;
-const Gdk = imports.gi.Gdk;
-const Adw = imports.gi.Adw;
+import Gtk from 'gi://Gtk';
+import Gdk from 'gi://Gdk';
+import Adw from 'gi://Adw';
 
-const Prefs = imports.preferences;
+import * as Prefs from './preferences.js';
 
-var ThemeManager = class {
+export var ThemeManager = class {
     constructor(desktopManager) {
         this._dm = desktopManager;
         this._cssColorProviderSelection = null;

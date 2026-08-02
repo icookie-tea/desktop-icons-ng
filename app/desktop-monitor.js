@@ -15,21 +15,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-const GLib = imports.gi.GLib;
-const Gio = imports.gi.Gio;
+import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
 
-const Constants = imports.constants;
-const DebugLog = imports.log;
-const Enums = imports.enums;
-const FileItem = imports['file-item'];
-const FileUtils = imports['file-utils'];
+import * as Constants from './constants.js';
+import * as DebugLog from './log.js';
+import * as Enums from './enums.js';
+import * as FileItem from './file-item.js';
+import * as FileUtils from './file-utils.js';
 
 /* Desktop directory monitoring: routes GFileMonitor events through the
  * FileChangesQueue, applies incremental create/delete/move/rename updates
  * to the desktop file list, and seeds pending drop coordinates for newly
  * created files. State lives on the DesktopManager (this._dm). */
-var DesktopMonitor = class {
+export var DesktopMonitor = class {
     constructor(desktopManager) {
         this._dm = desktopManager;
     }

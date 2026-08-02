@@ -15,15 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-const DBusUtils = imports['dbus-utils'];
-const DesktopGrid = imports['desktop-grid'];
+import * as DBusUtils from './dbus-utils.js';
+import * as DesktopGrid from './desktop-grid.js';
 
 /* Monitor geometry management: subscribes to the extension's D-Bus
  * desktopGeometry action, diffs monitor areas, recreates the per-monitor
  * DesktopGrid windows and keeps _primaryScreen up to date. State lives on
  * the DesktopManager (this._dm). */
-var GridLayout = class {
+export var GridLayout = class {
     constructor(desktopManager) {
         this._dm = desktopManager;
         this._signalIds = [];

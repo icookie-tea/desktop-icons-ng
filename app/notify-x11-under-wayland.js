@@ -15,14 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-/* exported NotifyX11UnderWayland */
-'use strict';
-const Gtk = imports.gi.Gtk;
-const Gettext = imports.gettext.domain('ding');
+import Gtk from 'gi://Gtk';
+import Gettext from 'gettext';
 
 const _ = Gettext.gettext;
 
-var NotifyX11UnderWayland = class {
+export var NotifyX11UnderWayland = class {
     constructor(closeCB) {
         this._window = new Gtk.MessageDialog({
             transient_for: null,

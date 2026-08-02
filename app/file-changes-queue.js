@@ -15,10 +15,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-'use strict';
-const GLib = imports.gi.GLib;
+import GLib from 'gi://GLib';
 
-var FileChangesQueue = class {
+export var FileChangesQueue = class {
     constructor(debounceMs = 200, maxIncremental = 2) {
         this._debounceMs = debounceMs;
         this._maxIncremental = maxIncremental;

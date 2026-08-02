@@ -18,28 +18,26 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-/* exported dropDestination */
-'use strict';
-const Gtk = imports.gi.Gtk;
-const Gdk = imports.gi.Gdk;
-const Gio = imports.gi.Gio;
-const GLib = imports.gi.GLib;
-const Pango = imports.gi.Pango;
-const Gsk = imports.gi.Gsk;
-const Graphene = imports.gi.Graphene;
+import Gtk from 'gi://Gtk';
+import Gdk from 'gi://Gdk';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Pango from 'gi://Pango';
+import Gsk from 'gi://Gsk';
+import Graphene from 'gi://Graphene';
 
-const dndClipboardUtils = imports['dnd-clipboard-utils'];
-const DesktopIconsUtil = imports['desktop-icons-util'];
-const Prefs = imports.preferences;
-const Enums = imports.enums;
-const SignalManager = imports['signal-manager'];
+import * as dndClipboardUtils from './dnd-clipboard-utils.js';
+import * as DesktopIconsUtil from './desktop-icons-util.js';
+import * as Prefs from './preferences.js';
+import * as Enums from './enums.js';
+import * as SignalManager from './signal-manager.js';
 
-const Signals = imports.signals;
-const Gettext = imports.gettext.domain('ding');
+import * as Signals from './signals.js';
+import Gettext from 'gettext';
 
 const _ = Gettext.gettext;
 
-var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager {
+export var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager {
     constructor(desktopManager, fileExtra) {
         super();
         this._desktopManager = desktopManager;

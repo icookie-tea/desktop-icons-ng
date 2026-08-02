@@ -1,4 +1,4 @@
-#!/usr/bin/env gjs
+#!/usr/bin/env -S gjs --module
 
 /* DING: Desktop Icons New Generation for GNOME Shell
  *
@@ -17,13 +17,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-imports.gi.versions.Gtk = '4.0';
-imports.gi.versions.Gdk = '4.0';
-const Gdk = imports.gi.Gdk;
-const Gio = imports.gi.Gio;
-const GLib = imports.gi.GLib;
-const Adw = imports.gi.Adw;
+import 'gi://Gtk?version=4.0';
+import Gdk from 'gi://Gdk?version=4.0';
+
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Adw from 'gi://Adw';
+import System from 'system';
 
 let desktops = [];
 let lastCommand = null;
@@ -32,14 +32,14 @@ let errorFound = false;
 let asDesktop = false;
 let primaryIndex = 0;
 
-const fileProto = imports.system.version >= 17200
+const fileProto = System.version >= 17200
     ? Gio.File.prototype : Gio._LocalFilePrototype;
 Gio._promisify(fileProto, 'load_bytes_async');
 
 /**
  *
  */
-function printUsage() {
+export function printUsage() {
     print('Desktop Icons NG');
     print('Usage:');
     print('  -h                      : show this help');
@@ -63,7 +63,7 @@ function printUsage() {
  *
  * @param argv
  */
-function parseCommandLine(argv) {
+export function parseCommandLine(argv) {
     desktops = [];
     let data;
     for (let arg of argv) {
@@ -176,14 +176,10 @@ function parseCommandLine(argv) {
 
 parseCommandLine(ARGV);
 
-// this allows to import files from the current folder
-
-imports.searchPath.unshift(codePath);
-
-const DBusUtils = imports['dbus-utils'];
-const Prefs = imports.preferences;
-const Gettext = imports.gettext;
-const PromiseUtils = imports['promise-utils'];
+import * as DBusUtils from './dbus-utils.js';
+import * as Prefs from './preferences.js';
+import Gettext from 'gettext';
+import * as PromiseUtils from './promise-utils.js';
 
 PromiseUtils._promisify({ keepOriginal: true }, Gio.FileEnumerator.prototype, 'close_async');
 PromiseUtils._promisify({ keepOriginal: true }, Gio.FileEnumerator.prototype, 'next_files_async');
@@ -201,10 +197,10 @@ if (Gio.File.new_for_path(localePath).query_exists(null)) {
     Gettext.bindtextdomain('ding', localePath);
 }
 
-const DesktopManager = imports['desktop-manager'];
+import * as DesktopManager from './desktop-manager.js';
 
-var desktopManager = null;
-var dbusManager = null;
+export var desktopManager = null;
+export var dbusManager = null;
 
 // Use different AppIDs to allow to test it from a command line while the main desktop is also running from the extension
 const dingApp = new Adw.Application({

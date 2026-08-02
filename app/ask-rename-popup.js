@@ -15,22 +15,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-/* exported AskRenamePopup */
-'use strict';
-const Gtk = imports.gi.Gtk;
-const Gio = imports.gi.Gio;
-const GLib = imports.gi.GLib;
-const DBusUtils = imports['dbus-utils'];
-const DesktopIconsUtil = imports['desktop-icons-util'];
-const Gettext = imports.gettext.domain('ding');
-const SignalManager = imports['signal-manager'];
+import Gtk from 'gi://Gtk';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import * as DBusUtils from './dbus-utils.js';
+import * as DesktopIconsUtil from './desktop-icons-util.js';
+import Gettext from 'gettext';
+import * as SignalManager from './signal-manager.js';
 
 const _ = Gettext.gettext;
 
 const RENAME_ENTRY_MIN_CHARS=30;
 const RENAME_ENTRY_MAX_CHARS=50;
 
-var AskRenamePopup = class extends SignalManager.SignalManager {
+export var AskRenamePopup = class extends SignalManager.SignalManager {
     constructor(extensionManager, fileItem, allowReturnOnSameName, closeCB) {
         super();
         this._extensionManager = extensionManager

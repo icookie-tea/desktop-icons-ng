@@ -15,16 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-const Gtk = imports.gi.Gtk;
-const Gdk = imports.gi.Gdk;
-const Gsk = imports.gi.Gsk;
-const Graphene = imports.gi.Graphene;
-const GObject = imports.gi.GObject;
+import Gtk from 'gi://Gtk';
+import Gdk from 'gi://Gdk';
+import Gsk from 'gi://Gsk';
+import Graphene from 'gi://Graphene';
+import GObject from 'gi://GObject';
 
 const elementSpacing = 2;
 
-var PaintContainer = class PaintContainer extends Gtk.Widget {
+export var PaintContainer = class PaintContainer extends Gtk.Widget {
     static {
         GObject.registerClass(this);
     }

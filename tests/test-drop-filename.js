@@ -3,11 +3,10 @@
  * control chars are stripped, normal digits/letters are preserved.
  * Sanitized names of >= 8 chars get a '.txt' suffix; shorter ones fall
  * back to the (translated) default name. */
-'use strict';
-const DesktopIconsUtil = imports['desktop-icons-util'];
-const { assertEqual, summary } = imports.harness;
+import * as DesktopIconsUtil from '../app/desktop-icons-util.js';
+import { assertEqual, summary } from './harness.js';
 
-var runTests = function () {
+export function runTests() {
     // 1. normal text keeps digits and letters, gets .txt suffix
     assertEqual(DesktopIconsUtil.generateDropFilename('2026 report'),
         '2026 report.txt', 'digits/letters preserved, .txt appended');
@@ -42,4 +41,4 @@ var runTests = function () {
         '我的重要文档备份.txt', 'Chinese text preserved');
 
     return summary('generateDropFilename');
-};
+}

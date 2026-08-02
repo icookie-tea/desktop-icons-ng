@@ -15,36 +15,35 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-imports.gi.versions.Gtk = '4.0';
+import Gtk from 'gi://Gtk?version=4.0';
 
-const Gtk = imports.gi.Gtk;
-const Gio = imports.gi.Gio;
+
+import Gio from 'gi://Gio';
 const GioSSS = Gio.SettingsSchemaSource;
-const DesktopIconsUtil = imports['desktop-icons-util'];
-const Enums = imports.enums;
-const PrefsWindow = imports['prefs-window'];
+import * as DesktopIconsUtil from './desktop-icons-util.js';
+import * as Enums from './enums.js';
+import * as PrefsWindow from './prefs-window.js';
 
-const Gettext = imports.gettext;
+import Gettext from 'gettext';
 
-var _ = Gettext.domain('ding').gettext;
+export var _ = Gettext.domain('ding').gettext;
 
-var nautilusSettings;
-var nautilusCompression;
-var gtkSettings;
-var desktopSettings;
-var mutterSettings = null;
-var a11YKeyboard = null;
-var a11YApplications = null;
+export var nautilusSettings = null;
+export var nautilusCompression = null;
+export var gtkSettings = null;
+export var desktopSettings = null;
+export var mutterSettings = null;
+export var a11YKeyboard = null;
+export var a11YApplications = null;
 // This is already in Nautilus settings, so it should not be made tweakable here
-var CLICK_POLICY_SINGLE = false;
-var prefsWindow;
+export var CLICK_POLICY_SINGLE = false;
+export var prefsWindow = null;
 
 /**
  *
  * @param path
  */
-function init(path) {
+export function init(path) {
     const schemaSource = GioSSS.get_default();
     const schemaGtk = schemaSource.lookup(Enums.SCHEMA_GTK, true);
     gtkSettings = new Gio.Settings({settings_schema: schemaGtk});
@@ -85,7 +84,7 @@ function init(path) {
 /**
  *
  */
-function showPreferences() {
+export function showPreferences() {
     if (prefsWindow) {
         return;
     }
@@ -105,32 +104,32 @@ function showPreferences() {
 /**
  *
  */
-function _onNautilusSettingsChanged() {
+export function _onNautilusSettingsChanged() {
     CLICK_POLICY_SINGLE = nautilusSettings.get_string('click-policy') == 'single';
 }
 
 /**
  *
  */
-function get_icon_size() {
+export function get_icon_size() {
     return Enums.ICON_SIZE[desktopSettings.get_string('icon-size')];
 }
 
 /**
  *
  */
-function get_desired_width() {
+export function get_desired_width() {
     return Enums.ICON_WIDTH[desktopSettings.get_string('icon-size')];
 }
 
 /**
  *
  */
-function get_desired_height() {
+export function get_desired_height() {
     return Enums.ICON_HEIGHT[desktopSettings.get_string('icon-size')];
 }
 
-function increase_icon_size() {
+export function increase_icon_size() {
     const currentSize = desktopSettings.get_enum('icon-size');
     switch(currentSize) {
         case 3: // tiny
@@ -144,7 +143,7 @@ function increase_icon_size() {
     }
 }
 
-function decrease_icon_size() {
+export function decrease_icon_size() {
     const currentSize = desktopSettings.get_enum('icon-size');
     switch(currentSize) {
         case 3: // tiny
@@ -161,14 +160,14 @@ function decrease_icon_size() {
 /**
  *
  */
-function get_start_corner() {
+export function get_start_corner() {
     return Enums.START_CORNER[desktopSettings.get_string('start-corner')].slice();
 }
 
 /**
  *
  */
-function getSortOrder() {
+export function getSortOrder() {
     return Enums.SortOrder[desktopSettings.get_string(Enums.SortOrder.ORDER)];
 }
 
@@ -176,7 +175,7 @@ function getSortOrder() {
  *
  * @param order
  */
-function setSortOrder(order) {
+export function setSortOrder(order) {
     let x = Object.values(Enums.SortOrder).indexOf(order);
     desktopSettings.set_enum(Enums.SortOrder.ORDER, x);
 }
@@ -184,7 +183,7 @@ function setSortOrder(order) {
 /**
  *
  */
-function getUnstackList() {
+export function getUnstackList() {
     return desktopSettings.get_strv('unstackedtypes');
 }
 
@@ -192,6 +191,6 @@ function getUnstackList() {
  *
  * @param array
  */
-function setUnstackList(array) {
+export function setUnstackList(array) {
     desktopSettings.set_strv('unstackedtypes', array);
 }

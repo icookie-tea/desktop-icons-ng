@@ -1,11 +1,10 @@
-'use strict';
-const GObject = imports.gi.GObject;
-const Gettext = imports.gettext;
-const Gio = imports.gi.Gio;
+import GObject from 'gi://GObject';
+import Gettext from 'gettext';
+import Gio from 'gi://Gio';
 const GioSSS = Gio.SettingsSchemaSource;
-const GLib = imports.gi.GLib;
+import GLib from 'gi://GLib';
 
-var _ = Gettext.domain('ding').gettext;
+export var _ = Gettext.domain('ding').gettext;
 
 var Gtk;
 
@@ -14,7 +13,7 @@ var Gtk;
  * @param path
  * @param schema
  */
-function get_schema(path, schema) {
+export function get_schema(path, schema) {
     // check if this extension was built with "make zip-file", and thus
     // has the schema files in a subfolder
     // otherwise assume that extension has been installed in the
@@ -47,7 +46,7 @@ function get_schema(path, schema) {
  * @param nautilusSettings
  * @param gtkSettings
  */
-function preferencesFrame(_Gtk, desktopSettings, nautilusSettings, gtkSettings) {
+export function preferencesFrame(_Gtk, desktopSettings, nautilusSettings, gtkSettings) {
     Gtk = _Gtk;
     let frame = new Gtk.Box({
         orientation: Gtk.Orientation.VERTICAL,
@@ -140,7 +139,7 @@ function preferencesFrame(_Gtk, desktopSettings, nautilusSettings, gtkSettings) 
  * @param key
  * @param labelText
  */
-function buildSwitcher(settings, key, labelText) {
+export function buildSwitcher(settings, key, labelText) {
     let hbox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 10 });
     let label = new Gtk.Label({ label: labelText, xalign: 0 });
     if (settings) {
@@ -174,7 +173,7 @@ function buildSwitcher(settings, key, labelText) {
  * @param labelText
  * @param elements
  */
-function buildSelector(settings, key, labelText, elements) {
+export function buildSelector(settings, key, labelText, elements) {
     let listStore = new Gtk.ListStore();
     listStore.set_column_types([GObject.TYPE_STRING, GObject.TYPE_STRING]);
     if (settings) {

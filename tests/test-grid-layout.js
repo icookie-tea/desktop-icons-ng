@@ -1,9 +1,8 @@
 /* Tests for GridLayout wiring: the manager must receive the DesktopManager
  * reference (this._dm) and route geometry diffs through it. Guards against
  * a missing constructor (this._dm undefined) and stale internal calls. */
-'use strict';
-const GridLayout = imports['grid-layout'].GridLayout;
-const { assert, assertEqual, summary } = imports.harness;
+import { GridLayout } from '../app/grid-layout.js';
+import { assert, assertEqual, summary } from './harness.js';
 
 const AREA = {
     x: 0, y: 0, width: 1920, height: 1080, scaleFactor: 1,
@@ -28,7 +27,7 @@ function makeMockDM() {
     };
 }
 
-var runTests = function () {
+export function runTests() {
     // 1. constructor wiring: this._dm is set (would throw without it)
     const dm = makeMockDM();
     const layout = new GridLayout(dm);
@@ -52,4 +51,4 @@ var runTests = function () {
     assert(true, 'destroy() runs without tracked signals');
 
     return summary('GridLayout');
-};
+}

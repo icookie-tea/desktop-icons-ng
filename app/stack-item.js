@@ -18,21 +18,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-const Gtk = imports.gi.Gtk;
-const Gio = imports.gi.Gio;
+import Gtk from 'gi://Gtk';
+import Gio from 'gi://Gio';
 
-const desktopIconItem = imports['desktop-icon-item'];
+import * as desktopIconItem from './desktop-icon-item.js';
 
-const Prefs = imports.preferences;
+import * as Prefs from './preferences.js';
 
-const Signals = imports.signals;
-const Gettext = imports.gettext.domain('ding');
+import * as Signals from './signals.js';
+import Gettext from 'gettext';
 
 const _ = Gettext.gettext;
 
 
-var stackItem = class extends desktopIconItem.desktopIconItem {
+export var stackItem = class extends desktopIconItem.desktopIconItem {
     constructor(desktopManager, file, attributeContentType, fileExtra) {
         super(desktopManager, fileExtra);
         this._isSpecial = false;

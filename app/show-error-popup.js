@@ -15,14 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-const Gtk = imports.gi.Gtk;
-const DesktopIconsUtil = imports['desktop-icons-util'];
-const Gettext = imports.gettext.domain('ding');
+import Gtk from 'gi://Gtk';
+import * as DesktopIconsUtil from './desktop-icons-util.js';
+import Gettext from 'gettext';
 
 const _ = Gettext.gettext;
 
-var ShowErrorPopup = class {
+export var ShowErrorPopup = class {
     constructor(text, secondaryText, modal) {
         this._window = new Gtk.MessageDialog({
             transient_for: null,

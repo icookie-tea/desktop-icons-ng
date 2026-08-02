@@ -16,25 +16,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-const DBusUtils = imports['dbus-utils'];
-const GLib = imports.gi.GLib;
-const Gio = imports.gi.Gio;
-const GioUnix = imports.gi.GioUnix;
-const Gtk = imports.gi.Gtk;
-const Gdk = imports.gi.Gdk;
-const Prefs = imports.preferences;
+import * as DBusUtils from './dbus-utils.js';
+import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
+import GioUnix from 'gi://GioUnix';
+import Gtk from 'gi://Gtk';
+import Gdk from 'gi://Gdk';
+import * as Prefs from './preferences.js';
 
-const TemplatesScriptsManager = imports['templates-scripts-manager'];
-const DesktopIconsUtil = imports['desktop-icons-util'];
-const MenuHelper = imports['menu-helper'];
-const Enums = imports.enums;
+import * as TemplatesScriptsManager from './templates-scripts-manager.js';
+import * as DesktopIconsUtil from './desktop-icons-util.js';
+import * as MenuHelper from './menu-helper.js';
+import * as Enums from './enums.js';
 
-const Gettext = imports.gettext.domain('ding');
+import Gettext from 'gettext';
 
 const _ = Gettext.gettext;
 
-var DesktopMenu = class extends MenuHelper.MenuHelper {
+export var DesktopMenu = class extends MenuHelper.MenuHelper {
     constructor(desktopManager, mainApp, dbusManager) {
         super(desktopManager, mainApp);
 

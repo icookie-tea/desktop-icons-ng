@@ -14,27 +14,26 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-const GLib = imports.gi.GLib;
-const Gio = imports.gi.Gio;
-const Gtk = imports.gi.Gtk;
-const Adw = imports.gi.Adw;
-var GnomeAutoar = null;
+import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
+import Gtk from 'gi://Gtk';
+import Adw from 'gi://Adw';
+export var GnomeAutoar = null;
 try {
-    GnomeAutoar = imports.gi.GnomeAutoar;
+    GnomeAutoar = (await import('gi://GnomeAutoar')).default;
 } catch (e) {
 }
 
-const Enums = imports.enums;
-const FileUtils = imports['file-utils'];
-const Prefs = imports.preferences;
-const Signals = imports.signals;
+import * as Enums from './enums.js';
+import * as FileUtils from './file-utils.js';
+import * as Prefs from './preferences.js';
+import * as Signals from './signals.js';
 
-const Gettext = imports.gettext.domain('ding');
+import Gettext from 'gettext';
 
 const _ = Gettext.gettext;
 
-var AutoAr = class {
+export var AutoAr = class {
     constructor(desktopManager) {
         this._desktopManager = desktopManager;
         this._progressWindow = new Gtk.Window({

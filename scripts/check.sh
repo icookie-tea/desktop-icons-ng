@@ -16,7 +16,7 @@ for f in extension.js prefs.js visible-area.js emulate-x11-window-type.js \
 done
 
 echo "== Unit tests (gjs) =="
-gjs tests/run.js
+gjs --module tests/run.js
 
 echo "== Structural sanity =="
 # Every class method referenced via this._xxx() must be defined somewhere in

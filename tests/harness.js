@@ -2,14 +2,13 @@
  *
  * Run via `gjs tests/run.js` (or `scripts/check.sh`). No external deps.
  */
-'use strict';
-const GLib = imports.gi.GLib;
+import GLib from 'gi://GLib';
 
-var passed = 0;
-var failed = 0;
-var failures = [];
+export var passed = 0;
+export var failed = 0;
+export var failures = [];
 
-function assert(cond, msg) {
+export function assert(cond, msg) {
     if (cond) {
         passed += 1;
     } else {
@@ -19,7 +18,7 @@ function assert(cond, msg) {
     }
 }
 
-function assertEqual(a, b, msg) {
+export function assertEqual(a, b, msg) {
     if (a === b) {
         passed += 1;
     } else {
@@ -29,7 +28,7 @@ function assertEqual(a, b, msg) {
     }
 }
 
-function assertDeepEqual(a, b, msg) {
+export function assertDeepEqual(a, b, msg) {
     const ja = JSON.stringify(a);
     const jb = JSON.stringify(b);
     if (ja === jb) {
@@ -42,7 +41,7 @@ function assertDeepEqual(a, b, msg) {
 }
 
 /** Runs the GLib main loop for `ms` milliseconds, then resolves. */
-function flushLoop(ms) {
+export function flushLoop(ms) {
     return new Promise(resolve => {
         const loop = GLib.MainLoop.new(null, false);
         GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
@@ -54,7 +53,7 @@ function flushLoop(ms) {
     });
 }
 
-function summary(name) {
+export function summary(name) {
     if (failed === 0) {
         print(`PASS ${name}: ${passed} assertions`);
     } else {

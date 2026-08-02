@@ -15,26 +15,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-/* exported DesktopGrid */
-'use strict';
-const Gtk = imports.gi.Gtk;
-const Gdk = imports.gi.Gdk;
+import Gtk from 'gi://Gtk';
+import Gdk from 'gi://Gdk';
 
-const Prefs = imports.preferences;
-const Enums = imports.enums;
-const DesktopIconsUtil = imports['desktop-icons-util'];
-const SignalManager = imports['signal-manager'];
-const dndClipboardUtils = imports['dnd-clipboard-utils'];
-const PaintContainer = imports['paint-container'].PaintContainer;
+import * as Prefs from './preferences.js';
+import * as Enums from './enums.js';
+import * as DesktopIconsUtil from './desktop-icons-util.js';
+import * as SignalManager from './signal-manager.js';
+import * as dndClipboardUtils from './dnd-clipboard-utils.js';
+import { PaintContainer } from './paint-container.js';
 
-const Gettext = imports.gettext.domain('ding');
+import Gettext from 'gettext';
 
 const _ = Gettext.gettext;
 
 
-var elementSpacing = 2;
+export var elementSpacing = 2;
 
-var DesktopGrid = class extends SignalManager.SignalManager {
+export var DesktopGrid = class extends SignalManager.SignalManager {
     constructor(desktopManager, desktopName, desktopDescription, asDesktop) {
         super();
         this._signalIds = [];

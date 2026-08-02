@@ -14,25 +14,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-const DBusUtils = imports['dbus-utils'];
-const GLib = imports.gi.GLib;
-const Gdk = imports.gi.Gdk;
-const Gtk = imports.gi.Gtk;
-const Gio = imports.gi.Gio;
+import * as DBusUtils from './dbus-utils.js';
+import GLib from 'gi://GLib';
+import Gdk from 'gi://Gdk';
+import Gtk from 'gi://Gtk';
+import Gio from 'gi://Gio';
 
-const TemplatesScriptsManager = imports['templates-scripts-manager'];
-const DesktopIconsUtil = imports['desktop-icons-util'];
-const Prefs = imports.preferences;
-const ShowErrorPopup = imports['show-error-popup'];
-const SignalManager = imports['signal-manager'];
-const MenuHelper = imports['menu-helper'];
+import * as TemplatesScriptsManager from './templates-scripts-manager.js';
+import * as DesktopIconsUtil from './desktop-icons-util.js';
+import * as Prefs from './preferences.js';
+import * as ShowErrorPopup from './show-error-popup.js';
+import * as SignalManager from './signal-manager.js';
+import * as MenuHelper from './menu-helper.js';
 
-const Gettext = imports.gettext.domain('ding');
+import Gettext from 'gettext';
 
 const _ = Gettext.gettext;
 
-var FileItemMenu = class extends MenuHelper.MenuHelper {
+export var FileItemMenu = class extends MenuHelper.MenuHelper {
     constructor(desktopManager, mainApp) {
         super(desktopManager, mainApp);
         this._lastMenu = null;

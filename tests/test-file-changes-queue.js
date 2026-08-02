@@ -1,9 +1,8 @@
 /* Tests for FileChangesQueue (debounce + max-batch flush logic). */
-'use strict';
-const FileChangesQueue = imports['file-changes-queue'].FileChangesQueue;
-const { assertEqual, assertDeepEqual, flushLoop, summary } = imports.harness;
+import { FileChangesQueue } from '../app/file-changes-queue.js';
+import { assertEqual, assertDeepEqual, flushLoop, summary } from './harness.js';
 
-var runTests = async function () {
+export async function runTests() {
     let q, flushed;
 
     // 1. debounce: a single event flushes after the debounce window
@@ -51,4 +50,4 @@ var runTests = async function () {
     assertEqual(q.maxIncremental, 2, 'maxIncremental getter');
 
     return summary('FileChangesQueue');
-};
+}

@@ -110,10 +110,22 @@ export default [
         },
     },
     {
+        // ESM files (GNOME Shell side + migrated GTK app)
         files: ['extension.js', 'prefs.js', 'visible-area.js',
-            'emulate-x11-window-type.js', 'gnome-shell-override.js'],
+            'emulate-x11-window-type.js', 'gnome-shell-override.js',
+            'app/*.js',
+            'tests/*.js'],
+        ignores: ['app/desktop-icons-integration.js'],
         languageOptions: {
             sourceType: 'module',
+        },
+    },
+    {
+        // Legacy GJS module kept for third-party extensions that load it
+        // via `imports.desktopIconsIntegration` inside GNOME Shell.
+        files: ['app/desktop-icons-integration.js'],
+        languageOptions: {
+            sourceType: 'script',
         },
     },
 ];

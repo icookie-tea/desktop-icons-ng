@@ -16,36 +16,35 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-/* exported GtkVfsMetadata, extensionControl, discreteGpuAvailable, RemoteFileOperations, init */
-'use strict';
-imports.gi.versions.Gtk = '4.0';
-imports.gi.versions.Gdk = '4.0';
-imports.gi.versions.GdkWayland = '4.0';
-const { Gio, GLib } = imports.gi;
-const Signals = imports.signals;
-const DBusInterfaces = imports['dbus-interfaces'];
-const DesktopIconsUtil = imports['desktop-icons-util'];
-const Enums = imports.enums;
-const { RemoteFileOperationsManager,
-    LegacyRemoteFileOperationsManager } = imports['dbus-remote-operations'];
+import 'gi://Gtk?version=4.0';
+import 'gi://Gdk?version=4.0';
+import 'gi://GdkWayland?version=4.0';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import * as Signals from './signals.js';
+import * as DBusInterfaces from './dbus-interfaces.js';
+import * as DesktopIconsUtil from './desktop-icons-util.js';
+import * as Enums from './enums.js';
+import { RemoteFileOperationsManager,
+    LegacyRemoteFileOperationsManager } from './dbus-remote-operations.js';
 
-var NautilusFileOperations2 = null;
-var FreeDesktopFileManager = null;
-var GnomeNautilusPreview = null;
-var SwitcherooControl = null;
-var GnomeArchiveManager = null;
-var GtkVfsMetadata = null;
-var extensionControl = null;
+export var NautilusFileOperations2 = null;
+export var FreeDesktopFileManager = null;
+export var GnomeNautilusPreview = null;
+export var SwitcherooControl = null;
+export var GnomeArchiveManager = null;
+export var GtkVfsMetadata = null;
+export var extensionControl = null;
 
-var discreteGpuAvailable = false;
+export var discreteGpuAvailable = false;
 var dbusManagerObject;
-var RemoteFileOperations;
+export var RemoteFileOperations = null;
 
-const Gettext = imports.gettext.domain('ding');
+import Gettext from 'gettext';
 
 const _ = Gettext.gettext;
 
-var ProxyManager = class {
+export var ProxyManager = class {
     /*
     * This class manages a DBus object through a DBusProxy. Any access to the proxy when the
     * object isn't available results in a notification specifying that an specific program
@@ -221,7 +220,7 @@ var ProxyManager = class {
 Signals.addSignalMethods(ProxyManager.prototype);
 
 
-var DBusManager = class {
+export var DBusManager = class {
     /*
     * This class manages all the DBus operations. A ProxyManager() class can subscribe to this to be notified
     * whenever a change in the bus has occurred (like a server has been added or removed). It also can ask
@@ -460,7 +459,7 @@ var DBusManager = class {
 Signals.addSignalMethods(DBusManager.prototype);
 
 
-function init(mainApp) {
+export function init(mainApp) {
     dbusManagerObject = new DBusManager();
 
     let data = dbusManagerObject.getIntrospectionData(

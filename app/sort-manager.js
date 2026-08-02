@@ -15,12 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-const Enums = imports.enums;
-const Prefs = imports.preferences;
-const stackItem = imports['stack-item'];
+import * as Enums from './enums.js';
+import * as Prefs from './preferences.js';
+import * as stackItem from './stack-item.js';
 
-var SortManager = class {
+export var SortManager = class {
     constructor(desktopManager) {
         this._dm = desktopManager;
     }

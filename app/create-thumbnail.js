@@ -1,4 +1,4 @@
-#!/usr/bin/gjs
+#!/usr/bin/env -S gjs --module
 
 /* DING: Desktop Icons New Generation for GNOME Shell
  *
@@ -17,15 +17,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-imports.gi.versions.GnomeDesktop = '4.0';
-const GnomeDesktop = imports.gi.GnomeDesktop;
-const Gio = imports.gi.Gio;
+import GnomeDesktop from 'gi://GnomeDesktop?version=4.0';
+
+import Gio from 'gi://Gio';
 
 /**
  *
  */
-function CreateThumbnail() {
+export function CreateThumbnail() {
     let thumbnailFactoryNormal = GnomeDesktop.DesktopThumbnailFactory.new(GnomeDesktop.DesktopThumbnailSize.NORMAL);
     let thumbnailFactoryLarge = GnomeDesktop.DesktopThumbnailFactory.new(GnomeDesktop.DesktopThumbnailSize.LARGE);
 

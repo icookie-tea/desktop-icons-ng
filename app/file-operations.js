@@ -15,21 +15,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-const Gio = imports.gi.Gio;
+import Gio from 'gi://Gio';
 
-const dndClipboardUtils = imports['dnd-clipboard-utils'];
-const DBusUtils = imports['dbus-utils'];
-const DesktopIconsUtil = imports['desktop-icons-util'];
-const AskRenamePopup = imports['ask-rename-popup'];
-const Enums = imports.enums;
-const DebugLog = imports.log;
+import * as dndClipboardUtils from './dnd-clipboard-utils.js';
+import * as DBusUtils from './dbus-utils.js';
+import * as DesktopIconsUtil from './desktop-icons-util.js';
+import * as AskRenamePopup from './ask-rename-popup.js';
+import * as Enums from './enums.js';
+import * as DebugLog from './log.js';
 
-const Gettext = imports.gettext.domain('ding');
+import Gettext from 'gettext';
 
 const _ = Gettext.gettext;
 
-var FileOperations = class {
+export var FileOperations = class {
     constructor(desktopManager) {
         this._dm = desktopManager;
         this._clipboardFiles = null;

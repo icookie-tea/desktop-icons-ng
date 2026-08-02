@@ -1,22 +1,22 @@
-#!/usr/bin/env gjs
+#!/usr/bin/env -S gjs --module
 /* DING unit test runner.
  *
- * Usage: gjs tests/run.js   (from the repository root)
+ * Usage: gjs --module tests/run.js   (from the repository root)
  */
-'use strict';
-const GLib = imports.gi.GLib;
+import System from 'system';
 
-// Make app/ and tests/ modules importable regardless of CWD.
-const rootDir = GLib.get_current_dir();
-imports.searchPath.unshift(GLib.build_filenamev([rootDir, 'app']));
-imports.searchPath.unshift(GLib.build_filenamev([rootDir, 'tests']));
+import * as TestFileChangesQueue from './test-file-changes-queue.js';
+import * as TestPendingDrop from './test-pending-drop.js';
+import * as TestGridLayout from './test-grid-layout.js';
+import * as TestSortManager from './test-sort-manager.js';
+import * as TestDropFilename from './test-drop-filename.js';
 
 const tests = [
-    imports['test-file-changes-queue'],
-    imports['test-pending-drop'],
-    imports['test-grid-layout'],
-    imports['test-sort-manager'],
-    imports['test-drop-filename'],
+    TestFileChangesQueue,
+    TestPendingDrop,
+    TestGridLayout,
+    TestSortManager,
+    TestDropFilename,
 ];
 
 async function main() {
@@ -30,5 +30,5 @@ async function main() {
 }
 
 main().then(code => {
-    imports.system.exit(code);
+    System.exit(code);
 });

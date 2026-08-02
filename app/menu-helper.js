@@ -15,18 +15,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-'use strict';
 
-const GLib = imports.gi.GLib;
-const Gio = imports.gi.Gio;
+import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
 
-const Prefs = imports.preferences;
+import * as Prefs from './preferences.js';
 
-const Gettext = imports.gettext.domain('ding');
+import Gettext from 'gettext';
 
 const _ = Gettext.gettext;
 
-var MenuHelper = class {
+export var MenuHelper = class {
     constructor(desktopManager, mainApp) {
         this._mainApp = mainApp;
         this._desktopManager = desktopManager;

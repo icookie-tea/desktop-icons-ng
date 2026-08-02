@@ -16,27 +16,26 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-const Gtk = imports.gi.Gtk;
-const Gdk = imports.gi.Gdk;
-const Gio = imports.gi.Gio;
-const GioUnix = imports.gi.GioUnix;
-const GLib = imports.gi.GLib;
-const DesktopIconsUtil = imports['desktop-icons-util'];
-const desktopIconItem = imports['desktop-icon-item'];
-const ShowErrorPopup = imports['show-error-popup'];
+import Gtk from 'gi://Gtk';
+import Gdk from 'gi://Gdk';
+import Gio from 'gi://Gio';
+import GioUnix from 'gi://GioUnix';
+import GLib from 'gi://GLib';
+import * as DesktopIconsUtil from './desktop-icons-util.js';
+import * as desktopIconItem from './desktop-icon-item.js';
+import * as ShowErrorPopup from './show-error-popup.js';
 
-const Prefs = imports.preferences;
-const Enums = imports.enums;
-const DBusUtils = imports['dbus-utils'];
-const dndClipboardUtils = imports['dnd-clipboard-utils'];
+import * as Prefs from './preferences.js';
+import * as Enums from './enums.js';
+import * as DBusUtils from './dbus-utils.js';
+import * as dndClipboardUtils from './dnd-clipboard-utils.js';
 
-const Signals = imports.signals;
-const Gettext = imports.gettext.domain('ding');
+import * as Signals from './signals.js';
+import Gettext from 'gettext';
 
 const _ = Gettext.gettext;
 
-var FileItem = class extends desktopIconItem.desktopIconItem {
+export var FileItem = class extends desktopIconItem.desktopIconItem {
     constructor(desktopManager, file, fileInfo, fileExtra, custom) {
         super(desktopManager, fileExtra);
         this._fileInfo = fileInfo;

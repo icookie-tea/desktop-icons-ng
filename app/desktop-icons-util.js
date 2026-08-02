@@ -15,18 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-/* exported getModifiersInDnD, getDesktopDir, getScriptsDir, getTemplatesDir, clamp,
-   spawnCommandLine, launchTerminal, getFilteredEnviron, distanceBetweenPoints, getExtraFolders,
-   getMounts, getFileExtensionOffset, generateDropFilename, writeDroppedTextFile,
-   windowHidePagerTaskbarModal, waitDelayMs */
-'use strict';
-const Gio = imports.gi.Gio;
-const GLib = imports.gi.GLib;
-const Gdk = imports.gi.Gdk;
-const Prefs = imports.preferences;
-const Enums = imports.enums;
-const Gettext = imports.gettext.domain('ding');
-const ShowErrorPopup = imports['show-error-popup'];
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Gdk from 'gi://Gdk';
+import * as Prefs from './preferences.js';
+import * as Enums from './enums.js';
+import Gettext from 'gettext';
+import * as ShowErrorPopup from './show-error-popup.js';
 
 const _ = Gettext.gettext;
 
@@ -35,7 +30,7 @@ const _ = Gettext.gettext;
  * @param context
  * @param modifiersToCheck
  */
-function getModifiersInDnD(context, modifiersToCheck) {
+export function getModifiersInDnD(context, modifiersToCheck) {
     let device = context.get_device();
     let display = device.get_display();
     let keymap = Gdk.Keymap.get_for_display(display);
@@ -46,7 +41,7 @@ function getModifiersInDnD(context, modifiersToCheck) {
 /**
  *
  */
-function getDesktopDir() {
+export function getDesktopDir() {
     let desktopPath = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DESKTOP);
     return Gio.File.new_for_commandline_arg(desktopPath);
 }
@@ -54,7 +49,7 @@ function getDesktopDir() {
 /**
  *
  */
-function getScriptsDir() {
+export function getScriptsDir() {
     let scriptsDir = GLib.build_filenamev([GLib.get_home_dir(), Enums.NAUTILUS_SCRIPTS_DIR]);
     return Gio.File.new_for_commandline_arg(scriptsDir);
 }
@@ -62,7 +57,7 @@ function getScriptsDir() {
 /**
  *
  */
-function getTemplatesDir() {
+export function getTemplatesDir() {
     let templatesDir = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_TEMPLATES);
     if ((templatesDir == GLib.get_home_dir()) || (templatesDir == null)) {
         return null;
@@ -73,7 +68,7 @@ function getTemplatesDir() {
 /**
  * Returns the state of the modifier keys in the controller
  */
-function getControllerStatus(controller) {
+export function getControllerStatus(controller) {
     let state = controller.get_current_event_state();
     return {
         shift: !!(state & Gdk.ModifierType.SHIFT_MASK),
@@ -89,7 +84,7 @@ function getControllerStatus(controller) {
  * @param min
  * @param max
  */
-function clamp(value, min, max) {
+export function clamp(value, min, max) {
     return Math.max(Math.min(value, max), min);
 }
 
@@ -98,7 +93,7 @@ function clamp(value, min, max) {
  * @param commandLine
  * @param environ
  */
-function spawnCommandLine(commandLine, environ = null) {
+export function spawnCommandLine(commandLine, environ = null) {
     try {
         let [, argv] = GLib.shell_parse_argv(commandLine);
         trySpawn(null, argv, environ);
@@ -112,7 +107,7 @@ function spawnCommandLine(commandLine, environ = null) {
  * @param workdir
  * @param command
  */
-function launchTerminal(workdir, command) {
+export function launchTerminal(workdir, command) {
     const settings = new Gio.Settings({ schema_id: Enums.TERMINAL_SCHEMA });
     const settingsExec = settings.get_string(Enums.EXEC_KEY);
     const terminals = ['xdg-terminal-exec', settingsExec, 'kgx', 'gnome-terminal', 'ptyxis'];
@@ -149,7 +144,7 @@ function launchTerminal(workdir, command) {
  * @param argv
  * @param environ
  */
-function trySpawn(workdir, argv, environ = null) {
+export function trySpawn(workdir, argv, environ = null) {
     /* The following code has been extracted from GNOME Shell's
      * source code in Misc.Util.trySpawn function and modified to
      * set the working directory.
@@ -193,7 +188,7 @@ function trySpawn(workdir, argv, environ = null) {
 /**
  *
  */
-function getFilteredEnviron() {
+export function getFilteredEnviron() {
     let environ = [];
     for (let env of GLib.get_environ()) {
         /* It's a must to remove the WAYLAND_SOCKET environment variable
@@ -215,14 +210,14 @@ function getFilteredEnviron() {
  * @param x2
  * @param y2
  */
-function distanceBetweenPoints(x, y, x2, y2) {
+export function distanceBetweenPoints(x, y, x2, y2) {
     return Math.pow(x - x2, 2) + Math.pow(y - y2, 2);
 }
 
 /**
  *
  */
-function getExtraFolders() {
+export function getExtraFolders() {
     let extraFolders = [];
     if (Prefs.desktopSettings.get_boolean('show-home')) {
         extraFolders.push([Gio.File.new_for_commandline_arg(GLib.get_home_dir()), Enums.FileType.USER_DIRECTORY_HOME]);
@@ -237,7 +232,7 @@ function getExtraFolders() {
  *
  * @param volumeMonitor
  */
-function getMounts(volumeMonitor) {
+export function getMounts(volumeMonitor) {
     let showVolumes = Prefs.desktopSettings.get_boolean('show-volumes');
     let showNetwork = Prefs.desktopSettings.get_boolean('show-network-volumes');
 
@@ -270,7 +265,7 @@ function getMounts(volumeMonitor) {
  * @param filename
  * @param opts
  */
-function getFileExtensionOffset(filename, opts = { 'isDirectory': false }) {
+export function getFileExtensionOffset(filename, opts = { 'isDirectory': false }) {
     let offset = filename.length;
     let extension = '';
     if (!opts.isDirectory) {
@@ -293,7 +288,7 @@ function getFileExtensionOffset(filename, opts = { 'isDirectory': false }) {
     return { offset, 'basename': filename, extension };
 }
 
-function generateDropFilename(text) {
+export function generateDropFilename(text) {
     const MAX_LEN = 64;
     const MIN_LEN = 8;
 
@@ -310,7 +305,7 @@ function generateDropFilename(text) {
     return _("Dropped Text.txt");
 }
 
-function writeDroppedTextFile(text, filename, dropCoordinates) {
+export function writeDroppedTextFile(text, filename, dropCoordinates) {
     let desktopDir = getDesktopDir();
     let file = desktopDir.get_child(filename);
 
@@ -339,7 +334,7 @@ function writeDroppedTextFile(text, filename, dropCoordinates) {
  * @param window
  * @param modal
  */
-function windowHidePagerTaskbarModal(window, modal) {
+export function windowHidePagerTaskbarModal(window, modal) {
     let title = window.get_title();
     if (title == null) {
         title = '';
@@ -358,7 +353,7 @@ function windowHidePagerTaskbarModal(window, modal) {
  *
  * @param ms
  */
-function waitDelayMs(ms) {
+export function waitDelayMs(ms) {
     return new Promise((resolve, reject) => {
         GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
             resolve();

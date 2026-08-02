@@ -1,13 +1,12 @@
 /* Tests for FileUtils.matchPendingDropEntry — resolves Nautilus conflict
  * renames ("name (copy).ext" / "name (副本 2).md") to pending drop coords. */
-'use strict';
-const FileUtils = imports['file-utils'];
-const { assertEqual, summary } = imports.harness;
+import * as FileUtils from '../app/file-utils.js';
+import { assertEqual, summary } from './harness.js';
 
 // pending map helper: basename -> [x, y, ts]
 const P = (name, x = 100, y = 200, ts = 1000) => ({ [name]: [x, y, ts] });
 
-var runTests = function () {
+export function runTests() {
     // 1. exact match wins
     assertEqual(FileUtils.matchPendingDropEntry(P('a.txt'), 'a.txt'), 'a.txt',
         'exact basename match');
@@ -49,4 +48,4 @@ var runTests = function () {
         'empty pending map');
 
     return summary('matchPendingDropEntry');
-};
+}

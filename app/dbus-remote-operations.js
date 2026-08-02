@@ -15,17 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-const Gdk = imports.gi.Gdk;
-const GdkWayland = imports.gi.GdkWayland;
-const Gio = imports.gi.Gio;
-const GLib = imports.gi.GLib;
+import Gdk from 'gi://Gdk';
+import GdkWayland from 'gi://GdkWayland';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 
-/* exported DbusOperationsManager, RemoteFileOperationsManager, LegacyRemoteFileOperationsManager */
 
 /* Remote file-operation proxies (Nautilus FileOperations2, FileManager1,
  * previewer, archive manager) plus the template _remoteCall helper. */
-var DbusOperationsManager = class {
+export var DbusOperationsManager = class {
     constructor(freeDesktopFileManager, gnomeNautilusPreview, gnomeArchiveManager) {
         this.freeDesktopFileManager = freeDesktopFileManager;
         this.gnomeNautilusPreviewManager = gnomeNautilusPreview;
@@ -99,7 +97,7 @@ var DbusOperationsManager = class {
 }
 
 
-var RemoteFileOperationsManager = class extends DbusOperationsManager {
+export var RemoteFileOperationsManager = class extends DbusOperationsManager {
     constructor(mainApp, fileOperationsManager, freeDesktopFileManager, gnomeNautilusPreview, gnomeArchiveManager) {
         super(freeDesktopFileManager, gnomeNautilusPreview, gnomeArchiveManager);
         this.fileOperationsManager = fileOperationsManager;
@@ -215,7 +213,7 @@ var RemoteFileOperationsManager = class extends DbusOperationsManager {
 }
 
 
-var LegacyRemoteFileOperationsManager = class extends DbusOperationsManager {
+export var LegacyRemoteFileOperationsManager = class extends DbusOperationsManager {
     constructor(fileOperationsManager, freeDesktopFileManager, gnomeNautilusPreview, gnomeArchiveManager) {
         super(freeDesktopFileManager, gnomeNautilusPreview, gnomeArchiveManager);
         this.fileOperationsManager = fileOperationsManager;

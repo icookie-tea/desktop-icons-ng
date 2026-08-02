@@ -8,9 +8,8 @@
  * collation). A fix (options as 3rd argument) is proposed in
  * docs/fixes.md; until then these tests pin the ACTUAL order.
  */
-'use strict';
-const SortManager = imports['sort-manager'].SortManager;
-const { assertDeepEqual, summary } = imports.harness;
+import { SortManager } from '../app/sort-manager.js';
+import { assertDeepEqual, summary } from './harness.js';
 
 function mockItem(name, contentType) {
     return {
@@ -23,7 +22,7 @@ function names(list) {
     return list.map(i => i._label.get_text());
 }
 
-var runTests = function () {
+export function runTests() {
     // SortManager only stores its desktopManager; comparators don't use it.
     const sm = new SortManager({});
 
@@ -59,4 +58,4 @@ var runTests = function () {
         'kind sort groups by contentType (image/png < text/plain), name order inside');
 
     return summary('SortManager');
-};
+}

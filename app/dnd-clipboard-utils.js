@@ -16,13 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const Enums = imports.enums;
-const GLib = imports.gi.GLib;
-const Gdk = imports.gi.Gdk;
-const FileUtils = imports['file-utils'];
+import * as Enums from './enums.js';
+import GLib from 'gi://GLib';
+import Gdk from 'gi://Gdk';
+import * as FileUtils from './file-utils.js';
 
 // Prepares a file list for cut or copy
-function manageCutCopy(action) {
+export function manageCutCopy(action) {
     const uriList = fillDragDataGet(Enums.DndTargetInfo.URI_LIST, action.fileList);
     if (!uriList?.length)
         return;
@@ -47,7 +47,7 @@ function manageCutCopy(action) {
 }
 
 // Reads the clipboard for any of the supported mimetypes and returns the first matching type
-async function readClipboard(mimetypes) {
+export async function readClipboard(mimetypes) {
     let clipboard = Gdk.Display.get_default().get_clipboard();
     for (let mimetype of mimetypes) {
         try {
@@ -60,7 +60,7 @@ async function readClipboard(mimetypes) {
     return null;
 }
 
-function processFileList(mimetype, data) {
+export function processFileList(mimetype, data) {
     const decoder = new TextDecoder();
     const content = decoder.decode(data);
 
@@ -101,7 +101,7 @@ function processFileList(mimetype, data) {
     return retval;
 }
 
-function fillDragDataGet(target, fileList) {
+export function fillDragDataGet(target, fileList) {
     if (!fileList)
         return null;
 
@@ -127,7 +127,7 @@ function fillDragDataGet(target, fileList) {
     return null;
 }
 
-function loadDragData({fileList, specialFilesSelected}) {
+export function loadDragData({fileList, specialFilesSelected}) {
     const textCoder = new TextEncoder();
 
     const uriList = fillDragDataGet(Enums.DndTargetInfo.DING_ICON_LIST, fileList);
@@ -160,7 +160,7 @@ function loadDragData({fileList, specialFilesSelected}) {
 }
 
 // manages the drop action over an icon (a folder, for example)
-async function manageIconDrop(fileItem, drop, x, y) {
+export async function manageIconDrop(fileItem, drop, x, y) {
     let gdkDropAction = drop.get_actions();
     if (!Gdk.DragAction.is_unique(gdkDropAction)) {
         if (((gdkDropAction & Gdk.DragAction.COPY) != 0) && ((gdkDropAction & Gdk.DragAction.MOVE) != 0)) {
@@ -220,7 +220,7 @@ async function manageIconDrop(fileItem, drop, x, y) {
     return null;
 }
 
-function makeFileListFromSelection(dropData, acceptFormat) {
+export function makeFileListFromSelection(dropData, acceptFormat) {
     if (!dropData) {
         return null;
     }

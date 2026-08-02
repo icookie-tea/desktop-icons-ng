@@ -14,20 +14,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-const Gio = imports.gi.Gio;
-const GLib = imports.gi.GLib;
-const Enums = imports.enums;
-const DesktopIconsUtil = imports['desktop-icons-util'];
-const SignalManager = imports['signal-manager'];
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import * as Enums from './enums.js';
+import * as DesktopIconsUtil from './desktop-icons-util.js';
+import * as SignalManager from './signal-manager.js';
 
-var TemplatesScriptsManagerFlags = {
+export var TemplatesScriptsManagerFlags = {
     'NONE': 0,
     'ONLY_EXECUTABLE': 1,
     'HIDE_EXTENSIONS': 2,
 };
 
-var TemplatesScriptsManager = class extends SignalManager.SignalManager {
+export var TemplatesScriptsManager = class extends SignalManager.SignalManager {
     constructor(baseFolder, flags) {
         super();
         // Too many templates can result in resource exhaustion, crashing

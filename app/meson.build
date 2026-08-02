@@ -34,6 +34,7 @@ install_data([
     'prefs-window.js',
     'promise-utils.js',
     'show-error-popup.js',
+    'signals.js',
     'signal-manager.js',
     'sort-manager.js',
     'stack-item.js',

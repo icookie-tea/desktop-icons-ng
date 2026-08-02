@@ -15,9 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-'use strict';
 
-var SignalManager = class {
+export var SignalManager = class {
     constructor() {
         this._signal_list = [];
     }

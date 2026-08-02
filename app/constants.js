@@ -16,14 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-'use strict';
 
 /* Timeouts and batch sizes (milliseconds unless noted). */
-var MONITOR_RATE_LIMIT_MS = 1000;        // GFileMonitor rate limit
-var FILE_CHANGES_DEBOUNCE_MS = 200;      // FileChangesQueue debounce window
-var MAX_INCREMENTAL_EVENTS = 2;          // FileChangesQueue immediate-flush batch size
-var KEYPRESS_SEARCH_TIMEOUT_MS = 1500;   // keyboard name-search reset timer
-var REFRESH_RETRY_DELAY_MS = 500;        // wait between full-refresh retries
-var DESKTOP_UPDATE_THROTTLE_US = 1000000; // force redraw if refresh took > 1s
-var MOVE_PENDING_TIMEOUT_MS = 150;       // MOVED_OUT -> MOVED_IN merge window
-var THUMBNAIL_TIMEOUT_MS = 5000;         // thumbnail generation timeout
+export var MONITOR_RATE_LIMIT_MS = 1000;        // GFileMonitor rate limit
+export var FILE_CHANGES_DEBOUNCE_MS = 200;      // FileChangesQueue debounce window
+export var MAX_INCREMENTAL_EVENTS = 2;          // FileChangesQueue immediate-flush batch size
+export var KEYPRESS_SEARCH_TIMEOUT_MS = 1500;   // keyboard name-search reset timer
+export var REFRESH_RETRY_DELAY_MS = 500;        // wait between full-refresh retries
+export var DESKTOP_UPDATE_THROTTLE_US = 1000000; // force redraw if refresh took > 1s
+export var MOVE_PENDING_TIMEOUT_MS = 150;       // MOVED_OUT -> MOVED_IN merge window
+export var THUMBNAIL_TIMEOUT_MS = 5000;         // thumbnail generation timeout

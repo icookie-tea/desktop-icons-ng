@@ -14,20 +14,21 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-'use strict';
-var GnomeDesktop = null;
+export var GnomeDesktop = null;
 try {
-    imports.gi.versions.GnomeDesktop = '4.0';
-    GnomeDesktop = imports.gi.GnomeDesktop;
-} catch(e) {}
-const GLib = imports.gi.GLib;
-const Constants = imports.constants;
-const Gio = imports.gi.Gio;
-const Gettext = imports.gettext.domain('ding');
+    // Dynamic import keeps the graceful-degradation behaviour: when the
+    // GnomeDesktop GIR is missing we fall back to the subprocess thumbnail
+    // generator instead of failing the whole module load.
+    GnomeDesktop = (await import('gi://GnomeDesktop?version=4.0')).default;
+} catch (e) {}
+import GLib from 'gi://GLib';
+import * as Constants from './constants.js';
+import Gio from 'gi://Gio';
+import Gettext from 'gettext';
 
 const _ = Gettext.gettext;
 
-var ThumbnailLoader = class {
+export var ThumbnailLoader = class {
     constructor(desktopManager, codePath) {
         this._timeoutValue = Constants.THUMBNAIL_TIMEOUT_MS;
         this._codePath = codePath;

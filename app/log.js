@@ -16,17 +16,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-'use strict';
-const GLib = imports.gi.GLib;
+import GLib from 'gi://GLib';
 
 /* Debug logging policy:
  * - Error paths keep using print()/console.log() directly (they always go
  *   to the journal).
  * - Verbose/diagnostic logging must go through debugLog() below, which is
  *   only emitted when the DING_DEBUG environment variable is set. */
-var debugEnabled = GLib.getenv('DING_DEBUG') !== null;
+export var debugEnabled = GLib.getenv('DING_DEBUG') !== null;
 
-function debugLog(...args) {
+export function debugLog(...args) {
     if (debugEnabled) {
         print(...args);
     }
