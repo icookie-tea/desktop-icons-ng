@@ -26,7 +26,6 @@ const Gio = imports.gi.Gio;
 const Adw = imports.gi.Adw;
 
 const FileItem = imports['file-item'];
-const DesktopGrid = imports['desktop-grid'];
 const DesktopIconsUtil = imports['desktop-icons-util'];
 const Prefs = imports.preferences;
 const Enums = imports.enums;
@@ -39,6 +38,7 @@ const AutoAr = imports['auto-ar'];
 const SignalManager = imports['signal-manager'];
 const DesktopMenu = imports['desktop-menu'];
 const DesktopMonitor = imports['desktop-monitor'];
+const GridLayout = imports['grid-layout'];
 const FileChangesQueue = imports['file-changes-queue'];
 const Constants = imports.constants;
 const DebugLog = imports.log;
@@ -152,6 +152,7 @@ var DesktopManager = class {
         this._asDesktop = asDesktop;
         this._desktopList = desktopList;
         this._desktops = [];
+        this._gridLayout = new GridLayout.GridLayout(this);
     }
     _initFileMonitoring() {
         this._monitor = new DesktopMonitor.DesktopMonitor(this);
@@ -327,7 +328,7 @@ var DesktopManager = class {
             });
         }
         if (this._asDesktop) {
-            this._dbusAdvertiseUpdate();
+            this._gridLayout.dbusAdvertiseUpdate();
         }
     }
 
@@ -343,88 +344,14 @@ var DesktopManager = class {
         return updateFileList;
     }
 
-    _dbusAdvertiseUpdate() {
-        DBusUtils.extensionControl.connect('action-state-changed', (actionGroup, actionName, data) => {
-            if (actionName == 'desktopGeometry') {
-                this.updateGridWindows(data.recursiveUnpack());
-            }
-        });
-        DBusUtils.extensionControl.connect('action-added', (actionGroup, actionName) => {
-            // this signal allows us to know when the action is available and we can read the initial value
-            if (actionName == 'desktopGeometry') {
-                let data = DBusUtils.extensionControl.get_action_state('desktopGeometry');
-                this.updateGridWindows(data.recursiveUnpack());
-            }
-        });
-        // This is required to trigger the 'action-added' signal
-        DBusUtils.extensionControl.list_actions();
-    }
+
+
+
+
+
 
     updateGridWindows(newdesktoplist) {
-        let newPrimaryIndex = -1;
-        if ((newdesktoplist.length > 0) && ('primaryMonitor' in newdesktoplist[0])) {
-            newPrimaryIndex = newdesktoplist[0].primaryMonitor;
-            this._primaryIndex = newPrimaryIndex;
-        }
-        if (this._desktopList && (newdesktoplist.length == this._desktopList.length)) {
-            let gridschanged = [];
-            for (let index = 0; index < newdesktoplist.length; index++) {
-                let area = newdesktoplist[index];
-                let area2 = this._desktopList[index];
-                if ((area.x != area2.x) ||
-                    (area.y != area2.y) ||
-                    (area.width != area2.width) ||
-                    (area.height != area2.height) ||
-                    (area.scaleFactor !== area2.scaleFactor) ||
-                    (area.monitorIndex != area2.monitorIndex)) {
-                    gridschanged.push(index);
-                    continue;
-                }
-                if ((area.marginTop != area2.marginTop) ||
-                    (area.marginBottom != area2.marginBottom) ||
-                    (area.marginLeft != area2.marginLeft) ||
-                    (area.marginRight != area2.marginRight)) {
-                    if (!gridschanged.includes(index)) {
-                        gridschanged.push(index);
-                    }
-                }
-            }
-            if (gridschanged.length == 0) {
-                if (this._primaryIndex < this._desktopList.length) {
-                    this._primaryScreen = this._desktopList[this._primaryIndex];
-                } else {
-                    this._primaryScreen = null;
-                }
-                return;
-            }
-        }
-        this._desktopList = newdesktoplist;
-        if (this._primaryIndex < this._desktopList.length) {
-            this._primaryScreen = this._desktopList[this._primaryIndex];
-        } else {
-            this._primaryScreen = null;
-        }
-        this._createGridWindows();
-        this._updateDesktopSafe('grid update');
-    }
-
-    _createGridWindows() {
-        this._removeAllFilesFromGrids();
-        for (let desktop of this._desktops) {
-            desktop.destroy();
-        }
-        this._desktops = [];
-        for (let desktopIndex in this._desktopList) {
-            let desktop = this._desktopList[desktopIndex];
-            let desktopName;
-            if (this._asDesktop) {
-                // this name must match the one used in emulateX11WindowType
-                desktopName = `Desktop Icons ${desktop.monitorIndex + 1}`;
-            } else {
-                desktopName = `DING ${desktop.monitorIndex + 1}`;
-            }
-            this._desktops.push(new DesktopGrid.DesktopGrid(this, desktopName, desktop, this._asDesktop));
-        }
+        this._gridLayout.updateGridWindows(newdesktoplist);
     }
 
     get selectColor() {

@@ -17,6 +17,7 @@ install_data([
     'desktop-menu.js',
     'desktop-monitor.js',
     'ding.js',
+    'grid-layout.js',
     'paint-container.js',
     'dnd-clipboard-utils.js',
     'enums.js',
