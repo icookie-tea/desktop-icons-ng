@@ -303,7 +303,7 @@ export default class DING extends Extension {
             if (!processUser.query_exists(null)) {
                 continue;
             }
-            let [binaryData, etag] = processUser.load_bytes(null);
+            let [binaryData] = processUser.load_bytes(null);
             let contents = '';
             let readData = binaryData.get_data();
             for (let i = 0; i < readData.length; i++) {
@@ -509,4 +509,4 @@ class LaunchSubprocess {
             return false;
         }
     }
-};
+}

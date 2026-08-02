@@ -151,5 +151,5 @@ export class VisibleArea {
     get uuid() {
         return this._extensionUUID;
     }
-};
+}
 Signals.addSignalMethods(VisibleArea.prototype);

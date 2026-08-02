@@ -7,3 +7,6 @@
 # pi cache
 .pi/git/
 .pi/npm/
+
+# node tooling
+node_modules/

@@ -16,7 +16,6 @@
  */
 'use strict';
 var GnomeDesktop = null;
-const ShowErrorPopup = imports.showErrorPopup;
 try {
     imports.gi.versions.GnomeDesktop = '4.0';
     GnomeDesktop = imports.gi.GnomeDesktop;
@@ -107,7 +106,7 @@ var ThumbnailLoader = class {
             print(`Timeout while generating thumbnail for ${file.displayName}`);
             this._timeoutID = 0;
             this._doCancel.cancel();
-            this._createFailedThumbnailAsync(file, modifiedTime, resolve, reject);
+            this._createFailedThumbnailAsync(file, modifiedTime, resolve);
             return false;
         });
     }

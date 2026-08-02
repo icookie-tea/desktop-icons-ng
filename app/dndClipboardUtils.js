@@ -19,7 +19,6 @@
 const Enums = imports.enums;
 const GLib = imports.gi.GLib;
 const Gdk = imports.gi.Gdk;
-const Gio = imports.gi.Gio;
 const FileUtils = imports.fileUtils;
 
 // Prepares a file list for cut or copy

@@ -21,7 +21,7 @@
 imports.gi.versions.Gtk = '4.0';
 imports.gi.versions.Gdk = '4.0';
 imports.gi.versions.GdkWayland = '4.0';
-const { Gio, GLib, Gdk, Gtk, GdkWayland } = imports.gi;
+const { Gio, GLib, Gdk, GdkWayland } = imports.gi;
 const Signals = imports.signals;
 const DBusInterfaces = imports.dbusInterfaces;
 const DesktopIconsUtil = imports.desktopIconsUtil;

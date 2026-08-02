@@ -20,7 +20,6 @@
 const Gtk = imports.gi.Gtk;
 const Gio = imports.gi.Gio;
 const GLib = imports.gi.GLib;
-const Adw = imports.gi.Adw;
 const DBusUtils = imports.dbusUtils;
 const DesktopIconsUtil = imports.desktopIconsUtil;
 const Gettext = imports.gettext.domain('ding');

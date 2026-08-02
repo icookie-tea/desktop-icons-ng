@@ -28,8 +28,6 @@ const Prefs = imports.preferences;
 const TemplatesScriptsManager = imports.templatesScriptsManager;
 const DesktopIconsUtil = imports.desktopIconsUtil;
 const MenuHelper = imports.menuHelper;
-const FileUtils = imports.fileUtils;
-const dndClipboardUtils = imports.dndClipboardUtils;
 const Enums = imports.enums;
 
 const Gettext = imports.gettext.domain('ding');

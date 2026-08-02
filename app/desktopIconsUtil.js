@@ -100,7 +100,7 @@ function clamp(value, min, max) {
  */
 function spawnCommandLine(commandLine, environ = null) {
     try {
-        let [success, argv] = GLib.shell_parse_argv(commandLine);
+        let [, argv] = GLib.shell_parse_argv(commandLine);
         trySpawn(null, argv, environ);
     } catch (err) {
         print(`${commandLine} failed with ${err}`);
@@ -157,9 +157,9 @@ function trySpawn(workdir, argv, environ = null) {
      * https://gitlab.gnome.org/GNOME/gnome-shell/blob/gnome-3-30/js/misc/util.js
      */
 
-    var success, pid;
+    var pid;
     try {
-        [success, pid] = GLib.spawn_async(workdir, argv, environ,
+        [pid] = GLib.spawn_async(workdir, argv, environ,
             GLib.SpawnFlags.SEARCH_PATH | GLib.SpawnFlags.DO_NOT_REAP_CHILD,
             null);
     } catch (err) {

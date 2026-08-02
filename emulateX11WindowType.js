@@ -263,4 +263,4 @@ export class EmulateX11WindowType {
         window.customJS_ding.disconnect();
         window.customJS_ding = null;
     }
-};
+}

@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 'use strict';
-const { GLib, Gio, GObject } = imports.gi;
+const { GLib, Gio } = imports.gi;
 
 const DEFAULT_ENUMERATE_BATCH_SIZE = 100;
 const DEFAULT_QUERY_ATTRIBUTES = [
@@ -41,7 +41,6 @@ async function enumerateDir(dir, cancellable = null, priority = GLib.PRIORITY_DE
             // The enumerator doesn't support multiple async calls, nor
             // we can predict how many they will be, so using Promise.all
             // isn't an option here, thus we just need to await each batch
-            // eslint-disable-next-line no-await-in-loop
             const batch = await childrenEnumerator.next_files_async_promise(
                 DEFAULT_ENUMERATE_BATCH_SIZE, priority, cancellable);
 
@@ -68,7 +67,6 @@ async function enumerateDir(dir, cancellable = null, priority = GLib.PRIORITY_DE
 async function recursivelyDeleteDir(dir, deleteParent, cancellable = null,
     priority = GLib.PRIORITY_DEFAULT) {
     const children = await enumerateDir(dir, cancellable, priority);
-    /* eslint-disable no-await-in-loop */
     for (let info of children) {
         await deleteFile(dir.get_child(info.get_name()), info, cancellable, priority);
     }

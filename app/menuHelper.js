@@ -17,17 +17,10 @@
 
 'use strict';
 
-const DBusUtils = imports.dbusUtils;
 const GLib = imports.gi.GLib;
-const Gdk = imports.gi.Gdk;
-const Gtk = imports.gi.Gtk;
 const Gio = imports.gi.Gio;
 
-const TemplatesScriptsManager = imports.templatesScriptsManager;
-const DesktopIconsUtil = imports.desktopIconsUtil;
 const Prefs = imports.preferences;
-const ShowErrorPopup = imports.showErrorPopup;
-const SignalManager = imports.signalManager;
 
 const Gettext = imports.gettext.domain('ding');
 

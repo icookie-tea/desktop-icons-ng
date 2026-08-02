@@ -1,0 +1,14 @@
+{
+  "name": "ding-desktop-icons-ng",
+  "version": "50.0.0",
+  "private": true,
+  "description": "Desktop Icons NG for GNOME Shell — dev tooling only (lint/check scripts)",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "check": "bash scripts/check.sh"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  }
+}

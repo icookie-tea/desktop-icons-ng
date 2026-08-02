@@ -19,7 +19,7 @@
  */
 'use strict';
 imports.gi.versions.Gtk = '4.0';
-const Gtk = imports.gi.Gtk;
+imports.gi.versions.Gdk = '4.0';
 const Gdk = imports.gi.Gdk;
 const Gio = imports.gi.Gio;
 const GLib = imports.gi.GLib;
@@ -246,10 +246,4 @@ dingApp.connect('command-line', (app, commandLine) => {
 
 if (!errorFound) {
     dingApp.run(ARGV);
-}
-
-if (!errorFound) {
-    0;
-} else {
-    1;
 }

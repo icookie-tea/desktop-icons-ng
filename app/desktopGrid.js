@@ -17,7 +17,6 @@
  */
 /* exported DesktopGrid */
 'use strict';
-const GLib = imports.gi.GLib;
 const Gtk = imports.gi.Gtk;
 const Gdk = imports.gi.Gdk;
 
@@ -26,7 +25,6 @@ const Enums = imports.enums;
 const DesktopIconsUtil = imports.desktopIconsUtil;
 const SignalManager = imports.signalManager;
 const dndClipboardUtils = imports.dndClipboardUtils;
-const DBusUtils = imports.dbusUtils;
 const PaintContainer = imports.paintContainer.PaintContainer;
 
 const Gettext = imports.gettext.domain('ding');
@@ -355,12 +353,12 @@ var DesktopGrid = class extends SignalManager.SignalManager {
     coordinatesGlobalToLocal(X, Y) {
         X -= this._x;
         Y -= this._y;
-        let [belong, x, y] = this._window.translate_coordinates(this._container, X, Y);
+        let [, x, y] = this._window.translate_coordinates(this._container, X, Y);
         return [Math.floor(x), Math.floor(y)];
     }
 
     coordinatesLocalToGlobal(x, y) {
-        let [belongs, X, Y] = this._container.translate_coordinates(this._window, x, y);
+        let [, X, Y] = this._container.translate_coordinates(this._window, x, y);
         return [Math.floor(X + this._x), Math.floor(Y + this._y)];
     }
 
@@ -395,7 +393,7 @@ var DesktopGrid = class extends SignalManager.SignalManager {
 
     removeItem(fileItem) {
         if (fileItem.uri in this._fileItems) {
-            let [column, row, tmp] = this._fileItems[fileItem.uri];
+            let [column, row] = this._fileItems[fileItem.uri];
             this._setGridUse(column, row, false);
             this._container.remove(fileItem.container);
             delete this._fileItems[fileItem.uri];

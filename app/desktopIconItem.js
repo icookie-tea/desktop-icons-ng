@@ -24,9 +24,7 @@ const Gtk = imports.gi.Gtk;
 const Gdk = imports.gi.Gdk;
 const Gio = imports.gi.Gio;
 const GLib = imports.gi.GLib;
-const GObject = imports.gi.GObject;
 const Pango = imports.gi.Pango;
-const GdkPixbuf = imports.gi.GdkPixbuf;
 const Gsk = imports.gi.Gsk;
 const Graphene = imports.gi.Graphene;
 
@@ -36,7 +34,6 @@ const Prefs = imports.preferences;
 const Enums = imports.enums;
 const SignalManager = imports.signalManager;
 
-const ByteArray = imports.byteArray;
 const Signals = imports.signals;
 const Gettext = imports.gettext.domain('ding');
 
@@ -542,7 +539,7 @@ var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager 
         layout.set_text(String(count), -1);
         layout.set_font_description(Pango.FontDescription.from_string('bold 11'));
 
-        let [inkRect, logicalRect] = layout.get_pixel_extents();
+        let [, logicalRect] = layout.get_pixel_extents();
         const textX = badgeX + (BADGE_SIZE - logicalRect.width) / 2;
         const textY = badgeY + (BADGE_SIZE - logicalRect.height) / 2;
 

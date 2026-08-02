@@ -23,11 +23,8 @@ const GLibUnix = imports.gi.GLibUnix;
 const Gtk = imports.gi.Gtk;
 const Gdk = imports.gi.Gdk;
 const Gio = imports.gi.Gio;
-const GioUnix = imports.gi.GioUnix;
 const Adw = imports.gi.Adw;
-const ByteArray = imports.byteArray;
 
-const dndClipboardUtils = imports.dndClipboardUtils;
 const FileItem = imports.fileItem;
 const DesktopGrid = imports.desktopGrid;
 const DesktopIconsUtil = imports.desktopIconsUtil;
@@ -36,7 +33,6 @@ const Enums = imports.enums;
 const NotifyX11UnderWayland = imports.notifyX11UnderWayland;
 const DBusUtils = imports.dbusUtils;
 const ShowErrorPopup = imports.showErrorPopup;
-const TemplatesScriptsManager = imports.templatesScriptsManager;
 const Thumbnails = imports.thumbnails;
 const FileItemMenu = imports.fileItemMenu;
 const AutoAr = imports.autoAr;
@@ -460,7 +456,7 @@ var DesktopManager = class {
                     if (item.isSpecial) {
                         fileItems.push(item);
                         item.removeFromGrid(false);
-                        let [x, y, a, b, c] = item.getCoordinates();
+                        let [x, y] = item.getCoordinates();
                         item.savedCoordinates = [x + deltaX, y + deltaY];
                     } else {
                         continue;
@@ -468,7 +464,7 @@ var DesktopManager = class {
                 } else {
                     fileItems.push(item);
                     item.removeFromGrid(false);
-                    let [x, y, a, b, c] = item.getCoordinates();
+                    let [x, y] = item.getCoordinates();
                     item.savedCoordinates = [x + deltaX, y + deltaY];
                 }
             }
@@ -502,12 +498,12 @@ var DesktopManager = class {
             if (!itemList) {
                 return;
             }
-            let [x1, y1, x2, y2, c] = this.dragItem.getCoordinates();
+            let [x1, y1] = this.dragItem.getCoordinates();
             let oX = x1;
             let oY = y1;
             this._dragList = [];
             for (let item of itemList) {
-                [x1, y1, x2, y2, c] = item.getCoordinates();
+                [x1, y1] = item.getCoordinates();
                 this._dragList.push([x1 - oX, y1 - oY]);
             }
         }
@@ -778,7 +774,7 @@ var DesktopManager = class {
             this.doCut();
             return true;
         } else if (isCtrl && ((keyval == Gdk.KEY_V) || (keyval == Gdk.KEY_v))) {
-            this.doPaste(true).catch(e => {console.log(`Error doing paste from keyboard: ${e.message}\n${e.stack}`)});;
+            this.doPaste(true).catch(e => {console.log(`Error doing paste from keyboard: ${e.message}\n${e.stack}`)});
             return true;
         } else if (isAlt && (keyval == Gdk.KEY_Return)) {
             let currentSelection = this.getCurrentSelection(true);
@@ -1117,7 +1113,6 @@ var DesktopManager = class {
         this._forceDraw = false;
         this._lastDesktopUpdateRequest = GLib.get_monotonic_time();
         let fileList = [];
-        /* eslint-disable no-await-in-loop */
         while (true) {
             this._desktopFilesChanged = false;
             if (!this._desktopDir.query_exists(null)) {

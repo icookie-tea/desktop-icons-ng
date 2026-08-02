@@ -24,6 +24,10 @@ const DesktopIconsUtil = imports.desktopIconsUtil;
 const AskRenamePopup = imports.askRenamePopup;
 const Enums = imports.enums;
 
+const Gettext = imports.gettext.domain('ding');
+
+const _ = Gettext.gettext;
+
 var FileOperations = class {
     constructor(desktopManager) {
         this._dm = desktopManager;

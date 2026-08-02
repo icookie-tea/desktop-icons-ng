@@ -264,7 +264,7 @@ var AutoAr = class {
         }
 
         this.emit('progress-elements-changed', this._progressElements);
-    };
+    }
 };
 
 Signals.addSignalMethods(AutoAr.prototype);
@@ -693,7 +693,6 @@ const CompressDialog = class {
         const outputfile = this._nameEntry.get_text() + label;
         this._passLabel.visible = password;
         this._passEntry.visible = password;
-        let context = this._nameEntry.get_style_context();
         this._okButton.sensitive = true;
         if (this._desktopManager._fileList.map(f => f.fileName).includes(outputfile)) {
             this._okButton.sensitive = false;
