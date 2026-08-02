@@ -1,5 +1,4 @@
 import Adw from 'gi://Adw';
-import GObject from 'gi://GObject';
 import Gettext from 'gettext';
 import Gio from 'gi://Gio';
 const GioSSS = Gio.SettingsSchemaSource;
@@ -136,34 +135,35 @@ export function buildSwitcher(settings, key, labelText, subtitleText = null) {
  * @param subtitleText
  */
 export function buildSelector(settings, key, labelText, elements, subtitleText = null) {
-    let listStore = new Gtk.ListStore();
-    listStore.set_column_types([GObject.TYPE_STRING, GObject.TYPE_STRING]);
+    let values = [];
+    let visibleTexts = [];
     if (settings) {
         let schemaKey = settings.settings_schema.get_key(key);
-        let values = schemaKey.get_range().get_child_value(1).get_child_value(0).get_strv();
+        values = schemaKey.get_range().get_child_value(1).get_child_value(0).get_strv();
         for (let val of values) {
-            let iter = listStore.append();
             let visibleText = val;
             if (visibleText in elements) {
                 visibleText = elements[visibleText];
             }
-            listStore.set(iter, [0, 1], [visibleText, val]);
+            visibleTexts.push(visibleText);
         }
     }
-    let combo = new Gtk.ComboBox({ model: listStore });
-    let rendererText = new Gtk.CellRendererText();
-    combo.pack_start(rendererText, false);
-    combo.add_attribute(rendererText, 'text', 0);
-    combo.set_id_column(1);
-    if (settings) {
-        settings.bind(key, combo, 'active-id', Gio.SettingsBindFlags.DEFAULT);
-    } else {
-        combo.sensitive = false;
-    }
-    let row = new Adw.ActionRow({
+    // AdwComboRow renders GtkStringList items as labels automatically
+    // (no expression needed). `selected` is an index into the list, so
+    // map back and forth through the schema's value list.
+    let stringList = new Gtk.StringList({ strings: visibleTexts });
+    let comboRow = new Adw.ComboRow({
         title: labelText,
         subtitle: subtitleText,
+        model: stringList,
     });
-    row.add_suffix(combo);
-    return row;
+    if (settings) {
+        comboRow.selected = Math.max(0, values.indexOf(settings.get_string(key)));
+        comboRow.connect('notify::selected', () => {
+            settings.set_string(key, values[comboRow.selected]);
+        });
+    } else {
+        comboRow.sensitive = false;
+    }
+    return comboRow;
 }

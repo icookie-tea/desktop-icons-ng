@@ -775,3 +775,7 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 **修复：** 移除该调用，设置窗口变为普通窗口（不置顶、不跨工作区、任务栏可见）。重命名对话框与错误弹窗保留原行为。
 
 **附带：** 设置窗口按 Adw 标准风格重构（PreferencesPage + 两个分组 + SwitchRow/ActionRow，可调整大小），新增 12 条 zh_CN 翻译条目（另 5 条复用已有翻译）。
+
+### 设置窗口下拉框改用 AdwComboRow
+
+Gtk.ComboBox 换成 Adw.ComboRow + Gtk.StringList（libadwaita 对 StringList 自动取字符串，无需 expression）。selected 为列表索引，通过 schema 枚举值列表（get_range 的 strv）与设置值双向映射——与旧 active-id 绑定行为等价。构建时本地无显示环境无法运行验证（Adw 控件构造段错误），需在真实 GNOME 会话确认。
