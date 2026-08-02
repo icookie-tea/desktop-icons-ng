@@ -39,6 +39,7 @@ const AutoAr = imports.autoAr;
 const SignalManager = imports.signalManager;
 const DesktopMenu = imports.desktopMenu;
 const FileChangesQueue = imports.fileChangesQueue;
+const Constants = imports.constants;
 const ThemeManager = imports.themeManager;
 const FileOperations = imports.fileOperations;
 const SortManager = imports.sortManager;
@@ -155,13 +156,13 @@ var DesktopManager = class {
         this.desktopFsId = this._desktopDir.query_info('id::filesystem', Gio.FileQueryInfoFlags.NONE, null).get_attribute_string('id::filesystem');
         this._updateWritableByOthers();
         this._monitorDesktopDir = this._desktopDir.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, null);
-        this._monitorDesktopDir.set_rate_limit(1000);
+        this._monitorDesktopDir.set_rate_limit(Constants.MONITOR_RATE_LIMIT_MS);
         this._monitorDesktopDir.connect('changed', (obj, file, otherFile, eventType) => this._updateDesktopIfChanged(file, otherFile, eventType));
 
         this._pendingMoves = {};
         this._processingIncremental = false;
         this._moveTimeoutId = 0;
-        this._fileChangesQueue = new FileChangesQueue.FileChangesQueue(200, 2);
+        this._fileChangesQueue = new FileChangesQueue.FileChangesQueue(Constants.FILE_CHANGES_DEBOUNCE_MS, Constants.MAX_INCREMENTAL_EVENTS);
         this._fileChangesQueue.onFlush(events => {
             this._processIncrementalEvents(events).catch(e => {
                 print(`Unhandled error in incremental update: ${e.message}\n${e.stack}`);
@@ -898,7 +899,7 @@ var DesktopManager = class {
             }
         }
 
-        this.keypressTimeoutID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
+        this.keypressTimeoutID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, Constants.KEYPRESS_SEARCH_TIMEOUT_MS, () => {
             this.searchString = null;
             this.keypressTimeoutID = null;
             if (this._findFileWindow) {
@@ -1139,8 +1140,8 @@ var DesktopManager = class {
                     }
                 }
             }
-            await DesktopIconsUtil.waitDelayMs(500);
-            if ((GLib.get_monotonic_time() - this._lastDesktopUpdateRequest) > 1000000) {
+            await DesktopIconsUtil.waitDelayMs(Constants.REFRESH_RETRY_DELAY_MS);
+            if ((GLib.get_monotonic_time() - this._lastDesktopUpdateRequest) > Constants.DESKTOP_UPDATE_THROTTLE_US) {
                 this._forceDraw = true;
             } else {
                 this._forceDraw = false;
@@ -1536,7 +1537,7 @@ var DesktopManager = class {
         if (this._moveTimeoutId) {
             GLib.source_remove(this._moveTimeoutId);
         }
-        this._moveTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
+        this._moveTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, Constants.MOVE_PENDING_TIMEOUT_MS, () => {
             try {
                 if (oldPath in this._pendingMoves) {
                     delete this._pendingMoves[oldPath];

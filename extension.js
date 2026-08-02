@@ -29,6 +29,10 @@ import * as EmulateX11 from './emulateX11WindowType.js';
 import * as VisibleArea from './visibleArea.js';
 import * as ShellOverride from './gnomeShellOverride.js';
 
+/* Timeouts (microseconds/milliseconds) for process launch/relaunch handling. */
+const PROCESS_CRASH_WINDOW_US = 1000000; // if the process died within 1s of launch
+const WINDOW_MAP_TIMEOUT_MS = 6000;      // kill + relaunch if no window maps in time
+
 export default class DING extends Extension {
     constructor(metadata) {
         super(metadata);
@@ -373,7 +377,7 @@ export default class DING extends Extension {
         */
         this.data.currentProcess.subprocess.wait_async(null, (obj, res) => {
             let delta = GLib.get_monotonic_time() - this.data.launchTime;
-            if (delta < 1000000) {
+            if (delta < PROCESS_CRASH_WINDOW_US) {
                 // If the process is dying over and over again, ensure that it isn't respawn faster than once per second
                 var reloadTime = 1000;
             } else {
@@ -442,7 +446,7 @@ class LaunchSubprocess {
                 // This ensures that, if the DING window isn't detected in three seconds
                 // after launch, the desktop will be killed and, thus, relaunched again.
                 this._waiting_for_windows = Main.layoutManager.monitors.length;
-                this._launch_timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 6000, () => {
+                this._launch_timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, WINDOW_MAP_TIMEOUT_MS, () => {
                     this._launch_timer = 0;
                     this.subprocess.force_exit();
                     return false;

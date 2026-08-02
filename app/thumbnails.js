@@ -21,6 +21,7 @@ try {
     GnomeDesktop = imports.gi.GnomeDesktop;
 } catch(e) {}
 const GLib = imports.gi.GLib;
+const Constants = imports.constants;
 const Gio = imports.gi.Gio;
 const Gettext = imports.gettext.domain('ding');
 
@@ -28,7 +29,7 @@ const _ = Gettext.gettext;
 
 var ThumbnailLoader = class {
     constructor(desktopManager, codePath) {
-        this._timeoutValue = 5000;
+        this._timeoutValue = Constants.THUMBNAIL_TIMEOUT_MS;
         this._codePath = codePath;
         this._thumbList = [];
         this._thumbnailScriptWatch = null;
