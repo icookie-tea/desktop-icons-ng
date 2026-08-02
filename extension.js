@@ -29,6 +29,13 @@ import * as EmulateX11 from './emulateX11WindowType.js';
 import * as VisibleArea from './visibleArea.js';
 import * as ShellOverride from './gnomeShellOverride.js';
 
+/* Verbose diagnostics only when DING_DEBUG is set (avoids journal spam on
+ * every monitor geometry change). */
+const debugLog = (...args) => {
+    if (GLib.getenv('DING_DEBUG') !== null)
+        console.log(...args);
+};
+
 /* Timeouts (microseconds/milliseconds) for process launch/relaunch handling. */
 const PROCESS_CRASH_WINDOW_US = 1000000; // if the process died within 1s of launch
 const WINDOW_MAP_TIMEOUT_MS = 6000;      // kill + relaunch if no window maps in time
@@ -232,15 +239,15 @@ export default class DING extends Extension {
      */
     updateDesktopGeometry() {
         if (this.data.actionGroup && (Main.layoutManager.monitors.length != 0)) {
-            console.log(`[DING] updateDesktopGeometry triggered. monitors.length=${Main.layoutManager.monitors.length}, primaryIndex=${Main.layoutManager.primaryIndex}`);
+            debugLog(`[DING] updateDesktopGeometry triggered. monitors.length=${Main.layoutManager.monitors.length}, primaryIndex=${Main.layoutManager.primaryIndex}`);
             for (let i = 0; i < Main.layoutManager.monitors.length; i++) {
                 let m = Main.layoutManager.monitors[i];
-                console.log(`[DING]   monitor[${i}]: x=${m.x}, y=${m.y}, w=${m.width}, h=${m.height}, scale=${m.scale}, primary=${i === Main.layoutManager.primaryIndex}`);
+                debugLog(`[DING]   monitor[${i}]: x=${m.x}, y=${m.y}, w=${m.width}, h=${m.height}, scale=${m.scale}, primary=${i === Main.layoutManager.primaryIndex}`);
             }
             this.data.actionGroup.change_action_state('desktopGeometry', this.getDesktopGeometry());
             this.data.x11Manager.refreshWindowsPosition();
         } else {
-            console.log(`[DING] updateDesktopGeometry SKIPPED: actionGroup=${!!this.data.actionGroup}, monitors.length=${Main.layoutManager.monitors.length}`);
+            debugLog(`[DING] updateDesktopGeometry SKIPPED: actionGroup=${!!this.data.actionGroup}, monitors.length=${Main.layoutManager.monitors.length}`);
         }
     }
 
@@ -252,7 +259,7 @@ export default class DING extends Extension {
         let desktopList = [];
         const ws = global.workspace_manager.get_active_workspace();
         const { scaleFactor } = St.ThemeContext.get_for_stage(global.stage);
-        console.log(`[DING] getDesktopGeometry: monitors.length=${Main.layoutManager.monitors.length}, primaryIndex=${Main.layoutManager.primaryIndex}, scaleFactor=${scaleFactor}`);
+        debugLog(`[DING] getDesktopGeometry: monitors.length=${Main.layoutManager.monitors.length}, primaryIndex=${Main.layoutManager.primaryIndex}, scaleFactor=${scaleFactor}`);
         for (let monitorIndex = 0; monitorIndex < Main.layoutManager.monitors.length; monitorIndex++) {
             let area = this.data.visibleArea.getMonitorGeometry(ws, monitorIndex);
             let monitorData = {
@@ -272,13 +279,13 @@ export default class DING extends Extension {
                 'windowMarginLeft': area.windowMarginLeft,
                 'windowMarginRight': area.windowMarginRight,
             };
-            console.log(`[DING]   monitorData[${monitorIndex}]: x=${area.x}, y=${area.y}, w=${area.width}, h=${area.height}, monitorIndex=${monitorIndex}, primaryMonitor=${Main.layoutManager.primaryIndex}, margins=[T:${area.marginTop},B:${area.marginBottom},L:${area.marginLeft},R:${area.marginRight}]`);
+            debugLog(`[DING]   monitorData[${monitorIndex}]: x=${area.x}, y=${area.y}, w=${area.width}, h=${area.height}, monitorIndex=${monitorIndex}, primaryMonitor=${Main.layoutManager.primaryIndex}, margins=[T:${area.marginTop},B:${area.marginBottom},L:${area.marginLeft},R:${area.marginRight}]`);
             let desktopListElement = new GLib.Variant('a{sd}', monitorData);
             desktopVariantList.push(desktopListElement);
             desktopList.push(monitorData);
         }
         this.data.x11Manager.setMonitorData(desktopList);
-        console.log(`[DING] getDesktopGeometry DONE: ${desktopList.length} monitors sent via D-Bus`);
+        debugLog(`[DING] getDesktopGeometry DONE: ${desktopList.length} monitors sent via D-Bus`);
         return new GLib.Variant('av', desktopVariantList);
     }
 

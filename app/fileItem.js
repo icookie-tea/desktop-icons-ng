@@ -579,7 +579,6 @@ var FileItem = class extends desktopIconItem.desktopIconItem {
         });
 
         this.connectSignal(dropTarget, 'accept', (widget, drop) => {
-            print(`Asking to drop formats: ${drop.get_formats().get_mime_types()}`);
             return drop.get_formats().match(validFormats);
         });
 
