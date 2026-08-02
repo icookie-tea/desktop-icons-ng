@@ -461,88 +461,23 @@ class DbusOperationsManager {
     }
 
     ShowItemPropertiesRemote(selection, timestamp, callback) {
-        if (!this.freeDesktopFileManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.freeDesktopFileManager.proxy.ShowItemPropertiesRemote(selection,
-            this._getStartupId(selection, timestamp),
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error showing properties: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.freeDesktopFileManager, 'ShowItemPropertiesRemote', 'Error showing properties', [selection, this._getStartupId(selection, timestamp)], callback);
     }
 
     ShowItemsRemote(showInFilesList, timestamp, callback) {
-        if (!this.freeDesktopFileManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.freeDesktopFileManager.proxy.ShowItemsRemote(showInFilesList,
-            this._getStartupId(showInFilesList, timestamp),
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error showing file on desktop: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.freeDesktopFileManager, 'ShowItemsRemote', 'Error showing file on desktop', [showInFilesList, this._getStartupId(showInFilesList, timestamp)], callback);
     }
 
     ShowFileRemote(uri, integer, boolean, callback) {
-        if (!this.gnomeNautilusPreviewManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.gnomeNautilusPreviewManager.proxy.ShowFileRemote(uri, integer, boolean,
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error previewing file: ${error.message}`);
-                }
-            });
+        this._remoteCall(this.gnomeNautilusPreviewManager, 'ShowFileRemote', 'Error previewing file', [uri, integer, boolean], callback);
     }
 
     ExtractRemote(extractFileItem, folder, boolean, callback) {
-        if (!this.gnomeArchiveManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.gnomeArchiveManager.proxy.ExtractRemote(extractFileItem, folder, true,
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error extracting files: ${error.message}`);
-                }
-            });
+        this._remoteCall(this.gnomeArchiveManager, 'ExtractRemote', 'Error extracting files', [extractFileItem, folder, true], callback);
     }
 
     CompressRemote(compressFileItems, folder, boolean, callback) {
-        if (!this.gnomeArchiveManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.gnomeArchiveManager.proxy.CompressRemote(compressFileItems, folder, boolean,
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error compressing files: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.gnomeArchiveManager, 'CompressRemote', 'Error compressing files', [compressFileItems, folder, boolean], callback);
     }
 
     _getStartupId(fileUris, timestamp) {
@@ -625,43 +560,11 @@ class RemoteFileOperationsManager extends DbusOperationsManager {
 
 
     MoveURIsRemote(fileList, uri, callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.fileOperationsManager.proxy.MoveURIsRemote(
-            fileList,
-            uri,
-            this.platformData(),
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error moving files: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.fileOperationsManager, 'MoveURIsRemote', 'Error moving files', [fileList, uri, this.platformData()], callback);
     }
 
     CopyURIsRemote(fileList, uri, callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.fileOperationsManager.proxy.CopyURIsRemote(
-            fileList,
-            uri,
-            this.platformData(),
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error copying files: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.fileOperationsManager, 'CopyURIsRemote', 'Error copying files', [fileList, uri, this.platformData()], callback);
     }
 
     async RenameURIRemote(fileList, uri, callback) {
@@ -686,96 +589,23 @@ class RemoteFileOperationsManager extends DbusOperationsManager {
     }
 
     TrashURIsRemote(fileList, callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.fileOperationsManager.proxy.TrashURIsRemote(
-            fileList,
-            this.platformData(),
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error moving files: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.fileOperationsManager, 'TrashURIsRemote', 'Error moving files', [fileList, this.platformData()], callback);
     }
 
     DeleteURIsRemote(fileList, callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.fileOperationsManager.proxy.DeleteURIsRemote(
-            fileList,
-            this.platformData(),
-            (source, error) => {
-                if (callback) {
-                    callback(source, error);
-                }
-                if (error) {
-                    console.log(`Error deleting files on the desktop: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.fileOperationsManager, 'DeleteURIsRemote', 'Error deleting files on the desktop', [fileList, this.platformData()], callback);
     }
 
     EmptyTrashRemote(askConfirmation, callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.fileOperationsManager.proxy.EmptyTrashRemote(
-            askConfirmation,
-            this.platformData(),
-            (source, error) => {
-                if (callback) {
-                    callback(source, error);
-                }
-                if (error) {
-                    console.log(`Error trashing files on the desktop: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.fileOperationsManager, 'EmptyTrashRemote', 'Error trashing files on the desktop', [askConfirmation, this.platformData()], callback);
     }
 
     UndoRemote(callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.fileOperationsManager.proxy.UndoRemote(
-            this.platformData(),
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error performing undo: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.fileOperationsManager, 'UndoRemote', 'Error performing undo', [this.platformData()], callback);
     }
 
     RedoRemote(callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.fileOperationsManager.proxy.RedoRemote(
-            this.platformData(),
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error performing redo: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.fileOperationsManager, 'RedoRemote', 'Error performing redo', [this.platformData()], callback);
     }
 
     UndoStatus() {
@@ -791,148 +621,38 @@ class LegacyRemoteFileOperationsManager extends DbusOperationsManager {
     }
 
     MoveURIsRemote(fileList, uri, callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.fileOperationsManager.proxy.MoveURIsRemote(
-            fileList,
-            uri,
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error moving files: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.fileOperationsManager, 'MoveURIsRemote', 'Error moving files', [fileList, uri], callback);
     }
 
     CopyURIsRemote(fileList, uri, callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.fileOperationsManager.proxy.CopyURIsRemote(
-            fileList,
-            uri,
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error copying files: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.fileOperationsManager, 'CopyURIsRemote', 'Error copying files', [fileList, uri], callback);
     }
 
     RenameURIRemote(fileList, uri, callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.fileOperationsManager.proxy.RenameFileRemote(
-            fileList,
-            uri,
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error renaming files: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.fileOperationsManager, 'RenameURIRemote', 'Error renaming files', [fileList, uri], callback, 'RenameFileRemote');
     }
 
     TrashURIsRemote(fileList, callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.fileOperationsManager.proxy.TrashFilesRemote(
-            fileList,
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error moving files: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.fileOperationsManager, 'TrashURIsRemote', 'Error moving files', [fileList], callback, 'TrashFilesRemote');
     }
 
     DeleteURIsRemote(fileList, callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
+        if (this.fileOperationsManager.proxy) {
+            this.EmptyTrashRemote();
         }
-        this.fileOperationsManager.proxy.TrashFilesRemote(
-            fileList,
-            (source, error) => {
-                this.EmptyTrashRemote();
-                if (callback) {
-                    callback(source, error);
-                }
-                if (error) {
-                    console.log(`Error deleting files on the desktop: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.fileOperationsManager, 'DeleteURIsRemote', 'Error deleting files on the desktop', [fileList], callback, 'TrashFilesRemote');
     }
 
     EmptyTrashRemote(callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.fileOperationsManager.proxy.EmptyTrashRemote(
-            (source, error) => {
-                if (callback) {
-                    callback(source, error);
-                }
-                if (error) {
-                    console.log(`Error trashing files on the desktop: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.fileOperationsManager, 'EmptyTrashRemote', 'Error trashing files on the desktop', [], callback);
     }
 
     UndoRemote(callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.fileOperationsManager.proxy.UndoRemote(
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error performing undo: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.fileOperationsManager, 'UndoRemote', 'Error performing undo', [], callback);
     }
 
     RedoRemote(callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        this.fileOperationsManager.proxy.RedoRemote(
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error performing redo: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCall(this.fileOperationsManager, 'RedoRemote', 'Error performing redo', [], callback);
     }
 
     UndoStatus() {
