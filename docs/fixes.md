@@ -765,3 +765,13 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 2. **`Sort Home/Drives/Trash..`（两点）与 .po 的 `...`（三点）不匹配**（upstream 遗留）→ 菜单显示英文。代码改回三点，翻译"排序主目录/驱动器/回收站…"立即生效。
 3. **4 个新字符串无任何 .po 翻译**：`Rename file`/`Rename folder`/`New filename`/`Dropped Text.txt`。已补 zh_CN.po：重命名文件/重命名文件夹/新文件名/拖放的文本.txt。
 4. **无其他遗漏**：16 处 `_` 定义全部走 `Gettext.domain('ding').gettext`；`file-item-menu.js` 三处 ngettext 已修（上条）；legacy 文件的 `imports.` 残留仅限 desktop-icons-integration.js（预期保留）；旧 .po 字符串（`${VisibleName} Stack` 等）对应代码已删除，属正常清理。
+
+### 设置窗口置顶且所有工作区可见
+
+**症状：** 打开扩展设置窗口时，窗口置顶、在所有工作区可见、不出现在任务栏。
+
+**根因：** `showPreferences()` 调用 `windowHidePagerTaskbarModal(prefsWindow, true)`，给窗口标题追加两个空格；GNOME Shell 侧 `emulate-x11-window-type.js` 将"两空格结尾的标题"解析为 `@!HTD` 标记（置顶+所有工作区+隐藏）。这是 upstream 让设置窗口模态化的设计。
+
+**修复：** 移除该调用，设置窗口变为普通窗口（不置顶、不跨工作区、任务栏可见）。重命名对话框与错误弹窗保留原行为。
+
+**附带：** 设置窗口按 Adw 标准风格重构（PreferencesPage + 两个分组 + SwitchRow/ActionRow，可调整大小），新增 17 条 zh_CN 翻译。
