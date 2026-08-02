@@ -405,7 +405,7 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
 
             if (this._desktopManager.getCurrentSelection().every(f => f.isDirectory)) {
                 this._newMenuElement(
-                    Gettext.ngettext(
+                    Gettext.domain('ding').ngettext(
                         'Compress {0} folder', 'Compress {0} folders', selectedItemsNum).replace(
                             '{0}', selectedItemsNum),
                     "compress-file",
@@ -414,7 +414,7 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
                 );
             } else {
                 this._newMenuElement(
-                    Gettext.ngettext(
+                    Gettext.domain('ding').ngettext(
                         'Compress {0} file', 'Compress {0} files', selectedItemsNum).replace(
                             '{0}', selectedItemsNum),
                     "compress-file",
@@ -425,7 +425,7 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
 
 
             this._newMenuElement(
-                Gettext.ngettext('New Folder with {0} item', 'New Folder with {0} items', selectedItemsNum).replace('{0}', selectedItemsNum),
+                Gettext.domain('ding').ngettext('New Folder with {0} item', 'New Folder with {0} items', selectedItemsNum).replace('{0}', selectedItemsNum),
                 "new-folder-from-selection",
                 section,
                 GLib.Variant.new("s", fileItem.uri)

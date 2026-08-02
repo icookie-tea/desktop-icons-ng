@@ -749,3 +749,11 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 **根因：** 顶层 await 修复（见上条）把 `GnomeDesktop` 改为非阻塞动态 import 后，`ThumbnailLoader` 构造时 `GnomeDesktop` 可能还是 `null`（import 未完成），缩略图工厂从未创建，`_resolveThumbnail` 访问 undefined 工厂。
 
 **修复：** 模块级缓存 import promise；`ThumbnailLoader` 构造时 await 其完成再 `_initFactories()`；`getThumbnail()` 先 `await this._factoriesReady`，工厂不可用（GnomeDesktop 缺失）时直接返回 null。
+
+### 右键菜单复数条目显示英文：ngettext 缺 domain
+
+**症状：** 右键菜单 "Compress 1 file"、"New Folder with 1 Item" 等复数条目显示英文。
+
+**根因：** ESM 迁移修复 gettext domain 时只覆盖了 `Gettext.domain('ding').gettext`，`file-item-menu.js` 三处 `Gettext.ngettext(...)` 仍是裸调用（默认空 domain）→ 找不到 ding.mo 翻译。
+
+**修复：** 三处改为 `Gettext.domain('ding').ngettext(...)`（Compress folder/file + New Folder with N items）。
