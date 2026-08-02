@@ -25,5 +25,11 @@ if ! grep -qE '^    _remoteCall\(' app/dbus-remote-operations.js; then
     echo "FAIL: app/dbus-remote-operations.js is missing the _remoteCall() helper definition"
     exit 1
 fi
+# Legacy GJS only exports top-level var/function — classes must be var-declared.
+if grep -qE '^class [A-Za-z]' app/*.js; then
+    echo "FAIL: top-level bare 'class' declarations are not exported by legacy GJS"
+    grep -nE '^class [A-Za-z]' app/*.js
+    exit 1
+fi
 
 echo "ALL CHECKS PASSED"
