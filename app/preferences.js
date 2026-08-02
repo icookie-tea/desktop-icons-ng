@@ -38,6 +38,7 @@ export var a11YApplications = null;
 // This is already in Nautilus settings, so it should not be made tweakable here
 export var CLICK_POLICY_SINGLE = false;
 export var prefsWindow = null;
+export var schemaGnomeDarkSettings = null;
 
 /**
  *
@@ -63,7 +64,7 @@ export function init(path) {
     }
     const schemaDarkSettings = schemaSource.lookup(Enums.SCHEMA_DARK_SETTINGS, true);
     if (schemaDarkSettings) {
-        this.schemaGnomeDarkSettings = new Gio.Settings({ settings_schema: schemaDarkSettings });
+        schemaGnomeDarkSettings = new Gio.Settings({ settings_schema: schemaDarkSettings });
     }
     const schemaA11YKeyboard = schemaSource.lookup(Enums.SCHEMA_A11Y_KEYBOARD, true);
     if (schemaA11YKeyboard) {
