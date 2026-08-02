@@ -56,6 +56,24 @@ var DesktopManager = class {
         this._desktopMenu = new DesktopMenu.DesktopMenu(this, mainApp, dbusManager);
 
         this.using_X11 = Gdk.Display.get_default().constructor.$gtype.name === 'GdkX11Display';
+        this._initX11Check(asDesktop);
+        this._selectedFiles = null;
+        this._clickCaptured = false;
+        this._popupCounter = 0;
+
+        this._initThemeAndManagers();
+        this._initPremultipliedCheck();
+        this.autoAr = new AutoAr.AutoAr(this);
+        this._initGridState(desktopList, primaryIndex, codePath, asDesktop);
+        this._initFileMonitoring();
+        this._initSettingsHandlers(mainApp);
+        this._initStyles(codePath);
+        this._initGridAndMetadata();
+        this._initKeyboardAndNautilusCheck();
+        this._initProcessLifecycle();
+    }
+
+    _initX11Check(asDesktop) {
         if (asDesktop) {
             this.mainApp.hold(); // Don't close the application if there are no desktops
             this._hold_active = true;
@@ -78,11 +96,9 @@ var DesktopManager = class {
                 Prefs.desktopSettings.set_boolean('check-x11wayland', true);
             }
         }
-        this._selectedFiles = null;
-        this._clickCaptured = false;
-        this._popupCounter = 0;
+    }
 
-        this.dbusManager = dbusManager;
+    _initThemeAndManagers() {
         this._themeManager = new ThemeManager.ThemeManager(this);
         this._fileOps = new FileOperations.FileOperations(this);
         this._sortManager = new SortManager.SortManager(this);
@@ -98,7 +114,9 @@ var DesktopManager = class {
                 return GLib.SOURCE_REMOVE;
             });
         });
+    }
 
+    _initPremultipliedCheck() {
         this._premultiplied = false;
         try {
             for (let f of Prefs.mutterSettings.get_strv('experimental-features')) {
@@ -109,9 +127,9 @@ var DesktopManager = class {
             }
         } catch (e) {
         }
+    }
 
-        this.autoAr = new AutoAr.AutoAr(this);
-
+    _initGridState(desktopList, primaryIndex, codePath, asDesktop) {
         this._primaryIndex = primaryIndex;
         if (primaryIndex < desktopList.length) {
             this._primaryScreen = desktopList[primaryIndex];
@@ -129,6 +147,8 @@ var DesktopManager = class {
         this._asDesktop = asDesktop;
         this._desktopList = desktopList;
         this._desktops = [];
+    }
+    _initFileMonitoring() {
         this._desktopFilesChanged = false;
         this._readingDesktopFiles = false;
         this._desktopDir = DesktopIconsUtil.getDesktopDir();
@@ -148,7 +168,9 @@ var DesktopManager = class {
                 this._scheduleFullRefresh();
             });
         });
+    }
 
+    _initSettingsHandlers(mainApp) {
         this._fileItemMenu = new FileItemMenu.FileItemMenu(this, mainApp);
         if (Prefs.schemaGnomeDarkSettings) {
             if (this._themeManager.checkApplyDarkModeSetting()) {
@@ -164,52 +186,66 @@ var DesktopManager = class {
         this.useNemo = Prefs.desktopSettings.get_boolean('use-nemo');
         this.showLinkEmblem = Prefs.desktopSettings.get_boolean('show-link-emblem');
         this.darkText = Prefs.desktopSettings.get_boolean('dark-text-in-labels');
-        this._settingsId = Prefs.desktopSettings.connect('changed', (obj, key) => {
-            if (key == 'dark-text-in-labels') {
+        this._settingsId = Prefs.desktopSettings.connect('changed', (obj, key) => this._onDesktopSettingsChanged(key));
+        Prefs.gtkSettings.connect('changed', (obj, key) => {
+            if (key == 'show-hidden') {
+                this._showHidden = Prefs.gtkSettings.get_boolean('show-hidden');
+                this._updateDesktopSafe('hidden setting changed');
+            }
+        });
+        Prefs.nautilusSettings.connect('changed', (obj, key) => {
+            if (key == 'show-image-thumbnails') {
+                this._updateDesktopSafe('nautilus settings changed');
+            }
+        });
+        this._gtkIconTheme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
+        this._gtkIconTheme.connect('changed', () => {
+            this._updateDesktopSafe('gtk icon theme changed');
+        });
+        this._volumeMonitor = Gio.VolumeMonitor.get();
+        this._volumeMonitor.connect('mount-added', () => {
+            this._updateDesktopSafe('mount added');
+        });
+        this._volumeMonitor.connect('mount-removed', () => {
+            this._updateDesktopSafe('mount removed');
+        });
+    }
+
+    _onDesktopSettingsChanged(key) {
+        switch (key) {
+            case 'dark-text-in-labels':
                 this.darkText = Prefs.desktopSettings.get_boolean('dark-text-in-labels');
-                this._updateDesktop().catch(e => {
-                    print(`Exception while updating Desktop after Dark Text changed: ${e.message}\n${e.stack}`);
-                });
+                this._updateDesktopSafe('dark text changed');
                 return;
-            }
-            if (key == 'show-link-emblem') {
+            case 'show-link-emblem':
                 this.showLinkEmblem = Prefs.desktopSettings.get_boolean('show-link-emblem');
-                this._updateDesktop().catch(e => {
-                    print(`Exception while updating Desktop after Show Emblems changed: ${e.message}\n${e.stack}`);
-                });
+                this._updateDesktopSafe('show link emblem changed');
                 return;
-            }
-            if (key == 'use-nemo') {
+            case 'use-nemo':
                 this.useNemo = Prefs.desktopSettings.get_boolean('use-nemo');
                 return;
-            }
-            if (key == 'icon-size') {
+            case 'icon-size':
                 this._fileList.forEach(x => x.removeFromGrid(false));
                 for (let desktop of this._desktops) {
                     desktop.resizeGrid();
                 }
                 this._fileList.forEach(x => x.updateIcon());
                 this._placeAllFilesOnGrids(true);
-                this._updateDesktop().catch(e => {
-                    print(`Exception while updating Desktop after Show Emblems changed: ${e.message}\n${e.stack}`);
-                });
+                this._updateDesktopSafe('icon size changed');
                 return;
-            }
-            if (key == Enums.SortOrder.ORDER) {
+            case Enums.SortOrder.ORDER:
                 if (this.keepStacked) {
                     this.doStacks(true);
                 } else {
                     this.doSorts(true);
                 }
                 return;
-            }
-            if (key == 'unstackedtypes') {
+            case 'unstackedtypes':
                 if (this.keepStacked) {
                     this.doStacks(true);
                 }
                 return;
-            }
-            if (key == 'keep-stacked') {
+            case 'keep-stacked':
                 this.keepStacked = Prefs.desktopSettings.get_boolean('keep-stacked');
                 if (!this.keepStacked) {
                     this._unstack();
@@ -217,52 +253,19 @@ var DesktopManager = class {
                     this.doStacks(true);
                 }
                 return;
-            }
-            if (key == 'keep-arranged') {
+            case 'keep-arranged':
                 this.keepArranged = Prefs.desktopSettings.get_boolean('keep-arranged');
                 if (this.keepArranged) {
                     this.doSorts(true);
                 }
                 return;
-            }
-            this.showDropPlace = Prefs.desktopSettings.get_boolean('show-drop-place');
-            this._updateDesktop().catch(e => {
-                print(`Exception while updating Desktop after Settings Changed: ${e.message}\n${e.stack}`);
-            });
-        });
-        Prefs.gtkSettings.connect('changed', (obj, key) => {
-            if (key == 'show-hidden') {
-                this._showHidden = Prefs.gtkSettings.get_boolean('show-hidden');
-                this._updateDesktop().catch(e => {
-                    print(`Exception while updating Desktop after Hidden Settings Changed: ${e.message}\n${e.stack}`);
-                });
-            }
-        });
-        Prefs.nautilusSettings.connect('changed', (obj, key) => {
-            if (key == 'show-image-thumbnails') {
-                this._updateDesktop().catch(e => {
-                    print(`Exception while updating Desktop after Nautilus Settings Changed: ${e.message}\n${e.stack}`);
-                });
-            }
-        });
-        this._gtkIconTheme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
-        this._gtkIconTheme.connect('changed', () => {
-            this._updateDesktop().catch(e => {
-                print(`Exception while updating Desktop after Gtk Icon Theme Change: ${e.message}\n${e.stack}`);
-            });
-        });
-        this._volumeMonitor = Gio.VolumeMonitor.get();
-        this._volumeMonitor.connect('mount-added', () => {
-            this._updateDesktop().catch(e => {
-                print(`Exception while updating Desktop after mount added: ${e.message}\n${e.stack}`);
-            });
-        });
-        this._volumeMonitor.connect('mount-removed', () => {
-            this._updateDesktop().catch(e => {
-                print(`Exception while updating Desktop after mount removed: ${e.message}\n${e.stack}`);
-            });
-        });
+            default:
+                this.showDropPlace = Prefs.desktopSettings.get_boolean('show-drop-place');
+                this._updateDesktopSafe('settings changed');
+        }
+    }
 
+    _initStyles(codePath) {
         this.rubberBand = false;
 
         let cssProvider = new Gtk.CssProvider();
@@ -270,19 +273,21 @@ var DesktopManager = class {
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), cssProvider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
         cssProvider = undefined;
         this._themeManager.configureSelectionColor();
+    }
+
+    _initGridAndMetadata() {
         this._createGridWindows();
 
         DBusUtils.GtkVfsMetadata.connectSignalToProxy('AttributeChanged', this._metadataChanged.bind(this));
         this._allFileList = null;
         this._forcedExit = false;
-        this._updateDesktop().catch(e => {
-            print(`Exception while Initiating Desktop: ${e.message}\n${e.stack}`);
-        });
+        this._updateDesktopSafe('initial load');
+    }
 
+    _initKeyboardAndNautilusCheck() {
         this._scriptsList = [];
 
         this.ignoreKeys = [Gdk.KEY_space, Gdk.KEY_Shift_L, Gdk.KEY_Shift_R, Gdk.KEY_Control_L, Gdk.KEY_Control_R, Gdk.KEY_Caps_Lock, Gdk.KEY_Shift_Lock, Gdk.KEY_Meta_L, Gdk.KEY_Meta_R, Gdk.KEY_Alt_L, Gdk.KEY_Alt_R, Gdk.KEY_Super_L, Gdk.KEY_Super_R, Gdk.KEY_ISO_Level3_Shift, Gdk.KEY_ISO_Level5_Shift];
-
 
         // Check if Nautilus is available
         try {
@@ -292,6 +297,9 @@ var DesktopManager = class {
                 _('The Nautilus File Manager is mandatory to work with Desktop Icons NG.'),
                 true);
         }
+    }
+
+    _initProcessLifecycle() {
         this._pendingDropFiles = {};
         if (this._asDesktop) {
             const signalAdd = GLibUnix.signal_add ?? GLibUnix.signal_add_full;
@@ -401,9 +409,7 @@ var DesktopManager = class {
             this._primaryScreen = null;
         }
         this._createGridWindows();
-        this._updateDesktop().catch(e => {
-            console.log(`Exception while updating Desktop after Show Emblems changed: ${e.message}\n${e.stack}`);
-        });
+        this._updateDesktopSafe('grid update');
     }
 
     _createGridWindows() {
@@ -473,9 +479,7 @@ var DesktopManager = class {
         this._addFilesToDesktop(fileItems, Enums.StoredCoordinates.OVERWRITE);
         fileItems = undefined;
         if (this.keepArranged) {
-            this._updateDesktop().catch(e => {
-                print(`Exception while doing move with drag and drop and keeping arranged: ${e.message}\n${e.stack}`);
-            });
+            this._updateDesktopSafe('move with drag and drop (keep arranged)');
         }
     }
 
@@ -799,9 +803,7 @@ var DesktopManager = class {
             this.selectAll();
             return true;
         } else if (keyval == Gdk.KEY_F5) {
-            this._updateDesktop().catch(e => {
-                print(`Exception while updating Desktop after pressing F5: ${e.message}\n${e.stack}`);
-            });
+            this._updateDesktopSafe('F5 refresh');
             return true;
         } else if (isCtrl && ((keyval == Gdk.KEY_H) || (keyval == Gdk.KEY_h))) {
             Prefs.gtkSettings.set_boolean('show-hidden', !this._showHidden);
@@ -1425,9 +1427,7 @@ var DesktopManager = class {
             case Gio.FileMonitorEvent.ATTRIBUTE_CHANGED:
                 if (file.get_uri() == this._desktopDir.get_uri()) {
                     if (this._updateWritableByOthers()) {
-                        this._updateDesktop().catch(e => {
-                            print(`Exception while updating Desktop from Directory Monitor Attribute Change: ${e.message}\n${e.stack}`);
-                        });
+                        this._updateDesktopSafe('directory monitor attribute change');
                     }
                 }
                 return;
@@ -1650,8 +1650,16 @@ var DesktopManager = class {
     }
 
     _scheduleFullRefresh() {
+        this._updateDesktopSafe('directory monitor');
+    }
+
+    /**
+     * Runs a desktop refresh, logging any failure with the given reason.
+     * This is the single error-handling path for all _updateDesktop() callers.
+     */
+    _updateDesktopSafe(reason) {
         this._updateDesktop().catch(e => {
-            print(`Exception while updating Desktop from Directory Monitor: ${e.message}\n${e.stack}`);
+            print(`Exception while updating Desktop (${reason}): ${e.message}\n${e.stack}`);
         });
     }
 
