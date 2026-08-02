@@ -83,8 +83,9 @@ export function preferencesFrame(_Gtk, desktopSettings, nautilusSettings, gtkSet
     }, _('How to open files with the mouse')));
     nautilusGroup.add(buildSwitcher(gtkSettings, 'show-hidden', _('Show hidden files'), _('Show hidden files in the desktop')));
     nautilusGroup.add(buildSwitcher(nautilusSettings, 'show-delete-permanently', _('Show a context menu item to delete permanently'), _('Show a context menu item to delete permanently')));
-    // Gnome Shell 40 removed this option
-    try {
+    // Gnome Shell 40 removed this Nautilus option; check the key exists
+    // instead of relying on an exception from get_key() inside buildSelector.
+    if (nautilusSettings && nautilusSettings.settings_schema.has_key('executable-text-activation')) {
         nautilusGroup.add(buildSelector(nautilusSettings,
             'executable-text-activation',
             _('Action to do when launching a program from the desktop'), {
@@ -92,7 +93,6 @@ export function preferencesFrame(_Gtk, desktopSettings, nautilusSettings, gtkSet
             'launch': _('Launch the file'),
             'ask': _('Ask what to do'),
         }, _('What to do when launching a program from the desktop')));
-    } catch (e) {
     }
     nautilusGroup.add(buildSelector(nautilusSettings,
         'show-image-thumbnails',
