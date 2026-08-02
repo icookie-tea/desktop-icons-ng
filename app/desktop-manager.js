@@ -46,7 +46,7 @@ import * as SortManager from './sort-manager.js';
 
 import Gettext from 'gettext';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 export var DesktopManager = class {
     constructor(mainApp, dbusManager, desktopList, codePath, asDesktop, primaryIndex) {
@@ -1056,11 +1056,13 @@ export var DesktopManager = class {
         let fileList = [];
         while (true) {
             this._desktopFilesChanged = false;
+            DebugLog.debugLog(`[update] iter reading=${this._readingDesktopFiles} changed=${this._desktopFilesChanged} forceDraw=${this._forceDraw}`);
             if (!this._desktopDir.query_exists(null)) {
                 fileList = [];
                 break;
             }
             fileList = await this._doReadAsync();
+            DebugLog.debugLog(`[update] read result: ${fileList === null ? 'NULL' : fileList.length + ' files'}`);
             if (this._forcedExit) {
                 return;
             }
@@ -1158,6 +1160,7 @@ export var DesktopManager = class {
                         resolve(fileList);
                         return;
                     } catch (e) {
+                        print(`Exception while reading desktop folder: ${e.message}\n${e.stack}`);
                         resolve(null);
                     }
                 }

@@ -23,7 +23,7 @@ import * as DesktopIconsUtil from './desktop-icons-util.js';
 import Gettext from 'gettext';
 import * as SignalManager from './signal-manager.js';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 const RENAME_ENTRY_MIN_CHARS=30;
 const RENAME_ENTRY_MAX_CHARS=50;

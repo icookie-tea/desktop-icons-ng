@@ -26,7 +26,7 @@ import * as DebugLog from './log.js';
 
 import Gettext from 'gettext';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 export var FileOperations = class {
     constructor(desktopManager) {

@@ -33,7 +33,7 @@ import * as dndClipboardUtils from './dnd-clipboard-utils.js';
 import * as Signals from './signals.js';
 import Gettext from 'gettext';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 export var FileItem = class extends desktopIconItem.desktopIconItem {
     constructor(desktopManager, file, fileInfo, fileExtra, custom) {

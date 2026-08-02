@@ -18,7 +18,7 @@
 import Gtk from 'gi://Gtk';
 import Gettext from 'gettext';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 export var NotifyX11UnderWayland = class {
     constructor(closeCB) {

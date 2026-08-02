@@ -31,7 +31,7 @@ import * as Enums from './enums.js';
 
 import Gettext from 'gettext';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 export var DesktopMenu = class extends MenuHelper.MenuHelper {
     constructor(desktopManager, mainApp, dbusManager) {

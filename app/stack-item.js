@@ -28,7 +28,7 @@ import * as Prefs from './preferences.js';
 import * as Signals from './signals.js';
 import Gettext from 'gettext';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 
 export var stackItem = class extends desktopIconItem.desktopIconItem {

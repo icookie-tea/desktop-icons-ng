@@ -23,7 +23,7 @@ import * as Prefs from './preferences.js';
 
 import Gettext from 'gettext';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 export var MenuHelper = class {
     constructor(desktopManager, mainApp) {

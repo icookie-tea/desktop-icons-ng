@@ -23,7 +23,7 @@ import * as Enums from './enums.js';
 import Gettext from 'gettext';
 import * as ShowErrorPopup from './show-error-popup.js';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 /**
  *

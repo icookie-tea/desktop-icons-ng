@@ -42,7 +42,7 @@ export var RemoteFileOperations = null;
 
 import Gettext from 'gettext';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 export var ProxyManager = class {
     /*

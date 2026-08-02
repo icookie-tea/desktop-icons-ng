@@ -31,7 +31,7 @@ import * as Signals from './signals.js';
 
 import Gettext from 'gettext';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 export var AutoAr = class {
     constructor(desktopManager) {

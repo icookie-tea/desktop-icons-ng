@@ -26,7 +26,7 @@ import * as Constants from './constants.js';
 import Gio from 'gi://Gio';
 import Gettext from 'gettext';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 export var ThumbnailLoader = class {
     constructor(desktopManager, codePath) {

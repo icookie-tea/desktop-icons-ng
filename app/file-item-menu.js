@@ -29,7 +29,7 @@ import * as MenuHelper from './menu-helper.js';
 
 import Gettext from 'gettext';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 export var FileItemMenu = class extends MenuHelper.MenuHelper {
     constructor(desktopManager, mainApp) {

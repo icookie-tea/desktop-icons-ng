@@ -35,7 +35,7 @@ import * as SignalManager from './signal-manager.js';
 import * as Signals from './signals.js';
 import Gettext from 'gettext';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 export var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager {
     constructor(desktopManager, fileExtra) {

@@ -27,7 +27,7 @@ import { PaintContainer } from './paint-container.js';
 
 import Gettext from 'gettext';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 
 export var elementSpacing = 2;

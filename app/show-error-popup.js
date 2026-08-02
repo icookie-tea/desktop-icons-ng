@@ -19,7 +19,7 @@ import Gtk from 'gi://Gtk';
 import * as DesktopIconsUtil from './desktop-icons-util.js';
 import Gettext from 'gettext';
 
-const _ = Gettext.gettext;
+const _ = Gettext.domain('ding').gettext;
 
 export var ShowErrorPopup = class {
     constructor(text, secondaryText, modal) {
