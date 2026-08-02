@@ -26,6 +26,7 @@ const Gio = imports.gi.Gio;
 const Adw = imports.gi.Adw;
 
 const FileItem = imports['file-item'];
+const FileUtils = imports['file-utils'];
 const DesktopGrid = imports['desktop-grid'];
 const DesktopIconsUtil = imports['desktop-icons-util'];
 const Prefs = imports.preferences;
@@ -1650,11 +1651,12 @@ var DesktopManager = class {
 
     _applyDropCoordinates(fileItem) {
         const basename = fileItem.file.get_basename();
-        const entry = this._pendingDropFiles[basename];
-        if (entry) {
-            DebugLog.debugLog(`[dropmatch] HIT ${basename} -> (${entry[0]},${entry[1]})`);
+        const key = FileUtils.matchPendingDropEntry(this._pendingDropFiles, basename);
+        if (key !== null) {
+            const entry = this._pendingDropFiles[key];
+            DebugLog.debugLog(`[dropmatch] ${key === basename ? 'HIT' : 'FUZZY'} ${basename} -> (${entry[0]},${entry[1]})`);
             fileItem.dropCoordinates = entry;
-            delete this._pendingDropFiles[basename];
+            delete this._pendingDropFiles[key];
         } else {
             DebugLog.debugLog(`[dropmatch] miss ${basename} pending=[${Object.keys(this._pendingDropFiles).join(', ')}]`);
         }

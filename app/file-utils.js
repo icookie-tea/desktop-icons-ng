@@ -144,3 +144,49 @@ async function readAll(stream) {
     }
     return returnData;
 }
+/**
+ * Finds the _pendingDropFiles key matching a newly created desktop file.
+ *
+ * Nautilus renames conflicting copies before creating them ("name (copy).ext",
+ * "name (副本 2).md", localized variants), so exact basename matching fails.
+ * Strategy: strip a trailing " (…)" conflict segment from both stems and
+ * compare the base names; extensions must match. Ties are broken by the
+ * newest timestamp (entry[2]).
+ *
+ * @param {Object} pendingFiles  _pendingDropFiles map (basename -> [x, y, ts])
+ * @param {string} basename     basename of the newly created file
+ * @returns {string|null}       matching key, or null
+ */
+function stripConflictSuffix(stem) {
+    const m = stem.match(/^(.*)\s+\([^()]*\)$/);
+    return m ? m[1] : stem;
+}
+
+function matchPendingDropEntry(pendingFiles, basename) {
+    if (basename in pendingFiles) {
+        return basename;
+    }
+    const extOf = name => {
+        const dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(dot) : '';
+    };
+    const newExt = extOf(basename);
+    const newStem = stripConflictSuffix(basename.substring(0, basename.length - newExt.length));
+    let best = null;
+    for (let key of Object.keys(pendingFiles)) {
+        if (key === basename) {
+            continue;
+        }
+        if (extOf(key) !== newExt) {
+            continue;
+        }
+        const keyStem = stripConflictSuffix(key.substring(0, key.length - newExt.length));
+        if (keyStem !== newStem) {
+            continue;
+        }
+        if (best === null || pendingFiles[key][2] > pendingFiles[best][2]) {
+            best = key;
+        }
+    }
+    return best;
+}

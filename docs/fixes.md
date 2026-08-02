@@ -710,3 +710,19 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 |------|------|
 | `app/file-operations.js` | `doPaste` 源文件存在性过滤 + 空列表提示 |
 | `app/desktop-menu.js` | 粘贴 action → `doPaste(true)` |
+
+### 粘贴副本冲突重命名导致定位失效（Nautilus " (副本 2)" 后缀）
+
+**症状：** 复制一个**本身带副本后缀**的文件（如 `笔记文档 (副本).md`）到桌面，桌面已有同名文件时，Nautilus 生成 `笔记文档 (副本 2).md`，图标仍 fallback。
+
+**根因（诊断日志确认）：** `_pendingDropFiles` 按 basename 精确匹配；Nautilus 冲突重命名（本地化后缀 ` (copy)` / ` (副本 N)`）导致新文件名与条目不匹配。
+
+**修复：** `FileUtils.matchPendingDropEntry()` —— 剥离双方"去扩展名 stem"的末尾 ` (…)` 冲突段后比较基础名（扩展名须相同），多条命中取时间戳最新。纯函数 + 23 断言单测锁定（中英文后缀、扩展名不匹配、前缀近似不误配、多条目择优）。
+
+| 文件 | 变更 |
+|------|------|
+| `app/file-utils.js` | 新增 `stripConflictSuffix` / `matchPendingDropEntry` |
+| `app/desktop-manager.js` | `_applyDropCoordinates` 改用模糊匹配 |
+| `tests/test-pending-drop.js` | 新增 7 组测试 |
+
+**诊断日志**（`DING_DEBUG=1`）：`[dropmatch] HIT/FUZZY/miss`、`[place] saved/drop/FALLBACK`
