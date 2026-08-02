@@ -1,4 +1,4 @@
-import Adw from 'gi://Adw?version=1';
+import Adw from 'gi://Adw';
 import GObject from 'gi://GObject';
 import Gettext from 'gettext';
 import Gio from 'gi://Gio';
