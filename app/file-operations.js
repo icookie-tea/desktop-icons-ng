@@ -23,6 +23,7 @@ const DBusUtils = imports['dbus-utils'];
 const DesktopIconsUtil = imports['desktop-icons-util'];
 const AskRenamePopup = imports['ask-rename-popup'];
 const Enums = imports.enums;
+const DebugLog = imports.log;
 
 const Gettext = imports.gettext.domain('ding');
 
@@ -41,6 +42,7 @@ var FileOperations = class {
             if (!file.is_native() || !file.query_exists(null)) {
                 if (dropCoordinates != null) {
                     this._dm._pendingDropFiles[file.get_basename()] = [...dropCoordinates, Date.now()];
+                    DebugLog.debugLog(`[dropcoords] non-native ${file.get_basename()} -> (${dropCoordinates[0]},${dropCoordinates[1]}) pending=${Object.keys(this._dm._pendingDropFiles).length}`);
                 }
                 continue;
             }
@@ -60,6 +62,7 @@ var FileOperations = class {
                  * (_applyDropCoordinates) will match it and place the new
                  * icon on the requested grid cell. */
                 this._dm._pendingDropFiles[file.get_basename()] = [...dropCoordinates, Date.now()];
+                DebugLog.debugLog(`[dropcoords] ${file.get_basename()} -> (${dropCoordinates[0]},${dropCoordinates[1]}) pending=${Object.keys(this._dm._pendingDropFiles).length}`);
             }
         }
     }
@@ -121,6 +124,7 @@ var FileOperations = class {
         if (this._clipboardFiles === null) {
             return;
         }
+        DebugLog.debugLog(`[paste] files=${this._clipboardFiles.length} cut=${this._isCut} click=(${this._dm._clickX},${this._dm._clickY})`);
         // Drop URIs whose source file no longer exists (moved/deleted after
         // the copy was cut), so Nautilus doesn't fail on them.
         const validFiles = this._clipboardFiles.filter(uri => {
@@ -130,6 +134,7 @@ var FileOperations = class {
                 return false;
             }
         });
+        DebugLog.debugLog(`[paste] valid=${validFiles.length}`);
         if (validFiles.length === 0) {
             this._dm.dbusManager.doNotify(_('Nothing to paste'),
                 _('The files you copied are no longer available.'));

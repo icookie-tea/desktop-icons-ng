@@ -40,6 +40,7 @@ const SignalManager = imports['signal-manager'];
 const DesktopMenu = imports['desktop-menu'];
 const FileChangesQueue = imports['file-changes-queue'];
 const Constants = imports.constants;
+const DebugLog = imports.log;
 const ThemeManager = imports['theme-manager'];
 const FileOperations = imports['file-operations'];
 const SortManager = imports['sort-manager'];
@@ -1588,6 +1589,7 @@ var DesktopManager = class {
     _addSingleFileToDesktop(fileItem) {
         if (fileItem.savedCoordinates) {
             const [x, y] = fileItem.savedCoordinates;
+            DebugLog.debugLog(`[place] ${fileItem.file.get_basename()} saved=(${x},${y})`);
             for (let desktop of this._desktops) {
                 if (desktop.getDistance(x, y) === 0) {
                     desktop.addFileItemCloseTo(fileItem, x, y,
@@ -1598,6 +1600,7 @@ var DesktopManager = class {
         }
         if (fileItem.dropCoordinates) {
             const [x, y] = fileItem.dropCoordinates;
+            DebugLog.debugLog(`[place] ${fileItem.file.get_basename()} drop=(${x},${y})`);
             fileItem.dropCoordinates = null;
             for (let desktop of this._desktops) {
                 if (desktop.getDistance(x, y) === 0) {
@@ -1614,6 +1617,7 @@ var DesktopManager = class {
                 }
             }
         }
+        DebugLog.debugLog(`[place] ${fileItem.file.get_basename()} FALLBACK primary=${!!this._primaryScreen}`);
         let x, y;
         if (this._primaryScreen !== null) {
             const primaryGrid = this._desktops.find(g => g._monitor === this._primaryScreen.monitorIndex);
@@ -1648,8 +1652,11 @@ var DesktopManager = class {
         const basename = fileItem.file.get_basename();
         const entry = this._pendingDropFiles[basename];
         if (entry) {
+            DebugLog.debugLog(`[dropmatch] HIT ${basename} -> (${entry[0]},${entry[1]})`);
             fileItem.dropCoordinates = entry;
             delete this._pendingDropFiles[basename];
+        } else {
+            DebugLog.debugLog(`[dropmatch] miss ${basename} pending=[${Object.keys(this._pendingDropFiles).join(', ')}]`);
         }
         this._prunePendingDropFiles();
     }
