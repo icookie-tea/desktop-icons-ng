@@ -10,23 +10,23 @@
 
 ### 1.1 File Monitor 未取消
 
-**位置：** `app/desktopManager.js:138`、`app/templatesScriptsManager.js:51,103`、`app/fileItem.js:73`
+**位置：** `app/desktop-manager.js:138`、`app/templates-scripts-manager.js:51,103`、`app/file-item.js:73`
 
 ```js
-// desktopManager.js:138
+// desktop-manager.js:138
 this._monitorDesktopDir = this._desktopDir.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, null);
 
-// templatesScriptsManager.js:51
+// templates-scripts-manager.js:51
 this._monitorDir = baseFolder.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, null);
 
-// templatesScriptsManager.js:103（子目录，循环中创建）
+// templates-scripts-manager.js:103（子目录，循环中创建）
 let monitorDir = directory.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, null);
 
-// fileItem.js:73（回收站监控）
+// file-item.js:73（回收站监控）
 this._monitorTrashDir = this._file.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, null);
 ```
 
-`_monitorDesktopDir`、`_monitorDir`、`_monitorTrashDir` 创建后全程未调用 `cancel()`。OS 级别的 inotify/watch 描述符持续占用。`templatesScriptsManager` 中子目录 monitor 在 `_processDirectory` 循环中创建，信号通过 SignalManager 连接（`destroy()` 时信号断开），但 monitor 对象本身从未取消。
+`_monitorDesktopDir`、`_monitorDir`、`_monitorTrashDir` 创建后全程未调用 `cancel()`。OS 级别的 inotify/watch 描述符持续占用。`templates-scripts-manager` 中子目录 monitor 在 `_processDirectory` 循环中创建，信号通过 SignalManager 连接（`destroy()` 时信号断开），但 monitor 对象本身从未取消。
 
 **统一编号：** [verified-bugs.md #5](.opencode/plans/verified-bugs.md)（结论：进程级资源，session 结束自动回收，暂不修复）
 
@@ -34,7 +34,7 @@ this._monitorTrashDir = this._file.monitor_directory(Gio.FileMonitorFlags.WATCH_
 
 ### 1.2 DesktopManager 无清理路径，大量全局信号未断开
 
-**位置：** `app/desktopManager.js`
+**位置：** `app/desktop-manager.js`
 
 至少 11 个 `obj.connect(...)` 调用不保存 handler ID（或保存了但不使用），无法断开：
 
@@ -62,7 +62,7 @@ this._monitorTrashDir = this._file.monitor_directory(Gio.FileMonitorFlags.WATCH_
 
 ### 1.3 Child Watch 永久残留
 
-**位置：** `app/desktopIconsUtil.js:190`
+**位置：** `app/desktop-icons-util.js:190`
 
 ```js
 GLib.child_watch_add(GLib.PRIORITY_DEFAULT, pid, () => { });
@@ -78,7 +78,7 @@ GLib 会在子进程退出时自动移除 watch source，但空回调函数对�
 
 ### 1.4 DBusManager D-Bus 信号未断开
 
-**位置：** `app/dbusUtils.js:257-271`
+**位置：** `app/dbus-utils.js:257-271`
 
 ```js
 this._dbusLocalProxy.connectSignal('NameOwnerChanged', () => { ... });
@@ -95,7 +95,7 @@ this._dbusSystemProxy.connectSignal('ActivatableServicesChanged', () => { ... })
 
 ### 1.5 ProxyManager 替换 proxy 时旧信号泄漏
 
-**位置：** `app/dbusUtils.js:133-176`
+**位置：** `app/dbus-utils.js:133-176`
 
 `makeNewProxy()` 创建新 proxy 并重新连接信号：
 
@@ -111,7 +111,7 @@ this._signalsIDs[signal] = proxy.connect(signal, this._signals[signal]);
 
 ### 1.6 `_pendingDropFiles` 字典可能累积条目
 
-**位置：** `app/desktopManager.js:285,479,1295`
+**位置：** `app/desktop-manager.js:285,479,1295`
 
 文件拖放到桌面时，`_pendingDropFiles` 记录文件名到坐标的映射。匹配成功的条目在行1295被 `delete` 清除，但文件快速创建/删除或重命名时，未匹配的条目永远留在字典中。
 
@@ -123,7 +123,7 @@ this._signalsIDs[signal] = proxy.connect(signal, this._signals[signal]);
 
 ### 2.1 DesktopMenu 剪贴板信号未断开
 
-**位置：** `app/desktopMenu.js:54`
+**位置：** `app/desktop-menu.js:54`
 
 ```js
 clipboard.connect('changed', () => { ... });
@@ -147,7 +147,7 @@ nautilusSettings.connect('changed', _onNautilusSettingsChanged);
 
 ### 2.3 ProxyManager 可用性信号未跟踪
 
-**位置：** `app/dbusUtils.js:87`
+**位置：** `app/dbus-utils.js:87`
 
 ```js
 dbusManager.connect(inSystemBus ? 'changed-availability-system' : 'changed-availability-local', () => { ... });
@@ -167,7 +167,7 @@ dbusManager.connect(inSystemBus ? 'changed-availability-system' : 'changed-avail
 
 ### 2.5 CssProvider 永久驻留
 
-**位置：** `app/desktopManager.js:258-261`
+**位置：** `app/desktop-manager.js:258-261`
 
 ```js
 let cssProvider = new Gtk.CssProvider();
@@ -182,18 +182,18 @@ CSS provider 添加到 display 的 style context 后引用被丢弃。GTK 内部
 
 ### 2.6 File Enumerator 未显式关闭
 
-**位置：** `extension.js:288`、`app/desktopManager.js:1254`
+**位置：** `extension.js:288`、`app/desktop-manager.js:1254`
 
 ```js
 // extension.js:288
 let fileEnum = procFolder.enumerate_children('standard::*', ..., null);
 while ((info = fileEnum.next_file(null))) { ... }
 
-// desktopManager.js:1254（更严重——每次桌面刷新都创建）
+// desktop-manager.js:1254（更严重——每次桌面刷新都创建）
 let fileEnum = source.enumerate_children_finish(result);
 ```
 
-遍历完成后未调用 `fileEnum.close()`。`desktopManager.js` 中的问题更严重——每次桌面刷新（文件增删改、图标主题变化、设置变化等）都泄漏一个目录句柄。
+遍历完成后未调用 `fileEnum.close()`。`desktop-manager.js` 中的问题更严重——每次桌面刷新（文件增删改、图标主题变化、设置变化等）都泄漏一个目录句柄。
 
 **统一编号：** [verified-bugs.md #4](.opencode/plans/verified-bugs.md)
 
@@ -201,7 +201,7 @@ let fileEnum = source.enumerate_children_finish(result);
 
 ### 2.7 堆叠排序 O(n²)
 
-**位置：** `app/desktopManager.js:1784-1886`
+**位置：** `app/desktop-manager.js:1784-1886`
 
 `_sortAllFilesFromGridsByKindStacked` 中存在 3 对嵌套循环：
 
@@ -217,7 +217,7 @@ let fileEnum = source.enumerate_children_finish(result);
 
 ### 2.8 `getDistance` 全量扫描 grid status
 
-**位置：** `app/desktopGrid.js:341-347`
+**位置：** `app/desktop-grid.js:341-347`
 
 ```js
 let isFree = false;
@@ -237,7 +237,7 @@ for (let element in this._gridStatus) {
 
 ### 2.9 坐标恢复 O(n²)
 
-**位置：** `app/desktopManager.js:1721-1728`
+**位置：** `app/desktop-manager.js:1721-1728`
 
 ```js
 this._allFileList.forEach(fileItem => {
@@ -257,7 +257,7 @@ this._allFileList.forEach(fileItem => {
 
 ### 2.10 `getDesktopUniqueFileName` O(n²)
 
-**位置：** `app/desktopManager.js:1621-1640`
+**位置：** `app/desktop-manager.js:1621-1640`
 
 `while` 循环每次迭代调用 `fileExistsOnDesktop`，后者又 `map().includes()` 全量扫描文件列表。文件重名多时放大。应使用 `Set<fileName>` 或 `.some()`。
 
@@ -267,7 +267,7 @@ this._allFileList.forEach(fileItem => {
 
 ### 2.11 `map` 滥用为 `forEach`
 
-**位置：** `app/desktopManager.js:952,1086,1934,2108`
+**位置：** `app/desktop-manager.js:952,1086,1934,2108`
 
 4 处 `this._fileList.map(f => { ... })` 只做副作用，返回值被丢弃。每次创建无用的新数组。
 
@@ -277,7 +277,7 @@ this._allFileList.forEach(fileItem => {
 
 ### 2.12 同步磁盘写入在循环中
 
-**位置：** `app/desktopManager.js:474-493`、`app/fileItem.js:779-795,876-889`
+**位置：** `app/desktop-manager.js:474-493`、`app/file-item.js:779-795,876-889`
 
 `set_attributes_from_info` 是同步 I/O，在循环中逐个文件执行。大量文件时阻塞 UI 线程。
 
@@ -289,7 +289,7 @@ this._allFileList.forEach(fileItem => {
 
 ### 3.1 SignalManager 数组稀疏化
 
-**位置：** `app/signalManager.js:52`
+**位置：** `app/signal-manager.js:52`
 
 ```js
 delete this._signal_list[idx];
@@ -311,7 +311,7 @@ delete this._signal_list[idx];
 
 ### 3.3 AutoAr 定时器可能泄漏
 
-**位置：** `app/autoAr.js:531-534`
+**位置：** `app/auto-ar.js:531-534`
 
 `_destroy()` 调用了 `this._cancellable.cancel()` 但未调用 `_removeTimer()`。若 cancellable 在 try 块完成前触发，递归 timer（`return true`）可能残留。
 
@@ -319,7 +319,7 @@ delete this._signal_list[idx];
 
 ### 3.4 FileItem 异步闭包持有引用
 
-**位置：** `app/fileItem.js:295,585,829-860`
+**位置：** `app/file-item.js:295,585,829-860`
 
 `_refreshMetadataAsync`、`_refreshTrashIcon`、`metadataTrusted` setter 中的异步回调通过闭包持有 `this`。虽有 `_destroyed` 守卫，但慢速操作期间对象无法被 GC。
 
@@ -327,7 +327,7 @@ delete this._signal_list[idx];
 
 ### 3.5 `_setLabelName` 字符串拼接低效
 
-**位置：** `app/desktopIconItem.js:258-292`
+**位置：** `app/desktop-icon-item.js:258-292`
 
 循环内 `newText += character` 逐字符拼接字符串，每次创建新字符串对象。应改用数组 + `join('')`。
 
@@ -337,7 +337,7 @@ delete this._signal_list[idx];
 
 ### 3.6 `vfunc_snapshot` 每帧创建 RGBA 对象
 
-**位置：** `app/desktopGrid.js:556-568`
+**位置：** `app/desktop-grid.js:556-568`
 
 拖拽框绘制时每帧无条件 `new Gdk.RGBA()`，GC 压力大。应缓存 RGBA 对象，仅在颜色变化时重建。
 
@@ -350,8 +350,8 @@ delete this._signal_list[idx];
 GJS 在 GTK4 signal callback 中会静默吞掉 TypeError 等异常。这意味着代码中调用未定义方法（如 `this.doUndo()`、`this._grid.receiveMotion()`）时不会崩溃、不会报错，只是"什么都不做"。这使得 bug 更难被发现和调试。
 
 已知的受影响代码：
-- `desktopManager.js:825,828` — `doUndo()` / `_doRedo()` 未定义（死代码，因 GTK Action 已处理 Ctrl+Z）
-- `desktopIconItem.js:376` — `receiveMotion()` 未定义
+- `desktop-manager.js:825,828` — `doUndo()` / `_doRedo()` 未定义（死代码，因 GTK Action 已处理 Ctrl+Z）
+- `desktop-icon-item.js:376` — `receiveMotion()` 未定义
 
 **统一编号：** [verified-bugs.md #1, #3](.opencode/plans/verified-bugs.md)
 

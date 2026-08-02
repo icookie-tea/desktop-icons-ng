@@ -25,9 +25,9 @@ import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 
-import * as EmulateX11 from './emulateX11WindowType.js';
-import * as VisibleArea from './visibleArea.js';
-import * as ShellOverride from './gnomeShellOverride.js';
+import * as EmulateX11 from './emulate-x11-window-type.js';
+import * as VisibleArea from './visible-area.js';
+import * as ShellOverride from './gnome-shell-override.js';
 
 /* Verbose diagnostics only when DING_DEBUG is set (avoids journal spam on
  * every monitor geometry change). */

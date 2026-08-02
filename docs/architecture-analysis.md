@@ -14,30 +14,30 @@ icookie 分支在此基础上进行了大量重构和功能增强，包括模块
 ┌─────────────────────────────────────────────────────────────────┐
 │                    GNOME Shell 扩展层                            │
 │  extension.js ──── DING 类                                      │
-│  ├── emulateX11WindowType.js ── Wayland 窗口管理                 │
-│  ├── visibleArea.js ──── 可用区域计算                            │
-│  └── gnomeShellOverride.js ── Overview 桌面图标动画注入          │
+│  ├── emulate-x11-window-type.js ── Wayland 窗口管理                 │
+│  ├── visible-area.js ──── 可用区域计算                            │
+│  └── gnome-shell-override.js ── Overview 桌面图标动画注入          │
 ├──────────── D-Bus (com.rastersoft.dingextension) ────────────────┤
 ┌─────────────────────────────────────────────────────────────────┐
 │                   独立 GTK4 进程层 (ding.js)                     │
 │  ding.js ──── Adw.Application                                   │
-│  ├── desktopManager.js ──── 桌面管理器（核心，大幅重构）           │
+│  ├── desktop-manager.js ──── 桌面管理器（核心，大幅重构）           │
 │  │   ├── ThemeManager       ── accent color / 暗色模式          │
 │  │   ├── FileOperations     ── 文件操作封装                      │
 │  │   ├── SortManager        ── 排序/堆叠逻辑                    │
 │  │   ├── FileChangesQueue   ── 增量更新队列                     │
-│  │   ├── desktopGrid.js ──── 网格渲染（每块屏幕一个）             │
+│  │   ├── desktop-grid.js ──── 网格渲染（每块屏幕一个）             │
 │  │   │   └── PaintContainer ── 橡皮筋选择 / 拖放高亮绘制         │
-│  │   ├── fileItem.js ──── 图标项                                 │
-│  │   ├── desktopIconItem.js ── 图标基础类                         │
-│  │   ├── desktopMenu.js ──── 右键菜单                            │
-│  │   ├── fileItemMenu.js ─── 图标菜单                            │
+│  │   ├── file-item.js ──── 图标项                                 │
+│  │   ├── desktop-icon-item.js ── 图标基础类                         │
+│  │   ├── desktop-menu.js ──── 右键菜单                            │
+│  │   ├── file-item-menu.js ─── 图标菜单                            │
 │  │   ├── thumbnails.js ──── 缩略图加载                           │
-│  │   └── autoAr.js ──── 自动归档                                │
-│  ├── dbusUtils.js ──── D-Bus 工具集                              │
+│  │   └── auto-ar.js ──── 自动归档                                │
+│  ├── dbus-utils.js ──── D-Bus 工具集                              │
 │  ├── preferences.js ──── 设置管理                                │
-│  ├── dndClipboardUtils.js ── 拖放剪贴板工具                       │
-│  └── signalManager.js ─── 信号管理器                             │
+│  ├── dnd-clipboard-utils.js ── 拖放剪贴板工具                       │
+│  └── signal-manager.js ─── 信号管理器                             │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -55,7 +55,7 @@ GNOME Shell 启用扩展
        └─→ 初始化 data 对象
 ```
 
-`constructor()` 中会扫描 `/proc` 查找旧的 `ding.js` 进程并 kill 掉，防止 GNOME Shell 重启后出现多个桌面管理进程。icookie 分支在此处还创建了 `gnomeShellOverride` 实例用于注入概览动画逻辑。
+`constructor()` 中会扫描 `/proc` 查找旧的 `ding.js` 进程并 kill 掉，防止 GNOME Shell 重启后出现多个桌面管理进程。icookie 分支在此处还创建了 `gnome-shell-override` 实例用于注入概览动画逻辑。
 
 ### 阶段 2：扩展启用
 
@@ -109,7 +109,7 @@ launchDesktop()
 
 ## 四、GNOME Shell 扩展层的职责
 
-### 4.1 窗口管理 (emulateX11WindowType.js)
+### 4.1 窗口管理 (emulate-x11-window-type.js)
 
 **目的：** 在 Wayland 下模拟 X11 的窗口类型行为。
 
@@ -126,16 +126,16 @@ Wayland 不允许客户端直接设置窗口类型为 DESKTOP，所以 DING 采�
   flags: B=底部, T=置顶, D=所有桌面, H=隐藏
 ```
 
-### 4.2 可用区域计算 (visibleArea.js)
+### 4.2 可用区域计算 (visible-area.js)
 
 计算每个显示器上可用于放置图标的区域，考虑：
 - Top panel 高度
 - 其他扩展声明的边距（通过 `DesktopIconsUsableArea` 接口）
 - 工作区边界
 
-其他扩展可以通过 `desktopIconsIntegration.js` 中的 `DesktopIconsUsableAreaClass` 注册自己的边距需求。
+其他扩展可以通过 `desktop-icons-integration.js` 中的 `DesktopIconsUsableAreaClass` 注册自己的边距需求。
 
-### 4.3 Overview 动画注入 (gnomeShellOverride.js) — icookie 新增
+### 4.3 Overview 动画注入 (gnome-shell-override.js) — icookie 新增
 
 icookie 分支通过 GNOME Shell 的 `InjectionManager` 重写 `WorkspaceBackground.prototype._init`，在背景层之上插入一个 `Clutter.Clone` 容器：
 
@@ -181,7 +181,7 @@ ding.js
       'activate' → 创建 DesktopManager 实例
 ```
 
-### 5.2 DesktopManager 核心流程 (desktopManager.js) — icookie 重构
+### 5.2 DesktopManager 核心流程 (desktop-manager.js) — icookie 重构
 
 icookie 分支对 `DesktopManager` 进行了大规模重构，将大量职责从单体类中提取为独立模块：
 
@@ -274,7 +274,7 @@ _scheduleFullRefresh()                        // icookie: fallback 全量刷新
 - `MOVED_OUT`: 记录 `{oldPath: newPath}` 到 `_pendingMoves`，启动 150ms timeout
 - timeout 触发时：如果路径仍在 `_pendingMoves` 中 → 视为 MOVE（仅更新元数据）；否则视为 DELETE + CREATE
 
-### 5.4 DesktopGrid 网格系统 (desktopGrid.js) — icookie 重构
+### 5.4 DesktopGrid 网格系统 (desktop-grid.js) — icookie 重构
 
 每个显示器对应一个 `DesktopGrid` 实例：
 
@@ -305,7 +305,7 @@ _elementWidth  = width / _maxColumns
 _elementHeight = height / _maxRows
 ```
 
-### 5.5 FileItem 图标项 (fileItem.js + desktopIconItem.js)
+### 5.5 FileItem 图标项 (file-item.js + desktop-icon-item.js)
 
 ```
 FileItem 继承 desktopIconItem 继承 SignalManager
@@ -333,7 +333,7 @@ ThumbnailLoader
   ├─→ _launchNewBuild() 逐个处理队列
   └─→ 两种生成模式：
        ├─→ GnomeDesktop.DesktopThumbnailFactory（优先，异步）
-       └─→ 子进程 fallback（createThumbnail.js）
+       └─→ 子进程 fallback（create-thumbnail.js）
 
 icookie 修复：图片缩略图尺寸不超过 icon_size（防止容器撑宽）
 ```
@@ -356,7 +356,7 @@ ThemeManager
 
 ### 5.8 SortManager (icookie 新增模块)
 
-从 `desktopManager.js` 抽离，处理所有排序和堆叠逻辑：
+从 `desktop-manager.js` 抽离，处理所有排序和堆叠逻辑：
 
 ```
 SortManager
@@ -378,7 +378,7 @@ SortManager
 
 ### 5.9 FileOperations (icookie 新增模块)
 
-从 `desktopManager.js` 抽离，封装所有文件操作：
+从 `desktop-manager.js` 抽离，封装所有文件操作：
 
 ```
 FileOperations
@@ -554,7 +554,7 @@ Shell 热重载：
 - `PaintContainer` — 自定义绘制容器
 
 ### 11.2 Overview 动画
-gnomeShellOverride.js 注入 WorkspaceBackground，实现进入/退出概览时桌面图标的淡入淡出效果
+gnome-shell-override.js 注入 WorkspaceBackground，实现进入/退出概览时桌面图标的淡入淡出效果
 
 ### 11.3 增量更新
 FileChangesQueue 替代旧的单体防抖机制，支持事件合并和出错 fallback

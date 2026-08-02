@@ -17,7 +17,7 @@
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopMenu.js` | 添加箭头禁用和左对齐 |
+| `app/desktop-menu.js` | 添加箭头禁用和左对齐 |
 
 **提交：** `9d21641`
 
@@ -32,7 +32,7 @@
 **根因：**
 `Gtk.PopoverMenuFlags.NESTED` 让子菜单在主 popover 内嵌显示。当子菜单打开再关闭时，grab 未能正确恢复给父 popover，导致 auto-hide 机制失效。
 
-附加 bug：`desktopGrid.js:101` 左键控制器的 `propagation_phase` 变量名写错，实际未设置。
+附加 bug：`desktop-grid.js:101` 左键控制器的 `propagation_phase` 变量名写错，实际未设置。
 
 **修复：**
 - 构造函数改为 `new_from_model(menu)`（移除 NESTED flag）
@@ -41,13 +41,13 @@
 - parent 设置改为 `menuPopover.set_parent(grid)`
 - closed 信号增加 `grab_focus()` 恢复焦点
 - `onPressMainButton()` 新增菜单清理逻辑
-- 修正 `desktopGrid.js` 变量名
+- 修正 `desktop-grid.js` 变量名
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopMenu.js` | 整个 `showDesktopMenu()` 重写 |
-| `app/desktopManager.js` | 新增 `unparent()` 清理 |
-| `app/desktopGrid.js` | 变量名修正 |
+| `app/desktop-menu.js` | 整个 `showDesktopMenu()` 重写 |
+| `app/desktop-manager.js` | 新增 `unparent()` 清理 |
+| `app/desktop-grid.js` | 变量名修正 |
 
 **提交：** `9d00d49`
 
@@ -68,7 +68,7 @@
 
 | 文件 | 变更 |
 |------|------|
-| `emulateX11WindowType.js` | 新增信号连接、`_onOverviewHiding()`、`_onWindowGroupVisible()` |
+| `emulate-x11-window-type.js` | 新增信号连接、`_onOverviewHiding()`、`_onWindowGroupVisible()` |
 
 **提交：** `99fcb5e`
 
@@ -83,7 +83,7 @@
 - `Ctrl+V` 快捷键同样无效
 
 **根因：**
-`dndClipboardUtils.js:readClipboard()` 使用 `clipboard.get_formats().contain_mime_type()` 预检剪贴板格式。Wayland 上 `GdkClipboard.get_formats()` 对**跨进程**剪贴板数据返回空/不完整，`contain_mime_type` 永远返回 `false`，跳过读取直接返回 `null`。
+`dnd-clipboard-utils.js:readClipboard()` 使用 `clipboard.get_formats().contain_mime_type()` 预检剪贴板格式。Wayland 上 `GdkClipboard.get_formats()` 对**跨进程**剪贴板数据返回空/不完整，`contain_mime_type` 永远返回 `false`，跳过读取直接返回 `null`。
 
 Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_formats_contain_gtype`），而非 mime 字符串。
 
@@ -97,9 +97,9 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/dndClipboardUtils.js` | `readClipboard` 移除格式预检 |
-| `app/desktopManager.js` | 初始化 `_clipboardFiles`/`_isCut` |
-| `app/desktopMenu.js` | 信号连接、缓存状态、同步判断 |
+| `app/dnd-clipboard-utils.js` | `readClipboard` 移除格式预检 |
+| `app/desktop-manager.js` | 初始化 `_clipboardFiles`/`_isCut` |
+| `app/desktop-menu.js` | 信号连接、缓存状态、同步判断 |
 
 **提交：** `08ffc31`
 
@@ -119,7 +119,7 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopIconItem.js` | `_loadImageAsIcon` 添加 `icon_size` 缩放约束 |
+| `app/desktop-icon-item.js` | `_loadImageAsIcon` 添加 `icon_size` 缩放约束 |
 
 **提交：** `2d74e3e`
 
@@ -138,7 +138,7 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopMenu.js` | 移除 `async`、`await` |
+| `app/desktop-menu.js` | 移除 `async`、`await` |
 
 **提交：** `21275a7`
 
@@ -157,7 +157,7 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopMenu.js` | `this.connectSignal` → `menuPopover.connect` |
+| `app/desktop-menu.js` | `this.connectSignal` → `menuPopover.connect` |
 
 **提交：** `603b476`
 
@@ -181,7 +181,7 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopMenu.js` | `destroy()` → `unparent()`，closed 只聚焦 |
+| `app/desktop-menu.js` | `destroy()` → `unparent()`，closed 只聚焦 |
 
 **提交：** `4a4568f`
 
@@ -200,7 +200,7 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/dndClipboardUtils.js` | 删除 catch 中的 console.log |
+| `app/dnd-clipboard-utils.js` | 删除 catch 中的 console.log |
 
 **提交：** `a09cb4b`
 
@@ -214,7 +214,7 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopManager.js` | 移除两个方法 |
+| `app/desktop-manager.js` | 移除两个方法 |
 
 **提交：** `08ffc31`
 
@@ -234,17 +234,17 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 **修复：**
 采用 gtk4-ding 的 Clutter.Clone 方案：
-- 新增 `gnomeShellOverride.js`：覆写 `WorkspaceBackground._init`，注入桌面窗口克隆层
+- 新增 `gnome-shell-override.js`：覆写 `WorkspaceBackground._init`，注入桌面窗口克隆层
 - 克隆层透明度由 Shell 内部 `_stateAdjustment` 驱动，帧同步淡入淡出
-- 移除 `emulateX11WindowType.js` 中旧的 `_onOverviewHiding` / `_onWindowGroupVisible` 处理器
+- 移除 `emulate-x11-window-type.js` 中旧的 `_onOverviewHiding` / `_onWindowGroupVisible` 处理器
 - 直接在 `OverviewAdjustment` 上监听 `notify::value`（而非 per-workspace 的 `_stateAdjustment`），覆盖所有过渡
 
 | 文件 | 变更 |
 |------|------|
-| `gnomeShellOverride.js` | 新增，覆写 WorkspaceBackground |
-| `emulateX11WindowType.js` | 移除旧 Overview 信号处理器 |
+| `gnome-shell-override.js` | 新增，覆写 WorkspaceBackground |
+| `emulate-x11-window-type.js` | 移除旧 Overview 信号处理器 |
 | `extension.js` | 集成 GnomeShellOverride 生命周期 |
-| `meson.build` | 添加 gnomeShellOverride.js 到安装列表 |
+| `meson.build` | 添加 gnome-shell-override.js 到安装列表 |
 
 **提交：** `d0f551c` / `fc84044`
 
@@ -257,8 +257,8 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `emulateX11WindowType.js` | 移除多余空行 |
-| `gnomeShellOverride.js` | 统一 import 风格 |
+| `emulate-x11-window-type.js` | 移除多余空行 |
+| `gnome-shell-override.js` | 统一 import 风格 |
 
 **提交：** `b993cae`
 
@@ -291,9 +291,9 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/dndClipboardUtils.js` | DnD switch 增加文本处理、const→let |
-| `app/desktopManager.js` | 删除3个旧方法、新增 `_writeDroppedText()` |
-| `app/desktopIconsUtil.js` | `generateDropFilename()` + `writeDroppedTextFile()` |
+| `app/dnd-clipboard-utils.js` | DnD switch 增加文本处理、const→let |
+| `app/desktop-manager.js` | 删除3个旧方法、新增 `_writeDroppedText()` |
+| `app/desktop-icons-util.js` | `generateDropFilename()` + `writeDroppedTextFile()` |
 
 **提交：** `3525695` / `32dcd0a`
 
@@ -309,7 +309,7 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopManager.js` | `Gtk.Settings.get_for_screen(Gdk.Screen.get_default())` → `Gtk.Settings.get_default()` |
+| `app/desktop-manager.js` | `Gtk.Settings.get_for_screen(Gdk.Screen.get_default())` → `Gtk.Settings.get_default()` |
 
 **提交：** `d1ad154`
 
@@ -325,8 +325,8 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopManager.js` | `clearFileCoordinates()` catch 块 |
-| `app/desktopIconsUtil.js` | `writeDroppedTextFile()` catch 块 |
+| `app/desktop-manager.js` | `clearFileCoordinates()` catch 块 |
+| `app/desktop-icons-util.js` | `writeDroppedTextFile()` catch 块 |
 
 **提交：** `7f79582`
 
@@ -342,23 +342,23 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 **根因（3 个 Bug 级联）：**
 
-**Bug 1 — `updateGridWindows` 提前返回不更新 `_primaryScreen`** (`desktopManager.js:389-391`)
+**Bug 1 — `updateGridWindows` 提前返回不更新 `_primaryScreen`** (`desktop-manager.js:389-391`)
 - 主屏切换时 `primaryIndex` 改变但显示器几何/分辨率不变
 - `updateGridWindows` 检测到 `gridschanged.length == 0` 直接 return，跳过 `_primaryScreen` 更新
 - `_primaryScreen` 仍指向旧 `_desktopList` 中的旧 primaryIndex ⇒ 新图标使用错误的显示器坐标
 - 之前被掩盖：随后 GNOME 移动 panel 触发 margins 变化，第二次 `updateGridWindows` 走完整路径才修复
 
-**Bug 2 — `_addSingleFileToDesktop` fallback 跳过坐标归属判断** (`desktopManager.js:1689-1694`)
+**Bug 2 — `_addSingleFileToDesktop` fallback 跳过坐标归属判断** (`desktop-manager.js:1689-1694`)
 - fallback 循环只检查 `getDistance(x, y) !== -1`（任意有空位的桌面）
 - 未如 `_addFilesToDesktop` PHASE3 一样先检查 `=== 0`（坐标属于该桌面）
 - 即使 `_primaryScreen` 正确指向主屏，新图标仍被第一个有空位的 desktop 截获（遍历顺序是 [mon0, mon1] ⇒ 总是 mon0）
 
-**Bug 3 — Fallback 锚点是显示器左上角而非 grid 左上角** (`desktopManager.js:1469-1471, 1687-1688`)
+**Bug 3 — Fallback 锚点是显示器左上角而非 grid 左上角** (`desktop-manager.js:1469-1471, 1687-1688`)
 - `_primaryScreen.x/y` = 显示器左上角
 - `gridGlobalRectangle` 起点 = `monitor.x + windowMarginLeft, monitor.y + windowMarginTop`
 - 当主屏有 panel（marginTop=32），锚点 `(monitor.x, monitor.y)` 落在 grid 矩形上方 ⇒ 不属于任何 grid ⇒ fallback 失效
 
-**附加 — `getDistance` 距离计算公式笔误** (`desktopGrid.js:354`)
+**附加 — `getDistance` 距离计算公式笔误** (`desktop-grid.js:354`)
 - `Math.pow(x - (...), 2) + Math.pow(x - (...), 2)` 第二个 `x` 应为 `y`
 - 不影响 `=== 0` 和 `!== -1` 判断，但影响 PHASE2 最近桌面计算精度
 
@@ -366,10 +366,10 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | Bug | 文件 | 变更 |
 |-----|------|------|
-| Bug 1 | `desktopManager.js:407-414` | early return 前更新 `_primaryScreen` |
-| Bug 2 | `desktopManager.js:1738-1753` | fallback 先 `=== 0` 再 `!== -1` |
-| Bug 3 | `desktopManager.js:1470-1477, 1743-1750` | 改用 `_desktops.find(g => g._monitor === ...)` 取 grid 实例的 `_x/_y` |
-| 笔误 | `desktopGrid.js:357` | `Math.pow(x → y)` |
+| Bug 1 | `desktop-manager.js:407-414` | early return 前更新 `_primaryScreen` |
+| Bug 2 | `desktop-manager.js:1738-1753` | fallback 先 `=== 0` 再 `!== -1` |
+| Bug 3 | `desktop-manager.js:1470-1477, 1743-1750` | 改用 `_desktops.find(g => g._monitor === ...)` 取 grid 实例的 `_x/_y` |
+| 笔误 | `desktop-grid.js:357` | `Math.pow(x → y)` |
 
 **提交：** `ecb8791`
 
@@ -383,8 +383,8 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopManager.js` | 移除 32 处 `console.log`，移除 `changed`/`isPrimary` 冗余变量 |
-| `app/desktopGrid.js` | 移除 3 处 `console.log`，`belong` 变量内联回直接调用 |
+| `app/desktop-manager.js` | 移除 32 处 `console.log`，移除 `changed`/`isPrimary` 冗余变量 |
+| `app/desktop-grid.js` | 移除 3 处 `console.log`，`belong` 变量内联回直接调用 |
 
 ### 文件夹自投导致 Nautilus 报错
 
@@ -401,7 +401,7 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 - 正确逻辑：检测该文件夹**是否是被拖拽选择的一部分**（`_isSelected && dragItem !== null`）
 
 **Bug 2 — `receiveMotion()` 未定义：**
-- `desktopIconItem.js:376` 调用 `this._grid.receiveMotion()`，该方法在 `DesktopGrid` 中不存在
+- `desktop-icon-item.js:376` 调用 `this._grid.receiveMotion()`，该方法在 `DesktopGrid` 中不存在
 - GJS 静默吞掉 TypeError，路由到 grid 的高亮和 drop 均失效
 
 **Bug 3 — `unHighLightDropTarget` 错误移除选中状态：**
@@ -412,9 +412,9 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | Bug | 文件 | 变更 |
 |-----|------|------|
-| Bug 1 | `app/fileItem.js:544, 561` | self-drop 检测从 URI 比较改为 `_isSelected && dragItem !== null` |
-| Bug 2 | `app/desktopIconItem.js:376` | `receiveMotion()` → `refreshDrag()` |
-| Bug 3 | `app/desktopIconItem.js:391` | `unHighLightDropTarget` 删除 CSS 类前加 `!_isSelected` 守卫 |
+| Bug 1 | `app/file-item.js:544, 561` | self-drop 检测从 URI 比较改为 `_isSelected && dragItem !== null` |
+| Bug 2 | `app/desktop-icon-item.js:376` | `receiveMotion()` → `refreshDrag()` |
+| Bug 3 | `app/desktop-icon-item.js:391` | `unHighLightDropTarget` 删除 CSS 类前加 `!_isSelected` 守卫 |
 
 ### 拖拽图标缺少跟随鼠标的图标
 
@@ -428,7 +428,7 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopIconItem.js:448-456` | 在 `drag-begin` 中获取 `Gtk.Picture` 的 `GdkPaintable`，调用 `set_icon()` 设置跟随鼠标的图标 |
+| `app/desktop-icon-item.js:448-456` | 在 `drag-begin` 中获取 `Gtk.Picture` 的 `GdkPaintable`，调用 `set_icon()` 设置跟随鼠标的图标 |
 
 ### 多选拖拽预览：堆叠图标 + 数量徽章
 
@@ -444,7 +444,7 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopIconItem.js` | 新增 `_createDragIcon()` 方法，依赖 `Gsk`/`Graphene`/`Pango` |
+| `app/desktop-icon-item.js` | 新增 `_createDragIcon()` 方法，依赖 `Gsk`/`Graphene`/`Pango` |
 
 ### GtkSnapshot API 在 GJS 中的兼容性问题
 
@@ -459,7 +459,7 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopIconItem.js` | `append_paintable()` → `GdkPaintable.snapshot()`；`to_paintable()` → `to_paintable(null)`；添加 try-catch 回退到单图标 |
+| `app/desktop-icon-item.js` | `append_paintable()` → `GdkPaintable.snapshot()`；`to_paintable()` → `to_paintable(null)`；添加 try-catch 回退到单图标 |
 
 ### Ghost 预览矩形尺寸偏差
 
@@ -474,7 +474,7 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopGrid.js:596-598` | Ghost 增加 `elementSpacing` 偏移并收缩尺寸，对齐实际图标容器 |
+| `app/desktop-grid.js:596-598` | Ghost 增加 `elementSpacing` 偏移并收缩尺寸，对齐实际图标容器 |
 
 ### 切换主题色后选中效果不刷新
 
@@ -498,7 +498,7 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopManager.js:95-107` | notify handler 用 `GLib.idle_add` 推迟读取颜色；`_configureSelectionColor` 后对所有 grid 调 `queue_draw()` |
+| `app/desktop-manager.js:95-107` | notify handler 用 `GLib.idle_add` 推迟读取颜色；`_configureSelectionColor` 后对所有 grid 调 `queue_draw()` |
 
 ---
 
@@ -528,13 +528,13 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 ### PaintContainer 独立模块
 
-将 `desktopGrid.js` 中嵌套的 `PaintContainer` 类提取到独立文件 `paintContainer.js`（127 行渲染逻辑）。`desktopGrid.js` 减少 130 行，移除 `GObject`/`Gsk`/`Graphene` 依赖。
+将 `desktop-grid.js` 中嵌套的 `PaintContainer` 类提取到独立文件 `paint-container.js`（127 行渲染逻辑）。`desktop-grid.js` 减少 130 行，移除 `GObject`/`Gsk`/`Graphene` 依赖。
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopGrid.js` | 移除 `PaintContainer` 类定义，改为 `imports.paintContainer.PaintContainer` |
-| `app/paintContainer.js` | 新建，完整的渲染类（rubberband + ghost 预览） |
-| `app/meson.build` | 添加 `paintContainer.js` |
+| `app/desktop-grid.js` | 移除 `PaintContainer` 类定义，改为 `imports.paintContainer.PaintContainer` |
+| `app/paint-container.js` | 新建，完整的渲染类（rubberband + ghost 预览） |
+| `app/meson.build` | 添加 `paint-container.js` |
 
 ### 死代码清理 + 封装修复
 
@@ -543,12 +543,12 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 ### ThemeManager 独立模块
 
-将 `_configureSelectionColor()`、`_checkApplyDarkModeSetting()`、accent color 信号连接从 `desktopManager.js` 提取到 `themeManager.js`（119 行）。`desktopManager.js` 减少 60 行。
+将 `_configureSelectionColor()`、`_checkApplyDarkModeSetting()`、accent color 信号连接从 `desktop-manager.js` 提取到 `theme-manager.js`（119 行）。`desktop-manager.js` 减少 60 行。
 
 | 文件 | 变更 |
 |------|------|
-| `app/themeManager.js` | 新建 |
-| `app/desktopManager.js` | 删除两个旧方法，添加 `selectColor` getter 委托给 ThemeManager |
+| `app/theme-manager.js` | 新建 |
+| `app/desktop-manager.js` | 删除两个旧方法，添加 `selectColor` getter 委托给 ThemeManager |
 
 ### DnD 竞态条件修复（5 个 Bug）
 
@@ -563,30 +563,30 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | Bug | 根因 | 文件 | 修复 |
 |-----|------|------|------|
-| 自投守卫竞态 | `_isSelected && dragItem` 依赖全局状态，快速拖拽时被覆盖 | `fileItem.js:544,559` | 用实例级 `_isBeingDragged` 替代 |
-| `gdk_drop_finalize` | `drop.finish()` 在两次 `await` 后才调用，GdkDrop 被提前 GC | `dndClipboardUtils.js:176` | 移至第一个 `await` 之后立即调用 |
-| `gdk_drop_finalize` | `GtkDropTargetAsync::drop` handler 返回 false 时不自动 finish | `fileItem.js:560` | ~~加 `drop.finish(0)`~~ → 撤销（导致 grid 读不到数据） |
-| 多选 B 自投 | drop handler 没有 `_hasToRouteDragToGrid` 检查 | `fileItem.js:562` | 添加 `dropInfo.filelist.includes(this.uri)` 兜底 |
-| 图标不移动 | `dragItem` 在 async drop handler 完成前被 `drag-end` 清空 | `desktopManager.js:553` | 在 `onDragBegin` 保存 `_dragOriginX/Y`，直接使用 |
-| `GtkSnapshot` 兼容 | `to_paintable()` 在 GJS 中必须传 `null` 参数 | `desktopIconItem.js:552` | `to_paintable(null)` |
+| 自投守卫竞态 | `_isSelected && dragItem` 依赖全局状态，快速拖拽时被覆盖 | `file-item.js:544,559` | 用实例级 `_isBeingDragged` 替代 |
+| `gdk_drop_finalize` | `drop.finish()` 在两次 `await` 后才调用，GdkDrop 被提前 GC | `dnd-clipboard-utils.js:176` | 移至第一个 `await` 之后立即调用 |
+| `gdk_drop_finalize` | `GtkDropTargetAsync::drop` handler 返回 false 时不自动 finish | `file-item.js:560` | ~~加 `drop.finish(0)`~~ → 撤销（导致 grid 读不到数据） |
+| 多选 B 自投 | drop handler 没有 `_hasToRouteDragToGrid` 检查 | `file-item.js:562` | 添加 `dropInfo.filelist.includes(this.uri)` 兜底 |
+| 图标不移动 | `dragItem` 在 async drop handler 完成前被 `drag-end` 清空 | `desktop-manager.js:553` | 在 `onDragBegin` 保存 `_dragOriginX/Y`，直接使用 |
+| `GtkSnapshot` 兼容 | `to_paintable()` 在 GJS 中必须传 `null` 参数 | `desktop-icon-item.js:552` | `to_paintable(null)` |
 
 ### FileOperations 独立模块
 
-将 `doCopy`/`doCut`/`doTrash`/`doDeletePermanently`/`doEmptyTrash`/`doPaste`/`updateClipboard`/`doRename`/`doNewFolder`/`clearFileCoordinates`/`fileExistsOnDesktop`/`getDesktopUniqueFileName` 以及剪贴板状态（`_clipboardFiles`、`_isCut`）从 `desktopManager.js` 提取到 `fileOperations.js`（194 行）。
+将 `doCopy`/`doCut`/`doTrash`/`doDeletePermanently`/`doEmptyTrash`/`doPaste`/`updateClipboard`/`doRename`/`doNewFolder`/`clearFileCoordinates`/`fileExistsOnDesktop`/`getDesktopUniqueFileName` 以及剪贴板状态（`_clipboardFiles`、`_isCut`）从 `desktop-manager.js` 提取到 `file-operations.js`（194 行）。
 
 | 文件 | 变更 |
 |------|------|
-| `app/fileOperations.js` | 新建，包含完整文件操作与剪贴板逻辑 |
-| `app/desktopManager.js` | 移除实现，保留同名 public forwarder 方法委托到 `_fileOps` |
+| `app/file-operations.js` | 新建，包含完整文件操作与剪贴板逻辑 |
+| `app/desktop-manager.js` | 移除实现，保留同名 public forwarder 方法委托到 `_fileOps` |
 
 ### SortManager 独立模块
 
-将全部排序（byName/byKind/byTime/bySize/byPosition）和堆叠（stacks/unstack/stack markers）相关方法从 `desktopManager.js` 提取到 `sortManager.js`（454 行）。移除 `stackItem` 和 `AskRenamePopup` 不再需要的 import。
+将全部排序（byName/byKind/byTime/bySize/byPosition）和堆叠（stacks/unstack/stack markers）相关方法从 `desktop-manager.js` 提取到 `sort-manager.js`（454 行）。移除 `stack-item` 和 `AskRenamePopup` 不再需要的 import。
 
 | 文件 | 变更 |
 |------|------|
-| `app/sortManager.js` | 新建，包含 17 个排序/堆叠方法 |
-| `app/desktopManager.js` | 移除 450 行实现代码 |
+| `app/sort-manager.js` | 新建，包含 17 个排序/堆叠方法 |
+| `app/desktop-manager.js` | 移除 450 行实现代码 |
 
 ### 新建文件/文件夹出现在鼠标点击位置
 
@@ -601,14 +601,14 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopManager.js:1601-1616` | 在 `_addSingleFileToDesktop` 中 `savedCoordinates` 之后添加 `dropCoordinates` 检查，优先放在鼠标点击位置的网格 |
+| `app/desktop-manager.js:1601-1616` | 在 `_addSingleFileToDesktop` 中 `savedCoordinates` 之后添加 `dropCoordinates` 检查，优先放在鼠标点击位置的网格 |
 
 ### 重构成果汇总
 
 | 指标 | 重构前 | 重构后 |
 |------|--------|--------|
-| `desktopManager.js` 行数 | 2379 | **1795**（-584） |
-| 新增模块 | 0 | `paintContainer.js`, `themeManager.js`, `fileOperations.js`, `sortManager.js` |
+| `desktop-manager.js` 行数 | 2379 | **1795**（-584） |
+| 新增模块 | 0 | `paint-container.js`, `theme-manager.js`, `file-operations.js`, `sort-manager.js` |
 | 死代码移除 | — | `doUndo()`/`_doRedo()` 调用、冗余 import |
 
 ---
@@ -633,13 +633,13 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 **症状：** 新建文件夹/文件夹创建失败提示路径会抛 `ReferenceError: _ is not defined`。
 
-**根因：** `FileOperations` 从 `desktopManager.js` 抽取时未带上 `Gettext` import，`_('New Folder')` 等 3 处调用无定义。
+**根因：** `FileOperations` 从 `desktop-manager.js` 抽取时未带上 `Gettext` import，`_('New Folder')` 等 3 处调用无定义。
 
 **修复：** 补充标准 gettext 引入块（ESLint `no-undef` 发现）。
 
 | 文件 | 变更 |
 |------|------|
-| `app/fileOperations.js` | 新增 `Gettext`/`_` 定义 |
+| `app/file-operations.js` | 新增 `Gettext`/`_` 定义 |
 
 **提交：** `9ff3873`
 
@@ -653,12 +653,12 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktopIconsUtil.js:330` | 正则 `\\x00-\\x1f` → `\x00-\x1f` |
+| `app/desktop-icons-util.js:330` | 正则 `\\x00-\\x1f` → `\x00-\x1f` |
 
-**测试：** `tests/testDropFilename.js` 锁定行为（8 个用例）。
+**测试：** `tests/test-drop-filename.js` 锁定行为（8 个用例）。
 
 ### SortManager localeCompare 选项被静默忽略（待决策，未修复）
 
 **发现：** `_sortByName`/`_sortByKindByName` 中 `localeCompare(b, {sensitivity:'accent', numeric:'true', ...})` 把 options 对象传到了 **locales 参数位**（第 2 参），引擎静默忽略 → 实际为纯字典序（大小写敏感、无数字自然排序，"File10" 排在 "file2" 前）。
 
-**影响：** 桌面"按名称排序"从未实现不区分大小写 + 数字自然排序的意图。修复需把 options 移到第 3 参（行为会变化：排序顺序改变），**待用户决策**。`tests/testSortManager.js` 已锁定当前行为。
+**影响：** 桌面"按名称排序"从未实现不区分大小写 + 数字自然排序的意图。修复需把 options 移到第 3 参（行为会变化：排序顺序改变），**待用户决策**。`tests/test-sort-manager.js` 已锁定当前行为。

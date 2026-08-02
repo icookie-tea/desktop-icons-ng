@@ -18,10 +18,10 @@
 'use strict';
 const Gio = imports.gi.Gio;
 
-const dndClipboardUtils = imports.dndClipboardUtils;
-const DBusUtils = imports.dbusUtils;
-const DesktopIconsUtil = imports.desktopIconsUtil;
-const AskRenamePopup = imports.askRenamePopup;
+const dndClipboardUtils = imports['dnd-clipboard-utils'];
+const DBusUtils = imports['dbus-utils'];
+const DesktopIconsUtil = imports['desktop-icons-util'];
+const AskRenamePopup = imports['ask-rename-popup'];
 const Enums = imports.enums;
 
 const Gettext = imports.gettext.domain('ding');

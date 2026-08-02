@@ -22,10 +22,10 @@ const Gdk = imports.gi.Gdk;
 
 const Prefs = imports.preferences;
 const Enums = imports.enums;
-const DesktopIconsUtil = imports.desktopIconsUtil;
-const SignalManager = imports.signalManager;
-const dndClipboardUtils = imports.dndClipboardUtils;
-const PaintContainer = imports.paintContainer.PaintContainer;
+const DesktopIconsUtil = imports['desktop-icons-util'];
+const SignalManager = imports['signal-manager'];
+const dndClipboardUtils = imports['dnd-clipboard-utils'];
+const PaintContainer = imports['paint-container'].PaintContainer;
 
 const Gettext = imports.gettext.domain('ding');
 

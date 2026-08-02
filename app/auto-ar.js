@@ -26,7 +26,7 @@ try {
 }
 
 const Enums = imports.enums;
-const FileUtils = imports.fileUtils;
+const FileUtils = imports['file-utils'];
 const Prefs = imports.preferences;
 const Signals = imports.signals;
 

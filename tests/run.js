@@ -12,9 +12,9 @@ imports.searchPath.unshift(GLib.build_filenamev([rootDir, 'app']));
 imports.searchPath.unshift(GLib.build_filenamev([rootDir, 'tests']));
 
 const tests = [
-    imports.testFileChangesQueue,
-    imports.testSortManager,
-    imports.testDropFilename,
+    imports['test-file-changes-queue'],
+    imports['test-sort-manager'],
+    imports['test-drop-filename'],
 ];
 
 async function main() {

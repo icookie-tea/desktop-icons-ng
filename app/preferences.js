@@ -21,9 +21,9 @@ imports.gi.versions.Gtk = '4.0';
 const Gtk = imports.gi.Gtk;
 const Gio = imports.gi.Gio;
 const GioSSS = Gio.SettingsSchemaSource;
-const DesktopIconsUtil = imports.desktopIconsUtil;
+const DesktopIconsUtil = imports['desktop-icons-util'];
 const Enums = imports.enums;
-const PrefsWindow = imports.prefswindow;
+const PrefsWindow = imports['prefs-window'];
 
 const Gettext = imports.gettext;
 

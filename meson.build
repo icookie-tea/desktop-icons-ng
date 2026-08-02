@@ -13,12 +13,12 @@ schema_dir = join_paths(datadir, 'glib-2.0', 'schemas')
 extensions_dir = join_paths(prefix, 'share', 'gnome-shell', 'extensions', 'ding@rastersoft.com')
 
 install_data([
-    'emulateX11WindowType.js',
+    'emulate-x11-window-type.js',
     'extension.js',
-    'gnomeShellOverride.js',
+    'gnome-shell-override.js',
     'metadata.json',
     'prefs.js',
-    'visibleArea.js'
+    'visible-area.js'
   ],
   install_dir: extensions_dir
 )

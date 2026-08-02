@@ -180,10 +180,10 @@ parseCommandLine(ARGV);
 
 imports.searchPath.unshift(codePath);
 
-const DBusUtils = imports.dbusUtils;
+const DBusUtils = imports['dbus-utils'];
 const Prefs = imports.preferences;
 const Gettext = imports.gettext;
-const PromiseUtils = imports.promiseUtils;
+const PromiseUtils = imports['promise-utils'];
 
 PromiseUtils._promisify({ keepOriginal: true }, Gio.FileEnumerator.prototype, 'close_async');
 PromiseUtils._promisify({ keepOriginal: true }, Gio.FileEnumerator.prototype, 'next_files_async');
@@ -201,7 +201,7 @@ if (Gio.File.new_for_path(localePath).query_exists(null)) {
     Gettext.bindtextdomain('ding', localePath);
 }
 
-const DesktopManager = imports.desktopManager;
+const DesktopManager = imports['desktop-manager'];
 
 var desktopManager = null;
 var dbusManager = null;

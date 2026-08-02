@@ -2,7 +2,7 @@
 
 ## 概述
 
-icookie 分支通过 `gnomeShellOverride.js` 实现了 GNOME Shell 概览模式下桌面图标的淡入淡出效果。这个功能的核心思路是**劫持 GNOME Shell 内部类的初始化流程，在壁纸层之上插入一个自定义容器来承载桌面窗口的克隆**。
+icookie 分支通过 `gnome-shell-override.js` 实现了 GNOME Shell 概览模式下桌面图标的淡入淡出效果。这个功能的核心思路是**劫持 GNOME Shell 内部类的初始化流程，在壁纸层之上插入一个自定义容器来承载桌面窗口的克隆**。
 
 ---
 

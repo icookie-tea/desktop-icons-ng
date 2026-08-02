@@ -20,10 +20,10 @@
 const Gtk = imports.gi.Gtk;
 const Gio = imports.gi.Gio;
 const GLib = imports.gi.GLib;
-const DBusUtils = imports.dbusUtils;
-const DesktopIconsUtil = imports.desktopIconsUtil;
+const DBusUtils = imports['dbus-utils'];
+const DesktopIconsUtil = imports['desktop-icons-util'];
 const Gettext = imports.gettext.domain('ding');
-const SignalManager = imports.signalManager;
+const SignalManager = imports['signal-manager'];
 
 const _ = Gettext.gettext;
 

@@ -110,8 +110,8 @@ export default [
         },
     },
     {
-        files: ['extension.js', 'prefs.js', 'visibleArea.js',
-            'emulateX11WindowType.js', 'gnomeShellOverride.js'],
+        files: ['extension.js', 'prefs.js', 'visible-area.js',
+            'emulate-x11-window-type.js', 'gnome-shell-override.js'],
         languageOptions: {
             sourceType: 'module',
         },

@@ -18,8 +18,8 @@
 const Gio = imports.gi.Gio;
 const GLib = imports.gi.GLib;
 const Enums = imports.enums;
-const DesktopIconsUtil = imports.desktopIconsUtil;
-const SignalManager = imports.signalManager;
+const DesktopIconsUtil = imports['desktop-icons-util'];
+const SignalManager = imports['signal-manager'];
 
 var TemplatesScriptsManagerFlags = {
     'NONE': 0,

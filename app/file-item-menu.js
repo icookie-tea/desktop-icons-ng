@@ -15,18 +15,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 'use strict';
-const DBusUtils = imports.dbusUtils;
+const DBusUtils = imports['dbus-utils'];
 const GLib = imports.gi.GLib;
 const Gdk = imports.gi.Gdk;
 const Gtk = imports.gi.Gtk;
 const Gio = imports.gi.Gio;
 
-const TemplatesScriptsManager = imports.templatesScriptsManager;
-const DesktopIconsUtil = imports.desktopIconsUtil;
+const TemplatesScriptsManager = imports['templates-scripts-manager'];
+const DesktopIconsUtil = imports['desktop-icons-util'];
 const Prefs = imports.preferences;
-const ShowErrorPopup = imports.showErrorPopup;
-const SignalManager = imports.signalManager;
-const MenuHelper = imports.menuHelper;
+const ShowErrorPopup = imports['show-error-popup'];
+const SignalManager = imports['signal-manager'];
+const MenuHelper = imports['menu-helper'];
 
 const Gettext = imports.gettext.domain('ding');
 

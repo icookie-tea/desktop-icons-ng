@@ -18,7 +18,7 @@
 'use strict';
 const Enums = imports.enums;
 const Prefs = imports.preferences;
-const stackItem = imports.stackItem;
+const stackItem = imports['stack-item'];
 
 var SortManager = class {
     constructor(desktopManager) {

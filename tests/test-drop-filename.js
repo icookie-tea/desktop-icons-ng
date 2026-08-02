@@ -4,7 +4,7 @@
  * Sanitized names of >= 8 chars get a '.txt' suffix; shorter ones fall
  * back to the (translated) default name. */
 'use strict';
-const DesktopIconsUtil = imports.desktopIconsUtil;
+const DesktopIconsUtil = imports['desktop-icons-util'];
 const { assertEqual, summary } = imports.harness;
 
 var runTests = function () {

@@ -17,7 +17,7 @@
  */
 'use strict';
 const Gtk = imports.gi.Gtk;
-const DesktopIconsUtil = imports.desktopIconsUtil;
+const DesktopIconsUtil = imports['desktop-icons-util'];
 const Gettext = imports.gettext.domain('ding');
 
 const _ = Gettext.gettext;

@@ -17,7 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 'use strict';
-const DBusUtils = imports.dbusUtils;
+const DBusUtils = imports['dbus-utils'];
 const GLib = imports.gi.GLib;
 const Gio = imports.gi.Gio;
 const GioUnix = imports.gi.GioUnix;
@@ -25,9 +25,9 @@ const Gtk = imports.gi.Gtk;
 const Gdk = imports.gi.Gdk;
 const Prefs = imports.preferences;
 
-const TemplatesScriptsManager = imports.templatesScriptsManager;
-const DesktopIconsUtil = imports.desktopIconsUtil;
-const MenuHelper = imports.menuHelper;
+const TemplatesScriptsManager = imports['templates-scripts-manager'];
+const DesktopIconsUtil = imports['desktop-icons-util'];
+const MenuHelper = imports['menu-helper'];
 const Enums = imports.enums;
 
 const Gettext = imports.gettext.domain('ding');

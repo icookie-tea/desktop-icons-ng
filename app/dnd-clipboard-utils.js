@@ -19,7 +19,7 @@
 const Enums = imports.enums;
 const GLib = imports.gi.GLib;
 const Gdk = imports.gi.Gdk;
-const FileUtils = imports.fileUtils;
+const FileUtils = imports['file-utils'];
 
 // Prepares a file list for cut or copy
 function manageCutCopy(action) {

@@ -22,7 +22,7 @@
 const Gtk = imports.gi.Gtk;
 const Gio = imports.gi.Gio;
 
-const desktopIconItem = imports.desktopIconItem;
+const desktopIconItem = imports['desktop-icon-item'];
 
 const Prefs = imports.preferences;
 

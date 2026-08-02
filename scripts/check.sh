@@ -10,8 +10,8 @@ echo "== ESLint =="
 npx eslint .
 
 echo "== Syntax check (node --check) =="
-for f in extension.js prefs.js visibleArea.js emulateX11WindowType.js \
-         gnomeShellOverride.js app/*.js; do
+for f in extension.js prefs.js visible-area.js emulate-x11-window-type.js \
+         gnome-shell-override.js app/*.js; do
     node --check "$f"
 done
 
@@ -21,8 +21,8 @@ gjs tests/run.js
 echo "== Structural sanity =="
 # Every class method referenced via this._xxx() must be defined somewhere in
 # the same file (guards against helpers lost in mechanical refactors).
-if ! grep -qE '^    _remoteCall\(' app/dbusUtils.js; then
-    echo "FAIL: app/dbusUtils.js is missing the _remoteCall() helper definition"
+if ! grep -qE '^    _remoteCall\(' app/dbus-utils.js; then
+    echo "FAIL: app/dbus-utils.js is missing the _remoteCall() helper definition"
     exit 1
 fi
 

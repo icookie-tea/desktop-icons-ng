@@ -7,6 +7,6 @@ execute_after_dh_install:
 	dh_apparmor --profile-name=desktop-icons-ng
 
 override_dh_fixperms:
-	dh_fixperms -XcreateThumbnail.js -Xding.js
+	dh_fixperms -Xcreate-thumbnail.js -Xding.js
 
 override_dh_gnome_clean:

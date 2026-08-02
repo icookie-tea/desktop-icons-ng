@@ -15,25 +15,25 @@ DING 对桌面文件变动的响应是**全量重建**：
 
 ```
 文件监控事件 (任何类型)
-  └─→ _updateDesktopIfChanged()        [desktopManager.js:1475]
-        └─→ _updateDesktop()             [desktopManager.js:1188]
+  └─→ _updateDesktopIfChanged()        [desktop-manager.js:1475]
+        └─→ _updateDesktop()             [desktop-manager.js:1188]
               ├─→ _readingDesktopFiles 锁
-              ├─→ _doReadAsync()         [desktopManager.js:1240]
+              ├─→ _doReadAsync()         [desktop-manager.js:1240]
               │     ├─→ enumerate_children_async()  全量枚举
               │     ├─→ 对每个文件创建 FileItem 对象
               │     └─→ fileEnum 不关闭              ← 泄漏 (#4)
               │
-              └─→ _drawDesktop()           [desktopManager.js:1320]
+              └─→ _drawDesktop()           [desktop-manager.js:1320]
                     ├─→ _removeAllFilesFromGrids()  销毁全部旧图标
                     ├─→ _fileList = newList         替换列表
                     ├─→ 恢复选中状态 (includes 线性扫描)
                     ├─→ 恢复重命名弹窗 (filter 线性扫描)
-                    └─→ _placeAllFilesOnGrids()     [desktopManager.js:1354]
+                    └─→ _placeAllFilesOnGrids()     [desktop-manager.js:1354]
                           ├─→ doStacks()            O(n²) 堆叠排序 ← #36
                           ├─→ doSorts()             排序 + map→forEach ← #39
                           │   └─→ sortAllFilesFromGridsByPosition()
                           │         └─→ map→forEach  ← #39
-                          └─→ _addFilesToDesktop()  [desktopManager.js:1367]
+                          └─→ _addFilesToDesktop()  [desktop-manager.js:1367]
                                 ├─→ getDistance()   全量扫描 grid ← #37
                                 └─→ getDistance x/y bug  ← #11
 ```
@@ -42,22 +42,22 @@ DING 对桌面文件变动的响应是**全量重建**：
 
 | 触发源 | 文件 | 行号 |
 |--------|------|------|
-| 文件监控事件 | `desktopManager.js` | 140, 1503, 1511 |
-| 设置变更（dark-text, show-emblems, show-drop-place 等） | `desktopManager.js` | 160, 167, 183, 219 |
-| 显示/隐藏文件 | `desktopManager.js` | 226 |
-| 缩略图设置变更 | `desktopManager.js` | 233 |
-| 图标主题变更 | `desktopManager.js` | 240 |
-| 挂载/卸载事件 | `desktopManager.js` | 246, 251 |
-| 首选项窗口关闭 | `desktopManager.js` | 268 |
-| 几何变更 | `desktopManager.js` | 388 |
-| 快捷键操作 | `desktopManager.js` | 536, 862 |
+| 文件监控事件 | `desktop-manager.js` | 140, 1503, 1511 |
+| 设置变更（dark-text, show-emblems, show-drop-place 等） | `desktop-manager.js` | 160, 167, 183, 219 |
+| 显示/隐藏文件 | `desktop-manager.js` | 226 |
+| 缩略图设置变更 | `desktop-manager.js` | 233 |
+| 图标主题变更 | `desktop-manager.js` | 240 |
+| 挂载/卸载事件 | `desktop-manager.js` | 246, 251 |
+| 首选项窗口关闭 | `desktop-manager.js` | 268 |
+| 几何变更 | `desktop-manager.js` | 388 |
+| 快捷键操作 | `desktop-manager.js` | 536, 862 |
 
 ### 1.2 当前保护机制
 
 DING 有一个竞争保护机制，但**不是防抖**：
 
 ```js
-// desktopManager.js:1188-1237
+// desktop-manager.js:1188-1237
 async _updateDesktop() {
     if (this._readingDesktopFiles) {
         // 正在读取，标记为 changed，cancel 当前操作
@@ -524,10 +524,10 @@ _addSingleFileToGrid(fileItem, storeMode) {
 
 | 文件 | 修改量 |
 |------|--------|
-| `app/desktopManager.js` | 核心改动，约 350 行新增 + 50 行修改 |
-| `app/fileItem.js` | 可能需要调整构造函数支持增量创建 |
-| `app/desktopGrid.js` | `_addFileItemTo` 需支持单文件添加 |
-| `app/desktopIconItem.js` | 可能不需要改动 |
+| `app/desktop-manager.js` | 核心改动，约 350 行新增 + 50 行修改 |
+| `app/file-item.js` | 可能需要调整构造函数支持增量创建 |
+| `app/desktop-grid.js` | `_addFileItemTo` 需支持单文件添加 |
+| `app/desktop-icon-item.js` | 可能不需要改动 |
 
 ### 4.3 测试策略
 
@@ -587,7 +587,7 @@ _addSingleFileToGrid(fileItem, storeMode) {
 
 **结论：gtk4-ding 和 DING 一样，也是全量重建策略，没有增量更新。**
 
-gtk4-ding 将桌面文件监控逻辑抽取到了独立的 `desktopFolderMonitor.js` 模块中（DING 混在 `desktopManager.js` 里），但核心更新流程完全相同。
+gtk4-ding 将桌面文件监控逻辑抽取到了独立的 `desktopFolderMonitor.js` 模块中（DING 混在 `desktop-manager.js` 里），但核心更新流程完全相同。
 
 ### 6.2 流程对比
 
@@ -630,7 +630,7 @@ _metadataChanged(proxy, nameOwner, args) {
 | 3 | **绘制同步** | 无等待机制 | `await fileItem.iconPlaced` 等所有图标到位 |
 | 4 | **Cancellable 管理** | `_monitorDesktopDir` 无 cancel 路径 | `_monitorDesktopCancellable` 有 cancel + 自动断开信号 |
 | 5 | **pending drop 模糊匹配** | 精确匹配 basename | 正则匹配 basename 前缀（应对 Nautilus 加括号后缀） |
-| 6 | **模块拆分** | 所有逻辑在 `desktopManager.js` | 监控逻辑独立到 `desktopFolderMonitor.js` |
+| 6 | **模块拆分** | 所有逻辑在 `desktop-manager.js` | 监控逻辑独立到 `desktopFolderMonitor.js` |
 | 7 | **mount-removed 延迟** | 立即刷新 | 500ms 延迟后刷新，避免挂载移除时的竞态 |
 
 ### 6.5 `_clearAllFilesFromGrids` 对象复用
@@ -638,7 +638,7 @@ _metadataChanged(proxy, nameOwner, args) {
 gtk4-ding 在 `_drawDesktop` 中区分了两种模式：
 
 ```js
-// desktopManager.js:499-502
+// desktop-manager.js:499-502
 if (opts.initialRead)
     this._removeAllFilesFromGrids();  // 首次读取，销毁旧对象
 else
@@ -646,7 +646,7 @@ else
 ```
 
 ```js
-// desktopManager.js:468-480
+// desktop-manager.js:468-480
 _removeAllFilesFromGrids() {
     for (let fileItem of this._displayList)
         fileItem.removeFromGrid({callOnDestroy: true});  // 销毁
@@ -691,6 +691,6 @@ DING 是串行的：先加载特殊文件夹，再枚举本地文件，最后加
 | Nautilus `nautilus-files-view.c:82-91,4553-4588` | 自适应防抖 |
 | Nautilus `nautilus-view-model.c:553-666` | GTK model splice 批量更新 |
 | gtk4-ding `desktopFolderMonitor.js` | 桌面文件监控模块 |
-| gtk4-ding `desktopManager.js:468-517` | _drawDesktop + 对象复用 |
+| gtk4-ding `desktop-manager.js:468-517` | _drawDesktop + 对象复用 |
 | `.opencode/plans/verified-bugs.md` | DING 已有问题清单 |
 | `docs/memory-leak-analysis.md` | DING 内存泄漏分析 |

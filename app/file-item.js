@@ -22,14 +22,14 @@ const Gdk = imports.gi.Gdk;
 const Gio = imports.gi.Gio;
 const GioUnix = imports.gi.GioUnix;
 const GLib = imports.gi.GLib;
-const DesktopIconsUtil = imports.desktopIconsUtil;
-const desktopIconItem = imports.desktopIconItem;
-const ShowErrorPopup = imports.showErrorPopup;
+const DesktopIconsUtil = imports['desktop-icons-util'];
+const desktopIconItem = imports['desktop-icon-item'];
+const ShowErrorPopup = imports['show-error-popup'];
 
 const Prefs = imports.preferences;
 const Enums = imports.enums;
-const DBusUtils = imports.dbusUtils;
-const dndClipboardUtils = imports.dndClipboardUtils;
+const DBusUtils = imports['dbus-utils'];
+const dndClipboardUtils = imports['dnd-clipboard-utils'];
 
 const Signals = imports.signals;
 const Gettext = imports.gettext.domain('ding');

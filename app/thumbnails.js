@@ -127,7 +127,7 @@ var ThumbnailLoader = class {
 
     _createThumbnailSubprocess(file, resolve) {
         let args = [];
-        args.push(GLib.build_filenamev([this._codePath, 'createThumbnail.js']));
+        args.push(GLib.build_filenamev([this._codePath, 'create-thumbnail.js']));
         args.push(file.path);
         this._proc = new Gio.Subprocess({ argv: args });
         this._proc.init(null);

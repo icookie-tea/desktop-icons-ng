@@ -1,6 +1,6 @@
 /* Tests for FileChangesQueue (debounce + max-batch flush logic). */
 'use strict';
-const FileChangesQueue = imports.fileChangesQueue.FileChangesQueue;
+const FileChangesQueue = imports['file-changes-queue'].FileChangesQueue;
 const { assertEqual, assertDeepEqual, flushLoop, summary } = imports.harness;
 
 var runTests = async function () {

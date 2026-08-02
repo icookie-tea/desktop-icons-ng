@@ -23,8 +23,8 @@ imports.gi.versions.Gdk = '4.0';
 imports.gi.versions.GdkWayland = '4.0';
 const { Gio, GLib, Gdk, GdkWayland } = imports.gi;
 const Signals = imports.signals;
-const DBusInterfaces = imports.dbusInterfaces;
-const DesktopIconsUtil = imports.desktopIconsUtil;
+const DBusInterfaces = imports['dbus-interfaces'];
+const DesktopIconsUtil = imports['desktop-icons-util'];
 const Enums = imports.enums;
 
 var NautilusFileOperations2 = null;

@@ -9,7 +9,7 @@
  * docs/fixes.md; until then these tests pin the ACTUAL order.
  */
 'use strict';
-const SortManager = imports.sortManager.SortManager;
+const SortManager = imports['sort-manager'].SortManager;
 const { assertDeepEqual, summary } = imports.harness;
 
 function mockItem(name, contentType) {

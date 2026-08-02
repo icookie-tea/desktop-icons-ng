@@ -79,8 +79,8 @@ versions of the extensions.
 ## Internal architecture
 
 The code is divided in two parts: a classic Gtk3 program that manages the whole desktop, and a little
-extension (comprised only by the files 'extension.js', 'visibleArea.js' and
-'emulateX11WindowType.js') that have these roles:
+extension (comprised only by the files 'extension.js', 'visible-area.js' and
+'emulate-x11-window-type.js') that have these roles:
 
 * Launch the desktop program at startup, relaunch it if it dies, and kill it if the extension is disabled
 * Identify the desktop windows and keep it at the bottom of the windows stack, in all desktops

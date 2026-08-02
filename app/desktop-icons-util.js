@@ -26,7 +26,7 @@ const Gdk = imports.gi.Gdk;
 const Prefs = imports.preferences;
 const Enums = imports.enums;
 const Gettext = imports.gettext.domain('ding');
-const ShowErrorPopup = imports.showErrorPopup;
+const ShowErrorPopup = imports['show-error-popup'];
 
 const _ = Gettext.gettext;
 

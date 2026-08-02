@@ -28,11 +28,11 @@ const Pango = imports.gi.Pango;
 const Gsk = imports.gi.Gsk;
 const Graphene = imports.gi.Graphene;
 
-const dndClipboardUtils = imports.dndClipboardUtils;
-const DesktopIconsUtil = imports.desktopIconsUtil;
+const dndClipboardUtils = imports['dnd-clipboard-utils'];
+const DesktopIconsUtil = imports['desktop-icons-util'];
 const Prefs = imports.preferences;
 const Enums = imports.enums;
-const SignalManager = imports.signalManager;
+const SignalManager = imports['signal-manager'];
 
 const Signals = imports.signals;
 const Gettext = imports.gettext.domain('ding');

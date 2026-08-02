@@ -18,7 +18,7 @@ GNOME Shell 桌面图标扩展，是官方 Desktop Icons 的 fork/rewrite。包�
   - 脚本文件（`scripts/`）不安装，无需改 meson.build，但需同步 `scripts/README.md`
   - 验证清单完整性：
     ```bash
-    comm -3 <(ls app/*.js | xargs -n1 basename | sort) <(grep -oE "'[A-Za-z0-9]+\.js'" app/meson.build | tr -d "'" | sort)
+    comm -3 <(ls app/*.js | xargs -n1 basename | sort) <(grep -oE "'[A-Za-z0-9-]+\.js'" app/meson.build | tr -d "'" | sort)
     # 输出为空 = 一致
     ```
 
