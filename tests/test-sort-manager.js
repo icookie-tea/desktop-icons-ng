@@ -1,12 +1,10 @@
 /* Tests for SortManager comparator logic.
  *
- * NOTE (known quirk, locked as current behaviour): the comparators pass
- * localeCompare options as the SECOND argument (locales position):
- *   a.localeCompare(b, {sensitivity: 'accent', numeric: 'true', ...})
- * Engines silently ignore an options object in the locales slot, so the
- * sort is plain default localeCompare (no case folding, no numeric
- * collation). A fix (options as 3rd argument) is proposed in
- * docs/fixes.md; until then these tests pin the ACTUAL order.
+ * The comparators sort with localeCompare options in the correct 3rd
+ * argument slot (fix: options were previously passed as the 2nd/locales
+ * argument and silently ignored): sensitivity 'accent' (case
+ * insensitive) + numeric collation. Ordering below is pinned for
+ * ASCII names across locales.
  */
 import { SortManager } from '../app/sort-manager.js';
 import { assertDeepEqual, summary } from './harness.js';
@@ -26,15 +24,15 @@ export function runTests() {
     // SortManager only stores its desktopManager; comparators don't use it.
     const sm = new SortManager({});
 
-    // 1. _sortByName: plain lexical order (options are ignored — see note)
+    // 1. _sortByName: case-insensitive + numeric collation
     let list = [
         mockItem('file2.txt', 'text/plain'),
         mockItem('File10.txt', 'text/plain'),
         mockItem('file1.txt', 'text/plain'),
     ];
     sm._sortByName(list);
-    assertDeepEqual(names(list), ['file1.txt', 'File10.txt', 'file2.txt'],
-        'lexical order (File10 before file2 — numeric collation not active)');
+    assertDeepEqual(names(list), ['file1.txt', 'file2.txt', 'File10.txt'],
+        'numeric collation (file2 before file10)');
 
     list = [
         mockItem('b.txt', 'text/plain'),
@@ -43,7 +41,7 @@ export function runTests() {
     ];
     sm._sortByName(list);
     assertDeepEqual(names(list), ['A.txt', 'b.txt', 'c.txt'],
-        'uppercase sorts before lowercase');
+        'case-insensitive (A and a collate together)');
 
     // 2. _sortByKindByName: groups by content type, name order inside group
     list = [

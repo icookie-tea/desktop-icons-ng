@@ -657,11 +657,11 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 **测试：** `tests/test-drop-filename.js` 锁定行为（8 个用例）。
 
-### SortManager localeCompare 选项被静默忽略（待决策，未修复）
+### SortManager localeCompare 选项被静默忽略（已修复）
 
 **发现：** `_sortByName`/`_sortByKindByName` 中 `localeCompare(b, {sensitivity:'accent', numeric:'true', ...})` 把 options 对象传到了 **locales 参数位**（第 2 参），引擎静默忽略 → 实际为纯字典序（大小写敏感、无数字自然排序，"File10" 排在 "file2" 前）。
 
-**影响：** 桌面"按名称排序"从未实现不区分大小写 + 数字自然排序的意图。修复需把 options 移到第 3 参（行为会变化：排序顺序改变），**待用户决策**。`tests/test-sort-manager.js` 已锁定当前行为。
+**修复（2026-08-02）：** options 移到第 3 参（`localeCompare(b, undefined, {sensitivity: 'accent', numeric: true})`）。现在按名称排序为大小写不敏感 + 数字自然排序（file1 < file2 < file10）；`localeMatcher: 'lookup'` 去掉（默认 best-fit 更合适）。测试断言更新为修复后行为并锁定。
 
 ---
 

@@ -26,7 +26,9 @@ export var SortManager = class {
 
     _sortByName(fileList) {
         function byName(a, b) {
-            return a._label.get_text().localeCompare(b._label.get_text(), { sensitivity: 'accent', numeric: 'true', localeMatcher: 'lookup' });
+            // options must be the 3rd argument — in the 2nd (locales) slot
+            // engines silently ignore them (see docs/fixes.md).
+            return a._label.get_text().localeCompare(b._label.get_text(), undefined, { sensitivity: 'accent', numeric: true });
         }
         fileList.sort(byName);
     }
@@ -34,7 +36,7 @@ export var SortManager = class {
     _sortByKindByName(fileList) {
         function byKindByName(a, b) {
             return a.attributeContentType.localeCompare(b.attributeContentType) ||
-                a._label.get_text().localeCompare(b._label.get_text(), { sensitivity: 'accent', numeric: 'true', localeMatcher: 'lookup' });
+                a._label.get_text().localeCompare(b._label.get_text(), undefined, { sensitivity: 'accent', numeric: true });
         }
         fileList.sort(byKindByName);
     }
