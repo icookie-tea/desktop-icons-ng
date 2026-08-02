@@ -19,10 +19,11 @@ import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
 export var GnomeAutoar = null;
-try {
-    GnomeAutoar = (await import('gi://GnomeAutoar')).default;
-} catch (e) {
-}
+/* Non-blocking dynamic import — see thumbnails.js for why a top-level
+ * await is avoided. */
+import('gi://GnomeAutoar').then(
+    m => { GnomeAutoar = m.default; },
+    () => {});
 
 import * as Enums from './enums.js';
 import * as FileUtils from './file-utils.js';

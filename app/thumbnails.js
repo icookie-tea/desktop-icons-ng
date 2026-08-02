@@ -15,12 +15,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 export var GnomeDesktop = null;
-try {
-    // Dynamic import keeps the graceful-degradation behaviour: when the
-    // GnomeDesktop GIR is missing we fall back to the subprocess thumbnail
-    // generator instead of failing the whole module load.
-    GnomeDesktop = (await import('gi://GnomeDesktop?version=4.0')).default;
-} catch (e) {}
+/* Non-blocking dynamic import: a top-level `await import()` here wedges the
+ * GJS promise job queue once Gtk windows start rendering (the module's
+ * AsyncModuleExecution chain never drains), which stalls every later
+ * microtask and leaves the desktop empty. Resolve lazily instead. */
+import('gi://GnomeDesktop?version=4.0').then(
+    m => { GnomeDesktop = m.default; },
+    () => {});
 import GLib from 'gi://GLib';
 import * as Constants from './constants.js';
 import Gio from 'gi://Gio';

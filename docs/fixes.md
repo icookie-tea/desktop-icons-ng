@@ -726,3 +726,18 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 | `tests/test-pending-drop.js` | 新增 7 组测试 |
 
 **诊断日志**（`DING_DEBUG=1`）：`[dropmatch] HIT/FUZZY/miss`、`[place] saved/drop/FALLBACK`
+
+### ESM 迁移后桌面为空：顶层 await import() 卡死 promise job queue
+
+**症状：** ESM 迁移后桌面无图标、右键菜单无"新建文件"、枚举完成后 microtask 全部停摆（await 永不恢复）。
+
+**根因（本地复现 + gdb 定位）：** `thumbnails.js`/`auto-ar.js` 的可选依赖用**顶层 `await import('gi://...')`**。GJS 1.88 的 ESM 模块执行链（AsyncModuleExecution）在 **Gtk 窗口开始渲染后永不排空**——promise job queue 死锁——所有后续 microtask（包括枚举的 await 恢复）停摆。诊断链：`[enum] resolving` 后 `[update] read result` 永不打印；gdb 主线程栈显示 `PromiseReactionJob → ModuleObject::execute` 常驻；timeout/idle 源正常但任何 `.then()` 不执行。
+
+**修复：** 顶层 await 改为**非阻塞动态 import**（`.then()` 回调赋值），模块加载不被挂起，job queue 不再被占。
+
+| 文件 | 变更 |
+|------|------|
+| `app/thumbnails.js` | `GnomeDesktop` 顶层 await → 非阻塞 import().then() |
+| `app/auto-ar.js` | `GnomeAutoar` 顶层 await → 非阻塞 import().then() |
+
+**附带修复：** ding.js 独立模式默认 desktop 缺 `scaleFactor` 字段 → 窗口尺寸 NaN（`gdk_wayland_toplevel_compute_size` 断言失败），补 `scaleFactor: 1`。

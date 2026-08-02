@@ -1106,40 +1106,30 @@ export var DesktopManager = class {
                 (source, result) => {
                     this._desktopEnumerateCancellable = null;
                     try {
-                        print('[enum] callback started');
                         let fileEnum = source.enumerate_children_finish(result);
                         if (this._desktopFilesChanged && !this._forceDraw) {
-                            print('[enum] changed during enum -> resolve(null)');
                             resolve(null);
                             return;
                         }
                         let fileList = [];
                         for (let [newFolder, extras] of DesktopIconsUtil.getExtraFolders()) {
                             try {
-                                print(`[enum] extra folder: ${newFolder.get_basename()}`);
                                 fileList.push(new FileItem.FileItem(this,
                                     newFolder,
                                     newFolder.query_info(Enums.DEFAULT_ATTRIBUTES, Gio.FileQueryInfoFlags.NONE, null),
                                     extras,
                                     null));
-                                print(`[enum] extra folder constructed: ${newFolder.get_basename()}`);
                             } catch (e) {
                                 print(`Failed with ${e.message} while adding extra folder ${newFolder.get_uri()}\n${e.stack}`);
                             }
                         }
-                        print('[enum] extra folders done');
                         let info;
-                        let enumCount = 0;
                         while ((info = fileEnum.next_file(null))) {
-                            enumCount += 1;
-                            const fname = fileEnum.get_child(info).get_basename();
-                            print(`[enum] constructing ${enumCount}: ${fname}`);
                             let fileItem = new FileItem.FileItem(this,
                                 fileEnum.get_child(info),
                                 info,
                                 Enums.FileType.NONE,
                                 null);
-                            print(`[enum] constructed ${enumCount}: ${fname}`);
                             if (fileItem.isHidden && !this._showHidden) {
                                 /* if there are hidden files in the desktop and the user doesn't want to
                                     show them, remove the coordinates. This ensures that if the user enables
@@ -1156,10 +1146,8 @@ export var DesktopManager = class {
                             this._monitor.applyDropCoordinates(fileItem);
                         }
                         fileEnum.close(null);
-                        print(`[enum] loop done, ${enumCount} files`);
                         for (let [newFolder, extras, volume] of DesktopIconsUtil.getMounts(this._volumeMonitor)) {
                             try {
-                                print(`[enum] mount: ${newFolder.get_basename()}`);
                                 fileList.push(new FileItem.FileItem(this,
                                     newFolder,
                                     newFolder.query_info(Enums.DEFAULT_ATTRIBUTES, Gio.FileQueryInfoFlags.NONE, null),
@@ -1169,7 +1157,6 @@ export var DesktopManager = class {
                                 print(`Failed with ${e} while adding volume ${newFolder}`);
                             }
                         }
-                        print(`[enum] resolving ${fileList.length} items`);
                         resolve(fileList);
                         return;
                     } catch (e) {
