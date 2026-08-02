@@ -662,3 +662,24 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 **发现：** `_sortByName`/`_sortByKindByName` 中 `localeCompare(b, {sensitivity:'accent', numeric:'true', ...})` 把 options 对象传到了 **locales 参数位**（第 2 参），引擎静默忽略 → 实际为纯字典序（大小写敏感、无数字自然排序，"File10" 排在 "file2" 前）。
 
 **影响：** 桌面"按名称排序"从未实现不区分大小写 + 数字自然排序的意图。修复需把 options 移到第 3 参（行为会变化：排序顺序改变），**待用户决策**。`tests/test-sort-manager.js` 已锁定当前行为。
+
+---
+
+## 2026-08-02 (Maintainability Refactor)
+
+### 粘贴复制文件不落在鼠标网格（fallback 位置）
+
+**症状：** 桌面右键"粘贴"复制的文件出现在左上角空位/fallback 位置，而右键"新建文件夹"出现在鼠标网格。
+
+**根因：** 三条创建路径中，只有粘贴复制（`doPaste` → `CopyURIsRemote`）没有设置位置元数据：
+- `doNewFolder` 同步写 `metadata::nautilus-drop-position`
+- 拖放复制走 `clearFileCoordinates()`（源文件写 drop-position xattr，GIO 复制带 ALL_METADATA 继承；非本地文件走 `_pendingDropFiles`）
+- `doPaste` 直接交给 Nautilus D-Bus，无任何坐标处理
+
+**修复：** `doPaste` 复制分支复用 `clearFileCoordinates(this._clipboardFiles, [点击坐标])`，与拖放路径一致。剪切/移动分支不动（保留 icon-position，粘贴后回到原位）。
+
+| 文件 | 变更 |
+|------|------|
+| `app/file-operations.js` | `doPaste` 复制分支调用 `clearFileCoordinates` |
+
+**提交：** 待定
