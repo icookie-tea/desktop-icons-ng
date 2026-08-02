@@ -288,7 +288,7 @@ var DesktopManager = class {
     }
 
     _initGridAndMetadata() {
-        this._createGridWindows();
+        this._gridLayout.createGridWindows();
 
         DBusUtils.GtkVfsMetadata.connectSignalToProxy('AttributeChanged', this._monitor.metadataChanged.bind(this._monitor));
         this._allFileList = null;

@@ -25,7 +25,7 @@ const GLib = imports.gi.GLib;
 
 /* Remote file-operation proxies (Nautilus FileOperations2, FileManager1,
  * previewer, archive manager) plus the template _remoteCall helper. */
-class DbusOperationsManager {
+var DbusOperationsManager = class {
     constructor(freeDesktopFileManager, gnomeNautilusPreview, gnomeArchiveManager) {
         this.freeDesktopFileManager = freeDesktopFileManager;
         this.gnomeNautilusPreviewManager = gnomeNautilusPreview;
@@ -99,7 +99,7 @@ class DbusOperationsManager {
 }
 
 
-class RemoteFileOperationsManager extends DbusOperationsManager {
+var RemoteFileOperationsManager = class extends DbusOperationsManager {
     constructor(mainApp, fileOperationsManager, freeDesktopFileManager, gnomeNautilusPreview, gnomeArchiveManager) {
         super(freeDesktopFileManager, gnomeNautilusPreview, gnomeArchiveManager);
         this.fileOperationsManager = fileOperationsManager;
@@ -215,7 +215,7 @@ class RemoteFileOperationsManager extends DbusOperationsManager {
 }
 
 
-class LegacyRemoteFileOperationsManager extends DbusOperationsManager {
+var LegacyRemoteFileOperationsManager = class extends DbusOperationsManager {
     constructor(fileOperationsManager, freeDesktopFileManager, gnomeNautilusPreview, gnomeArchiveManager) {
         super(freeDesktopFileManager, gnomeNautilusPreview, gnomeArchiveManager);
         this.fileOperationsManager = fileOperationsManager;
