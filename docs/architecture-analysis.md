@@ -4,7 +4,9 @@
 
 Desktop Icons NG (DING, `ding@rastersoft.com`) 是一个 GNOME Shell 扩展（支持 Shell 50/51），用于在桌面上显示文件图标。其核心设计是 **Shell 扩展 + 独立 GTK4 进程** 的双层架构：GNOME Shell 扩展负责管理窗口几何和生命周期，独立的 GJS 进程负责渲染图标和处理用户交互。
 
-icookie 分支在此基础上进行了大量重构和功能增强，包括模块化拆分、增量更新、概览动画、拖放修复等。
+icookie 分支在此基础上进行了大量重构和功能增强，包括模块化拆分、增量更新、概览动画、拖放修复、**ESM 迁移**、可维护性重构等。
+
+> **模块系统：** 自 2026-07 起，GTK4 子进程层（`app/`）已全部迁移到 **ESM**（`import ... from './xxx.js'` / `gi://`），用 `gjs --module app/ding.js` 启动；`extension.js` 等 Shell 侧文件仍为 legacy（`imports.*`）以兼容 GNOME Shell 加载机制。脚本统一在 `scripts/` 目录。
 
 ---
 
@@ -19,15 +21,17 @@ icookie 分支在此基础上进行了大量重构和功能增强，包括模块
 │  └── gnome-shell-override.js ── Overview 桌面图标动画注入          │
 ├──────────── D-Bus (com.rastersoft.dingextension) ────────────────┤
 ┌─────────────────────────────────────────────────────────────────┐
-│                   独立 GTK4 进程层 (ding.js)                     │
-│  ding.js ──── Adw.Application                                   │
+│                   独立 GTK4 进程层 (app/ding.js, ESM)            │
+│  ding.js ──── Adw.Application（含 prefs-window 设置窗口）         │
 │  ├── desktop-manager.js ──── 桌面管理器（核心，大幅重构）           │
-│  │   ├── ThemeManager       ── accent color / 暗色模式          │
-│  │   ├── FileOperations     ── 文件操作封装                      │
-│  │   ├── SortManager        ── 排序/堆叠逻辑                    │
-│  │   ├── FileChangesQueue   ── 增量更新队列                     │
-│  │   ├── desktop-grid.js ──── 网格渲染（每块屏幕一个）             │
-│  │   │   └── PaintContainer ── 橡皮筋选择 / 拖放高亮绘制         │
+│  │   ├── desktop-monitor.js ── 显示器/工作区/缩放监控（拆分）        │
+│  │   ├── grid-layout.js ────── 网格布局与窗口管理（拆分）           │
+│  │   ├── theme-manager.js  ── accent color / 暗色模式             │
+│  │   ├── file-operations.js ── 文件操作封装                       │
+│  │   ├── sort-manager.js   ── 排序/堆叠逻辑                       │
+│  │   ├── file-changes-queue.js ── 增量更新队列                    │
+│  │   ├── desktop-grid.js ──── 网格渲染（每块屏幕一个）              │
+│  │   │   └── paint-container.js ── 橡皮筋选择 / 拖放高亮绘制       │
 │  │   ├── file-item.js ──── 图标项                                 │
 │  │   ├── desktop-icon-item.js ── 图标基础类                         │
 │  │   ├── desktop-menu.js ──── 右键菜单                            │
@@ -35,9 +39,12 @@ icookie 分支在此基础上进行了大量重构和功能增强，包括模块
 │  │   ├── thumbnails.js ──── 缩略图加载                           │
 │  │   └── auto-ar.js ──── 自动归档                                │
 │  ├── dbus-utils.js ──── D-Bus 工具集                              │
-│  ├── preferences.js ──── 设置管理                                │
+│  │   └── dbus-remote-operations.js ── 远程文件操作（拆分）          │
+│  ├── preferences.js + prefs-window.js ── 设置（Adw 风格）            │
 │  ├── dnd-clipboard-utils.js ── 拖放剪贴板工具                       │
-│  └── signal-manager.js ─── 信号管理器                             │
+│  ├── signal-manager.js / signals.js ── 信号管理（内置实现）           │
+│  ├── file-utils.js / desktop-icons-util.js / constants.js / log.js  │
+│  └── menu-helper.js / ask-rename-popup.js / show-error-popup.js …  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -97,13 +104,15 @@ innerEnable()
 
 ```
 launchDesktop()
-  └─→ LaunchSubprocess.spawnv(['gjs', 'app/ding.js', '-E', '-P', <path>])
+  └─→ LaunchSubprocess.spawnv(['gjs', '--module', 'app/ding.js', '-E', '-P', <path>])
        ├─→ Meta.WaylandClient.new_subprocess()   // Wayland 子进程协议
        ├─→ 连接 stdout/stderr，日志输出到 journal
        ├─→ 启动 6 秒超时定时器（防止卡死）
        └─→ wait_async 监控进程退出
             └─→ 进程退出 → doRelaunch() 自动重启
 ```
+
+> **ESM 说明：** 自 ESM 迁移起子进程以 `gjs --module` 启动（ESM 需要显式 `--module` 标志；shebang `#!/usr/bin/env -S gjs --module` 也支持直接执行）。`-P <path>` 参数保留兼容（旧 searchPath 机制已失效，缩略图子进程仍用它定位 codePath）。
 
 ---
 
@@ -219,6 +228,29 @@ icookie 新增实例变量：
   ├─→ _moveTimeoutId = 0                     // 移动超时定时器
   ├─→ _dragOriginX/Y = 0                    // icookie: 拖拽起始坐标
   └─→ stackInitialCoordinates               // icookie: 堆叠初始状态保存
+```
+
+**后续拆分（可维护性重构）：** `DesktopManager` 进一步拆分为三个独立模块——
+
+| 模块 | 职责 | 行数变化 |
+|---|---|---|
+| `desktop-monitor.js` | 显示器/工作区/缩放因子监控（`_initMonitor` 等，含信号生命周期管理） | desktop-manager 1850→1547 |
+| `grid-layout.js` | 网格布局、窗口创建/销毁、D-Bus 几何广告（`GridLayout` 类） | 新文件 111 行 |
+| `dbus-remote-operations.js` | 远程 D-Bus 文件操作（复制/移动/删除等 `_remoteCall` 模板化封装） | dbus-utils 780→542 |
+
+构造函数从 269 行精简到 27 行；`_onDesktopSettingsChanged` 用 switch 分派；`_updateDesktopSafe()` 抽取 14 处重复 catch。信号全部通过 `_trackSignal`/`destroy()` 生命周期管理（修复 ProxyManager #34）。
+
+### 5.2.1 网格布局管理 (grid-layout.js) — 重构拆分
+
+`GridLayout` 负责桌面窗口的创建与布局，是 `createGridWindows()` 的宿主：
+
+```
+GridLayout
+  ├─→ createGridWindows()          // 每块屏幕创建一个 DesktopGrid
+  │   └─→ 窗口标题 "Desktop Icons <n>"（与 emulate-x11-window-type.js 协议匹配）
+  ├─→ updateGridWindows(data)      // D-Bus 几何变更时重建/调整窗口
+  ├─→ dbusAdvertiseUpdate()        // 监听 extensionControl 的 action
+  └─→ 信号全部经 _trackSignal 注册，destroy() 统一断开
 ```
 
 ### 5.3 桌面文件读取流程
@@ -337,6 +369,8 @@ ThumbnailLoader
 
 icookie 修复：图片缩略图尺寸不超过 icon_size（防止容器撑宽）
 ```
+
+**ESM 迁移后：** `GnomeDesktop` 改为非阻塞动态 import（`import('gi://GnomeDesktop?version=4.0').then(...)`）——顶层 `await import()` 在 Gtk 窗口渲染后会卡死 promise job queue（见 fixes.md）。`ThumbnailLoader` 构造函数 `await` 该 import 完成后才创建缩略图工厂；`getThumbnail()` 先等待工厂就绪，`GnomeDesktop` 缺失时直接返回 null（不再报错）。
 
 ### 5.7 ThemeManager (icookie 新增模块)
 
@@ -588,3 +622,22 @@ multi-select → StackTopMarkerFolder + count badge overlay（e633ac1）
 - ptyxis added to terminal fallback list
 - text drop sanitize filenames + prevent overwrites (align with Nautilus)
 - thumbnail size capped at icon_size (prevent container overflow)
+
+### 11.10 可维护性重构（阶段 0-3，2026-07）
+- 脚本统一迁入 `scripts/`（均可任意 CWD 运行），`scripts/check.sh` 一键验证（eslint + node --check + 单测 + 结构检查 + manifest 一致性）
+- 53 个 JS 文件统一 kebab-case 命名（meson/文档/脚本同步）
+- `_updateDesktopSafe()` 抽取 14 处重复 catch；构造函数 269→27 行；`_remoteCall` D-Bus 模板化（-302 行）；死代码清理
+- 修复潜伏 bug：thumbnails 未定义 `reject`、fileOperations 缺 gettext、`generateDropFilename` 正则双反斜杠、meson 缺新文件清单等
+- 拆分：`desktop-monitor.js`/`grid-layout.js`/`dbus-remote-operations.js`；信号生命周期（`_trackSignal`/`destroy()`）
+
+### 11.11 ESM 迁移（阶段 4，2026-07）
+- `app/` 35 个模块 + 8 个测试文件迁移到 ESM；`gjs --module` 启动（shebang `#!/usr/bin/env -S gjs --module` 支持直接执行）
+- `app/signals.js` 自实现（GJS 1.88 ESM 无法导入内置 `signals`）；`GnomeDesktop`/`GnomeAutoar` 动态 import + TLA 保留容错
+- `desktop-icons-integration.js` 保持 legacy（第三方扩展在 Shell 内用 `imports.*` 加载）
+- 踩坑记录：命名空间冻结（`this.x=` 写模块变量失败）、裸 `class` 不导出（须 `var X = class`）、gettext 必须 `Gettext.domain('ding').gettext`、`ngettext` 同域
+- 修复 ESM 引入的 bug：顶层 `await import()` 卡死 promise job queue（桌面空）、缩略图工厂延迟初始化、prefs 命名空间冻结、gettext domain 丢失（16 文件 + 3 处 ngettext）
+
+### 11.12 设置窗口 Adw 重构（2026-08）
+- 设置窗口不再置顶/跨工作区（移除标题空格 hack，`windowHidePagerTaskbarModal` 仅保留给对话框/错误弹窗）
+- `prefs-window.js` 改为 `Adw.PreferencesPage` + 两个分组；`Adw.SwitchRow` 开关 + `Adw.ComboRow` 下拉
+- 翻译补齐：POTFILES.in 旧文件名修复（20 条失效）、`Sort Home/Drives/Trash...` 与 .po 对齐、12 条新 zh_CN 条目

@@ -198,6 +198,7 @@ If any of these items is false, .desktop files won't work.
 ## Documentation
 
 * [Architecture Analysis](docs/architecture-analysis.md) - DING dual-layer architecture, startup flow, D-Bus communication
+* [Maintainability Refactor](docs/maintainability-refactor.md) - 2026 refactor summary: stages, ESM migration notes, key decisions, verification
 * [Fixes Log](docs/fixes.md) - detailed bug fix history with root cause analysis
 * [Memory Leak Analysis](docs/memory-leak-analysis.md) - resource leak audit (high/medium/low risk)
 * [Overview Animation](docs/overview-animation.md) - overview mode fade in/out implementation using Clutter.Clone + OverviewAdjustment
