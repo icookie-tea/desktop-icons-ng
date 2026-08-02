@@ -21,6 +21,14 @@ msgstr ""
 
 #: app/askRenamePopup.js:50
 
+#: app/prefs-window.js:74
+msgid "Add an emblem to allow to identify soft links"
+msgstr "添加徽章以识别软链接"
+
+#: app/prefs-window.js:56
+msgid "Desktop icons"
+msgstr "桌面图标"
+
 #: app/desktop-icons-util.js:305
 msgid "Dropped Text.txt"
 msgstr "拖放的文本.txt"
@@ -32,6 +40,10 @@ msgid "File name"
 msgstr "文件名称"
 
 #: app/askRenamePopup.js:59 app/autoAr.js:305 app/desktopManager.js:1091
+
+#: app/prefs-window.js:84
+msgid "How to open files with the mouse"
+msgstr "用鼠标打开文件的方式"
 
 #: app/ask-rename-popup.js:61
 msgid "New filename"
@@ -46,6 +58,26 @@ msgstr "重命名"
 #: app/autoAr.js:88
 msgid "AutoAr is not installed"
 msgstr "AutoAr 未安装"
+
+#: app/prefs-window.js:66
+msgid "Set the corner from where the icons will start to be placed"
+msgstr "设置新图标开始放置的角落"
+
+#: app/prefs-window.js:60
+msgid "Set the size for the desktop icons"
+msgstr "设置桌面图标的大小"
+
+#: app/prefs-window.js:85
+msgid "Show hidden files in the desktop"
+msgstr "在桌面上显示隐藏文件"
+
+#: app/prefs-window.js:70
+msgid "Show mounted network volumes in the desktop"
+msgstr "在桌面上显示已挂载的网络卷"
+
+#: app/prefs-window.js:69
+msgid "Show the disk drives connected to the computer"
+msgstr "显示连接到计算机的磁盘驱动器"
 
 #: app/autoAr.js:89
 msgid ""
@@ -734,6 +766,10 @@ msgstr "将新驱动器添加到屏幕另一侧"
 msgid "Highlight the drop place during Drag'n'Drop"
 msgstr "拖放时高亮显示放置区域"
 
+#: app/prefs-window.js:73
+msgid "Use Nemo instead of Nautilus to open folders"
+msgstr "使用 Nemo 而不是 Nautilus 打开文件夹"
+
 #: app/prefswindow.js:80 schemas/org.gnome.shell.extensions.ding.gschema.xml:90
 msgid "Use Nemo to open folders"
 msgstr "使用 Nemo 打开文件夹"
@@ -852,6 +888,14 @@ msgstr "显示连接到计算机的驱动器。"
 msgid "Show mounted network volumes in the desktop."
 msgstr "在桌面显示已挂载的网络卷。"
 
+#: app/prefs-window.js:95
+msgid "What to do when launching a program from the desktop"
+msgstr "从桌面启动程序时的操作"
+
+#: app/prefs-window.js:71
+msgid "When adding drives and volumes to the desktop, add them to the opposite side of the screen"
+msgstr "添加驱动器和卷时放到屏幕对侧"
+
 #: schemas/org.gnome.shell.extensions.ding.gschema.xml:56
 msgid ""
 "When adding drives and volumes to the desktop, add them to the opposite side "
@@ -938,6 +982,10 @@ msgstr "将标签文本绘制为黑色字体，而不是白色字体。使用浅
 msgid "Show a popup if running on X11Wayland"
 msgstr "如果在 X11Wayland 上运行则显示弹窗"
 
+#: app/prefs-window.js:104
+msgid "When to show thumbnails for image files"
+msgstr "何时显示图片文件的缩略图"
+
 #: schemas/org.gnome.shell.extensions.ding.gschema.xml:106
 msgid ""
 "Whether DING should show a popup if it is running on X11Wayland, or the user "
@@ -948,10 +996,6 @@ msgstr ""
 #, fuzzy
 #~ msgid "Folder"
 #~ msgstr "新建文件夹"
-
-#, fuzzy
-#~ msgid "Desktop icons"
-#~ msgstr "桌面图标设置"
 
 #~ msgid ""
 #~ "To configure Desktop Icons NG, do right-click in the desktop and choose "
