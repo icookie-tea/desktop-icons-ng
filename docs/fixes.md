@@ -757,3 +757,11 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 **根因：** ESM 迁移修复 gettext domain 时只覆盖了 `Gettext.domain('ding').gettext`，`file-item-menu.js` 三处 `Gettext.ngettext(...)` 仍是裸调用（默认空 domain）→ 找不到 ding.mo 翻译。
 
 **修复：** 三处改为 `Gettext.domain('ding').ngettext(...)`（Compress folder/file + New Folder with N items）。
+
+### 翻译遗漏排查：POTFILES.in 旧文件名 + 5 个未翻译字符串
+
+**排查结果：**
+1. **po/POTFILES.in 仍引用 kebab-case 重命名前的旧文件名**（20 条失效）→ 下次构建 xgettext 会丢失这些文件的字符串。已全部映射为新文件名，并补上遗漏的 `app/desktop-menu.js`。验证：新提取 200 条 msgid，`New Folder with {0} item`/`Compress {0} file` 等关键条目都在。
+2. **`Sort Home/Drives/Trash..`（两点）与 .po 的 `...`（三点）不匹配**（upstream 遗留）→ 菜单显示英文。代码改回三点，翻译"排序主目录/驱动器/回收站…"立即生效。
+3. **4 个新字符串无任何 .po 翻译**：`Rename file`/`Rename folder`/`New filename`/`Dropped Text.txt`。已补 zh_CN.po：重命名文件/重命名文件夹/新文件名/拖放的文本.txt。
+4. **无其他遗漏**：16 处 `_` 定义全部走 `Gettext.domain('ding').gettext`；`file-item-menu.js` 三处 ngettext 已修（上条）；legacy 文件的 `imports.` 残留仅限 desktop-icons-integration.js（预期保留）；旧 .po 字符串（`${VisibleName} Stack` 等）对应代码已删除，属正常清理。

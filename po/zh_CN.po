@@ -20,6 +20,10 @@ msgstr ""
 "X-Generator: Poedit 3.7\n"
 
 #: app/askRenamePopup.js:50
+
+#: app/desktop-icons-util.js:305
+msgid "Dropped Text.txt"
+msgstr "拖放的文本.txt"
 msgid "Folder name"
 msgstr "文件夹名称"
 
@@ -28,6 +32,10 @@ msgid "File name"
 msgstr "文件名称"
 
 #: app/askRenamePopup.js:59 app/autoAr.js:305 app/desktopManager.js:1091
+
+#: app/ask-rename-popup.js:61
+msgid "New filename"
+msgstr "新文件名"
 msgid "OK"
 msgstr "确定"
 
@@ -115,6 +123,14 @@ msgid "Cancelled compression"
 msgstr "压缩已取消"
 
 #: app/autoAr.js:511
+
+#: app/ask-rename-popup.js:51
+msgid "Rename file"
+msgstr "重命名文件"
+
+#: app/ask-rename-popup.js:51
+msgid "Rename folder"
+msgstr "重命名文件夹"
 msgid "The output file '${outputFile}' already exists."
 msgstr "输出文件 '${outputFile}' 已存在。"
 

@@ -203,7 +203,7 @@ export var DesktopMenu = class extends MenuHelper.MenuHelper {
         let section = this._newSection(arrangeSubMenu);
         this._newMenuElement(_('Keep Arranged...'), 'keep-arranged', section);
         this._newMenuElement(_('Keep Stacked by type...'), 'keep-stacked', section);
-        this._newMenuElement(_('Sort Home/Drives/Trash..'), 'sort-special-folders', section);
+        this._newMenuElement(_('Sort Home/Drives/Trash...'), 'sort-special-folders', section);
 
         this._newMenuElement(_('Sort by Name'), 'arrangeorder', section, GLib.Variant.new_string('NAME'));
         this._newMenuElement(_('Sort by Name Descending'), 'arrangeorder', section, GLib.Variant.new_string('DESCENDINGNAME'));
