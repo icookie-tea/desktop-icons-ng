@@ -21,8 +21,8 @@ gjs tests/run.js
 echo "== Structural sanity =="
 # Every class method referenced via this._xxx() must be defined somewhere in
 # the same file (guards against helpers lost in mechanical refactors).
-if ! grep -qE '^    _remoteCall\(' app/dbus-utils.js; then
-    echo "FAIL: app/dbus-utils.js is missing the _remoteCall() helper definition"
+if ! grep -qE '^    _remoteCall\(' app/dbus-remote-operations.js; then
+    echo "FAIL: app/dbus-remote-operations.js is missing the _remoteCall() helper definition"
     exit 1
 fi
 
