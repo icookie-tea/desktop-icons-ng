@@ -20,7 +20,6 @@ import Gtk from 'gi://Gtk?version=4.0';
 
 import Gio from 'gi://Gio';
 const GioSSS = Gio.SettingsSchemaSource;
-import * as DesktopIconsUtil from './desktop-icons-util.js';
 import * as Enums from './enums.js';
 import * as PrefsWindow from './prefs-window.js';
 
@@ -90,13 +89,18 @@ export function showPreferences() {
         return;
     }
     prefsWindow = new Gtk.Window({
-        resizable: false,
+        title: _('Settings'),
+        resizable: true,
+        default_width: 520,
+        default_height: 600,
     });
     prefsWindow.connect('close-request', () => {
         prefsWindow = null;
     });
-    prefsWindow.set_title(_('Settings'));
-    DesktopIconsUtil.windowHidePagerTaskbarModal(prefsWindow, true);
+    // Note: no windowHidePagerTaskbarModal() here — its trailing-space
+    // title hack made the Shell treat this window as @!HTD (keep-above +
+    // all-workspaces + hidden-from-taskbar). The settings window should
+    // behave like a normal application window.
     let frame = PrefsWindow.preferencesFrame(Gtk, desktopSettings, nautilusSettings, gtkSettings);
     prefsWindow.set_child(frame);
     prefsWindow.present();
