@@ -167,9 +167,15 @@ export var ProxyManager = class {
                                 delete this._connectSignalsIDs[signal];
                             }
                             for (let signal in this._signals) {
+                                if (typeof this._signals[signal] !== 'function') {
+                                    continue;
+                                }
                                 this._signalsIDs[signal] = proxy.connect(signal, this._signals[signal]);
                             }
                             for (let signal in this._connectSignals) {
+                                if (typeof this._connectSignals[signal] !== 'function') {
+                                    continue;
+                                }
                                 this._connectSignalsIDs[signal] = proxy.connectSignal(signal, this._connectSignals[signal]);
                             }
                             this._available = true;
