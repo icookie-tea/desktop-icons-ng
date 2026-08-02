@@ -45,7 +45,7 @@ const Gettext = imports.gettext.domain('ding');
 
 const _ = Gettext.gettext;
 
-class ProxyManager {
+var ProxyManager = class {
     /*
     * This class manages a DBus object through a DBusProxy. Any access to the proxy when the
     * object isn't available results in a notification specifying that an specific program
@@ -221,7 +221,7 @@ class ProxyManager {
 Signals.addSignalMethods(ProxyManager.prototype);
 
 
-class DBusManager {
+var DBusManager = class {
     /*
     * This class manages all the DBus operations. A ProxyManager() class can subscribe to this to be notified
     * whenever a change in the bus has occurred (like a server has been added or removed). It also can ask
