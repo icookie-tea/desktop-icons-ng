@@ -1,6 +1,10 @@
 #!/bin/bash
 
+# System-wide install (requires sudo). Works from any CWD.
 PREFIX=/usr
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR" || exit 1
 
 sudo rm -rf ${PREFIX}/share/gnome-shell/extensions/ding@rastersoft.com/*
 rm -rf .build

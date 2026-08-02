@@ -36,4 +36,4 @@ subdir(
   'apparmor'
 )
 
-meson.add_install_script('meson_post_install.py')
+meson.add_install_script('scripts/meson_post_install.py')

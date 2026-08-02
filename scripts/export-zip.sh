@@ -8,7 +8,9 @@
 
 set -e
 
-REPO_DIR="$(pwd)"
+# Works from any CWD: resolve the repository root from this script's location
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_DIR" || exit 1
 BUILD_DIR="${REPO_DIR}/builddir"
 UUID="ding@rastersoft.com"
 LOCAL_PREFIX="${REPO_DIR}/${UUID}"

@@ -56,7 +56,7 @@ This branch maintains fixes and enhancements not yet merged to the upstream repo
 
 ## Manual installation
 
-The easiest way of installing DING is to run the `local_install.sh` script. It performs the build steps
+The easiest way of installing DING is to run the `scripts/local_install.sh` script. It performs the build steps
 specified in the next section.
 
 In Ubuntu, unfortunately, it is not possible to use it directly because the internal desktop-icons-ng
@@ -180,7 +180,7 @@ the schemas in the system.
 To create a ZIP file with the extension, just run:
 
 ```bash
-./export-zip.sh
+./scripts/export-zip.sh
 ```
 
 This will create the file `ding@rastersoft.com.zip` with the extension, following the rules for publishing at extensions.gnome.org.
