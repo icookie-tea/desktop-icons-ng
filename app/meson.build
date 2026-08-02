@@ -5,6 +5,7 @@ extensions_dir = join_paths(prefix, 'share', 'gnome-shell', 'extensions', 'ding@
 install_data([
     'askRenamePopup.js',
     'autoAr.js',
+    'constants.js',
     'createThumbnail.js',
     'dbusInterfaces.js',
     'dbusUtils.js',
@@ -23,6 +24,7 @@ install_data([
     'fileOperations.js',
     'fileItemMenu.js',
     'fileUtils.js',
+    'log.js',
     'menuHelper.js',
     'notifyX11UnderWayland.js',
     'preferences.js',
