@@ -14,6 +14,7 @@ imports.searchPath.unshift(GLib.build_filenamev([rootDir, 'tests']));
 const tests = [
     imports['test-file-changes-queue'],
     imports['test-pending-drop'],
+    imports['test-grid-layout'],
     imports['test-sort-manager'],
     imports['test-drop-filename'],
 ];

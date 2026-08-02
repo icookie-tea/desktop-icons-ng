@@ -24,6 +24,22 @@ const DesktopGrid = imports['desktop-grid'];
  * DesktopGrid windows and keeps _primaryScreen up to date. State lives on
  * the DesktopManager (this._dm). */
 var GridLayout = class {
+    constructor(desktopManager) {
+        this._dm = desktopManager;
+        this._signalIds = [];
+    }
+
+    _trackSignal(obj, signal, cb) {
+        this._signalIds.push([obj, obj.connect(signal, cb)]);
+    }
+
+    destroy() {
+        for (let [obj, id] of this._signalIds) {
+            obj.disconnect(id);
+        }
+        this._signalIds = [];
+    }
+
     updateGridWindows(newdesktoplist) {
         let newPrimaryIndex = -1;
         if ((newdesktoplist.length > 0) && ('primaryMonitor' in newdesktoplist[0])) {
@@ -68,7 +84,7 @@ var GridLayout = class {
         } else {
             this._dm._primaryScreen = null;
         }
-        this._dm._createGridWindows();
+        this.createGridWindows();
         this._dm._updateDesktopSafe('grid update');
     }
     createGridWindows() {
