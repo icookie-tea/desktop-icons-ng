@@ -26,7 +26,6 @@ const Gio = imports.gi.Gio;
 const Adw = imports.gi.Adw;
 
 const FileItem = imports['file-item'];
-const FileUtils = imports['file-utils'];
 const DesktopGrid = imports['desktop-grid'];
 const DesktopIconsUtil = imports['desktop-icons-util'];
 const Prefs = imports.preferences;
@@ -39,6 +38,7 @@ const FileItemMenu = imports['file-item-menu'];
 const AutoAr = imports['auto-ar'];
 const SignalManager = imports['signal-manager'];
 const DesktopMenu = imports['desktop-menu'];
+const DesktopMonitor = imports['desktop-monitor'];
 const FileChangesQueue = imports['file-changes-queue'];
 const Constants = imports.constants;
 const DebugLog = imports.log;
@@ -154,23 +154,24 @@ var DesktopManager = class {
         this._desktops = [];
     }
     _initFileMonitoring() {
+        this._monitor = new DesktopMonitor.DesktopMonitor(this);
         this._desktopFilesChanged = false;
         this._readingDesktopFiles = false;
         this._desktopDir = DesktopIconsUtil.getDesktopDir();
         this.desktopFsId = this._desktopDir.query_info('id::filesystem', Gio.FileQueryInfoFlags.NONE, null).get_attribute_string('id::filesystem');
-        this._updateWritableByOthers();
+        this._monitor.updateWritableByOthers();
         this._monitorDesktopDir = this._desktopDir.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, null);
         this._monitorDesktopDir.set_rate_limit(Constants.MONITOR_RATE_LIMIT_MS);
-        this._monitorDesktopDir.connect('changed', (obj, file, otherFile, eventType) => this._updateDesktopIfChanged(file, otherFile, eventType));
+        this._monitorDesktopDir.connect('changed', (obj, file, otherFile, eventType) => this._monitor.updateDesktopIfChanged(file, otherFile, eventType));
 
         this._pendingMoves = {};
         this._processingIncremental = false;
         this._moveTimeoutId = 0;
         this._fileChangesQueue = new FileChangesQueue.FileChangesQueue(Constants.FILE_CHANGES_DEBOUNCE_MS, Constants.MAX_INCREMENTAL_EVENTS);
         this._fileChangesQueue.onFlush(events => {
-            this._processIncrementalEvents(events).catch(e => {
+            this._monitor.processIncrementalEvents(events).catch(e => {
                 print(`Unhandled error in incremental update: ${e.message}\n${e.stack}`);
-                this._scheduleFullRefresh();
+                this._monitor.scheduleFullRefresh();
             });
         });
     }
@@ -283,7 +284,7 @@ var DesktopManager = class {
     _initGridAndMetadata() {
         this._createGridWindows();
 
-        DBusUtils.GtkVfsMetadata.connectSignalToProxy('AttributeChanged', this._metadataChanged.bind(this));
+        DBusUtils.GtkVfsMetadata.connectSignalToProxy('AttributeChanged', this._monitor.metadataChanged.bind(this._monitor));
         this._allFileList = null;
         this._forcedExit = false;
         this._updateDesktopSafe('initial load');
@@ -330,17 +331,7 @@ var DesktopManager = class {
         }
     }
 
-    _metadataChanged(proxy, nameOwner, args) {
-        let filepath = GLib.build_filenamev([GLib.get_home_dir(), args[1]]);
-        if (this._desktopDir.get_path() === GLib.path_get_dirname(filepath)) {
-            for (let fileItem of this.updateFileList()) {
-                if (fileItem.path == filepath) {
-                    fileItem.updatedMetadata();
-                    break;
-                }
-            }
-        }
-    }
+
 
     updateFileList() {
         let updateFileList;
@@ -1207,7 +1198,7 @@ var DesktopManager = class {
                                 continue;
                             }
                             fileList.push(fileItem);
-                            this._applyDropCoordinates(fileItem);
+                            this._monitor.applyDropCoordinates(fileItem);
                         }
                         fileEnum.close(null);
                         for (let [newFolder, extras, volume] of DesktopIconsUtil.getMounts(this._volumeMonitor)) {
@@ -1380,212 +1371,21 @@ var DesktopManager = class {
         }
     }
 
-    _updateWritableByOthers() {
-        let info = this._desktopDir.query_info(Gio.FILE_ATTRIBUTE_UNIX_MODE,
-            Gio.FileQueryInfoFlags.NONE,
-            null);
-        this.unixMode = info.get_attribute_uint32(Gio.FILE_ATTRIBUTE_UNIX_MODE);
-        let writableByOthers = (this.unixMode & Enums.S_IWOTH) != 0;
-        if (writableByOthers != this.writableByOthers) {
-            this.writableByOthers = writableByOthers;
-            if (this.writableByOthers) {
-                print('desktop-icons: Desktop is writable by others - will not allow launching any desktop files');
-            }
-            return true;
-        } else {
-            return false;
-        }
-    }
 
-    _updateDesktopIfChanged(file, otherFile, eventType) {
-        if (eventType == Gio.FileMonitorEvent.CHANGED ||
-            eventType == Gio.FileMonitorEvent.CHANGES_DONE_HINT) {
-            return;
-        }
-        if (!this._showHidden && (file.get_basename()[0] == '.')) {
-            if (!otherFile || (otherFile.get_basename()[0] == '.')) {
-                return;
-            }
-        }
-        if (this.keepArranged || this.keepStacked) {
-            this._scheduleFullRefresh();
-            return;
-        }
-        switch (eventType) {
-            case Gio.FileMonitorEvent.MOVED_IN:
-                if (!otherFile ||
-                    GLib.path_get_dirname(otherFile.get_path()) !== this._desktopDir.get_path()) {
-                    try {
-                        let info = new Gio.FileInfo();
-                        info.set_attribute_string('metadata::nautilus-icon-position', '');
-                        file.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
-                    } catch (e) { }
-                }
-                break;
-            case Gio.FileMonitorEvent.MOVED_CREATED:
-                try {
-                    let info = new Gio.FileInfo();
-                    info.set_attribute_string('metadata::nautilus-icon-position', '');
-                    file.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
-                } catch (e) { }
-                break;
-            case Gio.FileMonitorEvent.ATTRIBUTE_CHANGED:
-                if (file.get_uri() == this._desktopDir.get_uri()) {
-                    if (this._updateWritableByOthers()) {
-                        this._updateDesktopSafe('directory monitor attribute change');
-                    }
-                }
-                return;
-            case Gio.FileMonitorEvent.UNMOUNTED:
-                this._scheduleFullRefresh();
-                return;
-        }
-        this._fileChangesQueue.push({ file, otherFile, eventType });
-    }
 
-    async _processIncrementalEvents(events) {
-        if (this._processingIncremental || this._readingDesktopFiles) {
-            this._desktopFilesChanged = true;
-            return;
-        }
-        if (events.length > this._fileChangesQueue.maxIncremental) {
-            this._scheduleFullRefresh();
-            return;
-        }
-        this._processingIncremental = true;
-        try {
-            for (const event of events) {
-                let success = false;
-                switch (event.eventType) {
-                    case Gio.FileMonitorEvent.DELETED:
-                        success = this._handleFileDeleted(event.file);
-                        break;
-                    case Gio.FileMonitorEvent.CREATED:
-                    case Gio.FileMonitorEvent.MOVED_CREATED:
-                        success = await this._handleFileCreated(event.file);
-                        break;
-                    case Gio.FileMonitorEvent.MOVED_IN:
-                        success = await this._handleMovedIn(event.file, event.otherFile);
-                        break;
-                    case Gio.FileMonitorEvent.MOVED_OUT:
-                        success = this._handleMovedOut(event.file, event.otherFile);
-                        break;
-                    case Gio.FileMonitorEvent.PRE_UNMOUNT:
-                        this._scheduleFullRefresh();
-                        return;
-                    default:
-                        this._scheduleFullRefresh();
-                        return;
-                }
-                if (!success) {
-                    this._scheduleFullRefresh();
-                    return;
-                }
-            }
-        } finally {
-            this._processingIncremental = false;
-        }
-        if (this._desktopFilesChanged) {
-            this._scheduleFullRefresh();
-        }
-    }
 
-    _handleFileDeleted(file) {
-        const path = file.get_path();
-        const index = this._fileList.findIndex(f => f.path === path);
-        if (index === -1) {
-            return false;
-        }
-        const fileItem = this._fileList[index];
-        if (this._renameWindow && fileItem.fileName === this._renamingFile) {
-            this._renameWindow.closeWindow();
-        }
-        fileItem.removeFromGrid(true);
-        this._fileList.splice(index, 1);
-        this._fileItemMenu.refreshedIcons();
-        return true;
-    }
 
-    async _handleFileCreated(file) {
-        let fileInfo;
-        try {
-            fileInfo = file.query_info(Enums.DEFAULT_ATTRIBUTES,
-                Gio.FileQueryInfoFlags.NONE, null);
-        } catch (e) {
-            print(`Failed to query info for ${file.get_path()}: ${e.message}`);
-            return false;
-        }
-        const fileItem = new FileItem.FileItem(this, file, fileInfo,
-            Enums.FileType.NONE, null);
-        if (fileItem.isHidden && !this._showHidden) {
-            fileItem._onDestroy();
-            return true;
-        }
-        this._applyDropCoordinates(fileItem);
-        this._fileList.push(fileItem);
-        this._addSingleFileToDesktop(fileItem);
-        this._fileItemMenu.refreshedIcons();
-        return true;
-    }
 
-    _handleMovedOut(file, otherFile) {
-        if (!otherFile) {
-            return this._handleFileDeleted(file);
-        }
-        const oldPath = file.get_path();
-        const newPath = otherFile.get_path();
-        if (GLib.path_get_dirname(newPath) !== this._desktopDir.get_path()) {
-            return this._handleFileDeleted(file);
-        }
-        this._pendingMoves[oldPath] = newPath;
-        if (this._moveTimeoutId) {
-            GLib.source_remove(this._moveTimeoutId);
-        }
-        this._moveTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, Constants.MOVE_PENDING_TIMEOUT_MS, () => {
-            try {
-                if (oldPath in this._pendingMoves) {
-                    delete this._pendingMoves[oldPath];
-                    this._handleFileDeleted(file);
-                }
-            } catch (e) {
-                print(`Error in move timeout cleanup for ${oldPath}: ${e.message}`);
-            }
-            return GLib.SOURCE_REMOVE;
-        });
-        return true;
-    }
 
-    async _handleMovedIn(file, otherFile) {
-        if (!otherFile) {
-            return await this._handleFileCreated(file);
-        }
-        const newPath = file.get_path();
-        const oldPath = otherFile.get_path();
-        if (oldPath in this._pendingMoves && this._pendingMoves[oldPath] === newPath) {
-            delete this._pendingMoves[oldPath];
-            return await this._handleFileRenamed(file, otherFile);
-        }
-        return await this._handleFileCreated(file);
-    }
 
-    _handleFileRenamed(newFile, oldFile) {
-        const oldPath = oldFile.get_path();
-        const item = this._fileList.find(f => f.path === oldPath);
-        if (!item) {
-            print(`Rename failed: old file ${oldPath} not found in desktop list`);
-            return false;
-        }
-        const oldUri = oldFile.get_uri();
-        const newUri = newFile.get_uri();
-        item.onFileRenamed(newFile);
-        if (this._renamingFile === oldFile.get_basename())
-            this._renamingFile = newFile.get_basename();
-        for (let desktop of this._desktops) {
-            desktop.updateFileItemUri(oldUri, newUri);
-        }
-        this._fileItemMenu.refreshedIcons();
-        return true;
-    }
+
+
+
+
+
+
+
+
 
     _addSingleFileToDesktop(fileItem) {
         if (fileItem.savedCoordinates) {
@@ -1649,44 +1449,14 @@ var DesktopManager = class {
         }
     }
 
-    _applyDropCoordinates(fileItem) {
-        const basename = fileItem.file.get_basename();
-        const key = FileUtils.matchPendingDropEntry(this._pendingDropFiles, basename);
-        if (key !== null) {
-            const entry = this._pendingDropFiles[key];
-            DebugLog.debugLog(`[dropmatch] ${key === basename ? 'HIT' : 'FUZZY'} ${basename} -> (${entry[0]},${entry[1]})`);
-            fileItem.dropCoordinates = entry;
-            delete this._pendingDropFiles[key];
-        } else {
-            DebugLog.debugLog(`[dropmatch] miss ${basename} pending=[${Object.keys(this._pendingDropFiles).join(', ')}]`);
-        }
-        this._prunePendingDropFiles();
-    }
+
 
     /* Lazy TTL for _pendingDropFiles: entries that never matched (copy
      * failed, filename changed, ...) expire after 5 minutes; the map is
      * also capped at 64 entries by dropping the oldest. */
-    _prunePendingDropFiles() {
-        const now = Date.now();
-        const keys = Object.keys(this._pendingDropFiles);
-        for (let key of keys) {
-            const entry = this._pendingDropFiles[key];
-            if ((entry[2] && (now - entry[2] > 300000)) || entry[2] === undefined) {
-                delete this._pendingDropFiles[key];
-            }
-        }
-        let remaining = Object.keys(this._pendingDropFiles);
-        if (remaining.length > 64) {
-            remaining.sort((a, b) => this._pendingDropFiles[a][2] - this._pendingDropFiles[b][2]);
-            for (let key of remaining.slice(0, remaining.length - 64)) {
-                delete this._pendingDropFiles[key];
-            }
-        }
-    }
 
-    _scheduleFullRefresh() {
-        this._updateDesktopSafe('directory monitor');
-    }
+
+
 
     /**
      * Runs a desktop refresh, logging any failure with the given reason.

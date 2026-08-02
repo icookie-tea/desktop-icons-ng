@@ -15,6 +15,7 @@ install_data([
     'desktop-icons-util.js',
     'desktop-manager.js',
     'desktop-menu.js',
+    'desktop-monitor.js',
     'ding.js',
     'paint-container.js',
     'dnd-clipboard-utils.js',
