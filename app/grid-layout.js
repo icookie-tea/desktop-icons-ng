@@ -24,10 +24,6 @@ const DesktopGrid = imports['desktop-grid'];
  * DesktopGrid windows and keeps _primaryScreen up to date. State lives on
  * the DesktopManager (this._dm). */
 var GridLayout = class {
-    constructor(desktopManager) {
-        this._dm = desktopManager;
-    }
-
     updateGridWindows(newdesktoplist) {
         let newPrimaryIndex = -1;
         if ((newdesktoplist.length > 0) && ('primaryMonitor' in newdesktoplist[0])) {
@@ -94,12 +90,12 @@ var GridLayout = class {
         }
     }
     dbusAdvertiseUpdate() {
-        DBusUtils.extensionControl.connect('action-state-changed', (actionGroup, actionName, data) => {
+        this._trackSignal(DBusUtils.extensionControl, 'action-state-changed', (actionGroup, actionName, data) => {
             if (actionName == 'desktopGeometry') {
                 this.updateGridWindows(data.recursiveUnpack());
             }
         });
-        DBusUtils.extensionControl.connect('action-added', (actionGroup, actionName) => {
+        this._trackSignal(DBusUtils.extensionControl, 'action-added', (actionGroup, actionName) => {
             // this signal allows us to know when the action is available and we can read the initial value
             if (actionName == 'desktopGeometry') {
                 let data = DBusUtils.extensionControl.get_action_state('desktopGeometry');

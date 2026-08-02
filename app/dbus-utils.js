@@ -153,6 +153,20 @@ class ProxyManager {
                     (proxy, error) => {
                         this._beingLaunched = false;
                         if (error === null) {
+                            // The service restarted: disconnect handlers from the
+                            // previous proxy before wiring the new one.
+                            for (let signal in this._signalsIDs) {
+                                if (this._proxy) {
+                                    this._proxy.disconnect(this._signalsIDs[signal]);
+                                }
+                                delete this._signalsIDs[signal];
+                            }
+                            for (let signal in this._connectSignalsIDs) {
+                                if (this._proxy) {
+                                    this._proxy.disconnectSignal(this._connectSignalsIDs[signal]);
+                                }
+                                delete this._connectSignalsIDs[signal];
+                            }
                             for (let signal in this._signals) {
                                 this._signalsIDs[signal] = proxy.connect(signal, this._signals[signal]);
                             }

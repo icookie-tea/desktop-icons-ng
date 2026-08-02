@@ -152,7 +152,12 @@ var DesktopManager = class {
         this._asDesktop = asDesktop;
         this._desktopList = desktopList;
         this._desktops = [];
+        this._signalIds = [];
         this._gridLayout = new GridLayout.GridLayout(this);
+    }
+
+    _trackSignal(obj, signal, cb) {
+        this._signalIds.push([obj, obj.connect(signal, cb)]);
     }
     _initFileMonitoring() {
         this._monitor = new DesktopMonitor.DesktopMonitor(this);
@@ -163,7 +168,7 @@ var DesktopManager = class {
         this._monitor.updateWritableByOthers();
         this._monitorDesktopDir = this._desktopDir.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, null);
         this._monitorDesktopDir.set_rate_limit(Constants.MONITOR_RATE_LIMIT_MS);
-        this._monitorDesktopDir.connect('changed', (obj, file, otherFile, eventType) => this._monitor.updateDesktopIfChanged(file, otherFile, eventType));
+        this._trackSignal(this._monitorDesktopDir, 'changed', (obj, file, otherFile, eventType) => this._monitor.updateDesktopIfChanged(file, otherFile, eventType));
 
         this._pendingMoves = {};
         this._processingIncremental = false;
@@ -181,7 +186,7 @@ var DesktopManager = class {
         this._fileItemMenu = new FileItemMenu.FileItemMenu(this, mainApp);
         if (Prefs.schemaGnomeDarkSettings) {
             if (this._themeManager.checkApplyDarkModeSetting()) {
-                Prefs.schemaGnomeDarkSettings.connect('changed', (obj, key) => {
+                this._trackSignal(Prefs.schemaGnomeDarkSettings, 'changed', (obj, key) => {
                     if (key === 'color-scheme') {
                         this._themeManager.checkApplyDarkModeSetting();
                     }
@@ -193,27 +198,27 @@ var DesktopManager = class {
         this.useNemo = Prefs.desktopSettings.get_boolean('use-nemo');
         this.showLinkEmblem = Prefs.desktopSettings.get_boolean('show-link-emblem');
         this.darkText = Prefs.desktopSettings.get_boolean('dark-text-in-labels');
-        this._settingsId = Prefs.desktopSettings.connect('changed', (obj, key) => this._onDesktopSettingsChanged(key));
-        Prefs.gtkSettings.connect('changed', (obj, key) => {
+        this._trackSignal(Prefs.desktopSettings, 'changed', (obj, key) => this._onDesktopSettingsChanged(key));
+        this._trackSignal(Prefs.gtkSettings, 'changed', (obj, key) => {
             if (key == 'show-hidden') {
                 this._showHidden = Prefs.gtkSettings.get_boolean('show-hidden');
                 this._updateDesktopSafe('hidden setting changed');
             }
         });
-        Prefs.nautilusSettings.connect('changed', (obj, key) => {
+        this._trackSignal(Prefs.nautilusSettings, 'changed', (obj, key) => {
             if (key == 'show-image-thumbnails') {
                 this._updateDesktopSafe('nautilus settings changed');
             }
         });
         this._gtkIconTheme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
-        this._gtkIconTheme.connect('changed', () => {
+        this._trackSignal(this._gtkIconTheme, 'changed', () => {
             this._updateDesktopSafe('gtk icon theme changed');
         });
         this._volumeMonitor = Gio.VolumeMonitor.get();
-        this._volumeMonitor.connect('mount-added', () => {
+        this._trackSignal(this._volumeMonitor, 'mount-added', () => {
             this._updateDesktopSafe('mount added');
         });
-        this._volumeMonitor.connect('mount-removed', () => {
+        this._trackSignal(this._volumeMonitor, 'mount-removed', () => {
             this._updateDesktopSafe('mount removed');
         });
     }
@@ -303,6 +308,19 @@ var DesktopManager = class {
             this._errorWindow = new ShowErrorPopup.ShowErrorPopup(_('Nautilus File Manager not found'),
                 _('The Nautilus File Manager is mandatory to work with Desktop Icons NG.'),
                 true);
+        }
+    }
+
+    destroy() {
+        for (let [obj, id] of this._signalIds) {
+            obj.disconnect(id);
+        }
+        this._signalIds = [];
+        if (this._gridLayout) {
+            this._gridLayout.destroy();
+        }
+        if (this._fileChangesQueue) {
+            this._fileChangesQueue.destroy();
         }
     }
 
