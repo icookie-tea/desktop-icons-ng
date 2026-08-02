@@ -17,7 +17,7 @@
  */
 /* exported getModifiersInDnD, getDesktopDir, getScriptsDir, getTemplatesDir, clamp,
    spawnCommandLine, launchTerminal, getFilteredEnviron, distanceBetweenPoints, getExtraFolders,
-   getMounts, getFileExtensionOffset, getFilesFromNautilusDnD, generateDropFilename, writeDroppedTextFile,
+   getMounts, getFileExtensionOffset, generateDropFilename, writeDroppedTextFile,
    windowHidePagerTaskbarModal, waitDelayMs */
 'use strict';
 const Gio = imports.gi.Gio;
@@ -291,34 +291,6 @@ function getFileExtensionOffset(filename, opts = { 'isDirectory': false }) {
         }
     }
     return { offset, 'basename': filename, extension };
-}
-
-/**
- *
- * @param selection
- * @param type
- */
-function getFilesFromNautilusDnD(selection, type) {
-    let data = String.fromCharCode.apply(null, selection.get_data());
-    let retval = [];
-    let elements = data.split('\r\n');
-    for (let item of elements) {
-        if (item.length == 0) {
-            continue;
-        }
-        if (type == 1) {
-            // x-special/gnome-icon-list
-            let entry = item.split('\r');
-            retval.push(entry[0]);
-        } else {
-            // text/uri-list
-            if (item[0] == '#') {
-                continue;
-            }
-            retval.push(item);
-        }
-    }
-    return retval;
 }
 
 function generateDropFilename(text) {

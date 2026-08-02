@@ -32,7 +32,6 @@ var ThumbnailLoader = class {
         this._timeoutValue = Constants.THUMBNAIL_TIMEOUT_MS;
         this._codePath = codePath;
         this._thumbList = [];
-        this._thumbnailScriptWatch = null;
         this._running = false;
         if (!GnomeDesktop) {
                 desktopManager.dbusManager.doNotify(_('GnomeDesktop-3.0 GIR file not found'),
@@ -180,7 +179,7 @@ var ThumbnailLoader = class {
     }
 
     async getThumbnail(file) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             try {
                 if (!this._resolveThumbnail(file, resolve)) {
                     if (!this._thumbnailFactoryLarge.has_valid_failed_thumbnail(file.uri, file.modifiedTime) &&

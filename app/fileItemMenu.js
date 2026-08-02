@@ -482,13 +482,6 @@ var FileItemMenu = class extends MenuHelper.MenuHelper {
         DBusUtils.RemoteFileOperations.ShowItemsRemote(showInFilesList);
     }
 
-    _doMultiOpen() {
-        for (let fileItem of this._desktopManager.getCurrentSelection(false)) {
-            fileItem.unsetSelected();
-            fileItem.doOpen();
-        }
-    }
-
     _doOpenWith() {
         let fileItems = this._desktopManager.getCurrentSelection(false);
         if (fileItems) {
