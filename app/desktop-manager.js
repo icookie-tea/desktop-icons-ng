@@ -1646,9 +1646,32 @@ var DesktopManager = class {
 
     _applyDropCoordinates(fileItem) {
         const basename = fileItem.file.get_basename();
-        if (basename in this._pendingDropFiles) {
-            fileItem.dropCoordinates = this._pendingDropFiles[basename];
+        const entry = this._pendingDropFiles[basename];
+        if (entry) {
+            fileItem.dropCoordinates = entry;
             delete this._pendingDropFiles[basename];
+        }
+        this._prunePendingDropFiles();
+    }
+
+    /* Lazy TTL for _pendingDropFiles: entries that never matched (copy
+     * failed, filename changed, ...) expire after 5 minutes; the map is
+     * also capped at 64 entries by dropping the oldest. */
+    _prunePendingDropFiles() {
+        const now = Date.now();
+        const keys = Object.keys(this._pendingDropFiles);
+        for (let key of keys) {
+            const entry = this._pendingDropFiles[key];
+            if ((entry[2] && (now - entry[2] > 300000)) || entry[2] === undefined) {
+                delete this._pendingDropFiles[key];
+            }
+        }
+        let remaining = Object.keys(this._pendingDropFiles);
+        if (remaining.length > 64) {
+            remaining.sort((a, b) => this._pendingDropFiles[a][2] - this._pendingDropFiles[b][2]);
+            for (let key of remaining.slice(0, remaining.length - 64)) {
+                delete this._pendingDropFiles[key];
+            }
         }
     }
 

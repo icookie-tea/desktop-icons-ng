@@ -683,3 +683,30 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 | `app/file-operations.js` | `doPaste` 复制分支调用 `clearFileCoordinates` |
 
 **提交：** 待定
+
+### 粘贴/拖放复制仍 fallback：gvfs metadata 不随复制继承
+
+**症状：** 上一轮修复（doPaste 调 clearFileCoordinates）后，粘贴复制仍出现在默认位置。
+
+**根因：** `metadata::nautilus-drop-position` 由 gvfs-metadata daemon 按**路径**存储（实测 `gio copy` 后目标文件无该属性），复制到新路径不继承。`clearFileCoordinates` 只对"非本地/不存在"的文件写 `_pendingDropFiles`，本地文件走属性写入（无效）→ 坐标全丢。
+
+**修复：** `clearFileCoordinates` 对**所有**文件无条件写 `_pendingDropFiles[basename]`（带时间戳），FileItem 创建时 `_applyDropCoordinates` 精确匹配定位；补上缺失的 `_pendingDropFiles` TTL（5 分钟）与上限（64 条）惰性清理（bugs#35 声称已修但实际无）。
+
+| 文件 | 变更 |
+|------|------|
+| `app/file-operations.js` | `clearFileCoordinates` 无条件写 `_pendingDropFiles` |
+| `app/desktop-manager.js` | `_applyDropCoordinates` 兼容新格式 + `_prunePendingDropFiles` TTL/上限 |
+| `app/desktop-menu.js` | 右键"粘贴"改 `doPaste(true)` |
+
+### 复制后源文件失效，粘贴仍可用但失败
+
+**症状：** 复制文件后删除/移动源文件，右键"粘贴"仍可点击，粘贴报错（Nautilus a11y 警告是启动噪音，实际失败是源 URI 不存在）。
+
+**根因：** 菜单"粘贴"走 `doPaste(false)` 使用缓存的 URI 列表，不校验源文件存在性。
+
+**修复：** `doPaste` 过滤不存在的源 URI；全部失效时提示"Nothing to paste"。右键菜单改用 `doPaste(true)` 保持剪贴板最新。
+
+| 文件 | 变更 |
+|------|------|
+| `app/file-operations.js` | `doPaste` 源文件存在性过滤 + 空列表提示 |
+| `app/desktop-menu.js` | 粘贴 action → `doPaste(true)` |

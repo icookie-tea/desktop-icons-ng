@@ -40,7 +40,7 @@ var FileOperations = class {
             let file = Gio.File.new_for_uri(element);
             if (!file.is_native() || !file.query_exists(null)) {
                 if (dropCoordinates != null) {
-                    this._dm._pendingDropFiles[file.get_basename()] = dropCoordinates;
+                    this._dm._pendingDropFiles[file.get_basename()] = [...dropCoordinates, Date.now()];
                 }
                 continue;
             }
@@ -52,6 +52,14 @@ var FileOperations = class {
             try {
                 file.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
             } catch (e) {
+            }
+            if (dropCoordinates != null) {
+                /* The drop-position attribute is stored in the gvfs metadata
+                 * daemon per path and is NOT inherited by the copied file, so
+                 * also record it here keyed by basename. FileItem creation
+                 * (_applyDropCoordinates) will match it and place the new
+                 * icon on the requested grid cell. */
+                this._dm._pendingDropFiles[file.get_basename()] = [...dropCoordinates, Date.now()];
             }
         }
     }
@@ -113,17 +121,31 @@ var FileOperations = class {
         if (this._clipboardFiles === null) {
             return;
         }
+        // Drop URIs whose source file no longer exists (moved/deleted after
+        // the copy was cut), so Nautilus doesn't fail on them.
+        const validFiles = this._clipboardFiles.filter(uri => {
+            try {
+                return Gio.File.new_for_uri(uri).query_exists(null);
+            } catch (e) {
+                return false;
+            }
+        });
+        if (validFiles.length === 0) {
+            this._dm.dbusManager.doNotify(_('Nothing to paste'),
+                _('The files you copied are no longer available.'));
+            return;
+        }
         let desktopDir = this._dm._desktopDir.get_uri();
         if (this._isCut) {
             // Moving keeps the files' own metadata::nautilus-icon-position,
             // so cut+paste restores them at their original spot.
-            DBusUtils.RemoteFileOperations.MoveURIsRemote(this._clipboardFiles, desktopDir);
+            DBusUtils.RemoteFileOperations.MoveURIsRemote(validFiles, desktopDir);
         } else {
             // Copies get no metadata of their own — pre-seed the drop
             // position like the drag&drop path does, so pasted copies land
             // on the grid cell under the mouse.
-            this.clearFileCoordinates(this._clipboardFiles, [this._dm._clickX, this._dm._clickY]);
-            DBusUtils.RemoteFileOperations.CopyURIsRemote(this._clipboardFiles, desktopDir);
+            this.clearFileCoordinates(validFiles, [this._dm._clickX, this._dm._clickY]);
+            DBusUtils.RemoteFileOperations.CopyURIsRemote(validFiles, desktopDir);
         }
     }
 
