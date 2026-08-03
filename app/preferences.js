@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 import Gtk from 'gi://Gtk?version=4.0';
-
+import Adw from 'gi://Adw';
 
 import Gio from 'gi://Gio';
 const GioSSS = Gio.SettingsSchemaSource;
@@ -88,7 +88,7 @@ export function showPreferences() {
     if (prefsWindow) {
         return;
     }
-    prefsWindow = new Gtk.Window({
+    prefsWindow = new Adw.PreferencesWindow({
         title: _('Settings'),
         resizable: true,
         default_width: 520,
@@ -102,7 +102,11 @@ export function showPreferences() {
     // all-workspaces + hidden-from-taskbar). The settings window should
     // behave like a normal application window.
     let frame = PrefsWindow.preferencesFrame(Gtk, desktopSettings, nautilusSettings, gtkSettings);
-    prefsWindow.set_child(frame);
+    // Adw.PreferencesWindow 自带 Adw.HeaderBar（标题 + CSD 窗口按钮），
+    // 与 gnome-shell 的 ExtensionPrefsDialog 同一类，无需手动绘制 header；
+    // 裸 Adw.Window 不画 header，窗口将无法拖拽移动。
+    // 页面通过 add() 添加（PreferencesWindow 只接受 PreferencesPage）。
+    prefsWindow.add(frame);
     prefsWindow.present();
 }
 

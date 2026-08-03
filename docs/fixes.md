@@ -1,5 +1,21 @@
 # 修复日志
 
+## 2026-07-30
+
+### 设置窗口顶层窗口从 Gtk.Window 迁移到 Adw.PreferencesWindow
+
+设置窗口内容（PreferencesPage/Group、SwitchRow、ComboRow）此前已是 Adw 组件，但顶层窗口仍是 GTK 原生的 `Gtk.Window`。
+
+**迁移过程：** 先替换为 `Adw.Window`（`set_content()`），后发现裸 `Adw.Window` 不绘制 header——CSD 窗口无标题栏，既没有标题/窗口按钮，也无法拖拽移动（只能 Alt+拖拽）。参考 gnome-shell 自身（`extensionPrefsDialog.js`）与 user-accent-colors 扩展的做法，改用 **`Adw.PreferencesWindow`**：该类自带 `Adw.HeaderBar`（标题 + CSD 窗口按钮），页面通过 `add()` 添加。
+
+`prefs-window.js` 中的 `Gtk.StringList` 是 `Adw.ComboRow` 所需的列表模型（非组件，无 Adw 替代），保留不变。
+
+| 文件 | 变更 |
+|------|------|
+| `app/preferences.js` | `new Gtk.Window()` → `new Adw.PreferencesWindow()`，`set_child()` → `add()`，新增 `gi://Adw` 导入 |
+
+---
+
 ## 2026-07-21
 
 ### 右键菜单弹出位置异常，带三角箭头
