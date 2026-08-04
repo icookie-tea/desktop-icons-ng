@@ -134,6 +134,15 @@
 
 **回归（2026-08-04 晚，用户实测发现）：** 右键菜单“排列图标”报 `this._sortManager.sortAllFilesFromGridsByPosition is not a function`——P2 提取 `_positionComparator` 时误将 `sortAllFilesFromGridsByPosition` 入口方法整体删除（测试只覆盖了 comparator，未覆盖入口）。修复：补回入口方法（可选 `cornerInversion` 参数供测试注入，生产调用不传时行为不变）+ 新增端到端断言（35→35 断言，含 keepArranged 短路与 removeFromGrid/reassign 调用计数）。教训：提取纯函数时必须保留入口方法并补端到端测试。
 
+**回归 2（2026-08-04，双屏 DING_DEBUG 实测）：** 新建文件夹/新建文档落位竞态，两个根因：
+
+| 根因 | 证据 | 修复 |
+|------|------|------|
+| **gvfs-metadata 异步写读竞态**：`_newDocument`/`doNewFolder` 同步写 `metadata::nautilus-drop-position`，但 metadata daemon 异步落盘，文件创建事件先到 → `[file] created ... drop=[null]` → FALLBACK 主屏角落 | 日志：`[click] template at=(746,325)` 后 `drop=[null]` + `FALLBACK` | 与粘贴路径同机制补 `_pendingDropFiles` basename 兑底（`applyDropCoordinates` 模糊匹配已覆盖） |
+| **残留 `nautilus-icon-position` 抢位**：`_addSingleFileToDesktop` 先查 saved 再查 drop，残留坐标（日志中为新文件带 B 屏 cell 局部坐标 386,407）把新图标拉到另一屏 | 日志：`saved=[386,407] drop=[null]` → `grid#0 add`（A 屏） | drop（明确用户意图）优先于 saved；saved 仅作无 drop 时的历史位置（cut+paste 保留位置、全量刷新不受影响） |
+
+**验证：** 双屏日志确认：修复前 B 屏新建模板 drop=[null]→FALLBACK 或残留 saved 拉回 A 屏；修复后 drop 经 `_pendingDropFiles` 注入且优先，落到鼠标所在屏网格。`scripts/check.sh` 全绿。
+
 ---
 
 ## 2026-07-30
