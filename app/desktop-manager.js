@@ -274,10 +274,9 @@ export var DesktopManager = class {
     _initStyles(codePath) {
         this.rubberBand = false;
 
-        let cssProvider = new Gtk.CssProvider();
-        cssProvider.load_from_file(Gio.File.new_for_path(GLib.build_filenamev([codePath, 'stylesheet.css'])));
-        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), cssProvider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
-        cssProvider = undefined;
+        this._cssProvider = new Gtk.CssProvider();
+        this._cssProvider.load_from_file(Gio.File.new_for_path(GLib.build_filenamev([codePath, 'stylesheet.css'])));
+        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), this._cssProvider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
         this._themeManager.configureSelectionColor();
     }
 
@@ -310,6 +309,20 @@ export var DesktopManager = class {
             obj.disconnect(id);
         }
         this._signalIds = [];
+        if (this.keypressTimeoutID) {
+            GLib.source_remove(this.keypressTimeoutID);
+            this.keypressTimeoutID = null;
+        }
+        if (this._themeManager) {
+            this._themeManager.disconnect();
+        }
+        if (this._desktopMenu) {
+            this._desktopMenu.disconnectSignals();
+        }
+        if (this._cssProvider) {
+            Gtk.StyleContext.remove_provider_for_display(Gdk.Display.get_default(), this._cssProvider);
+            this._cssProvider = null;
+        }
         if (this._gridLayout) {
             this._gridLayout.destroy();
         }

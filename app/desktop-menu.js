@@ -48,7 +48,7 @@ export var DesktopMenu = class extends MenuHelper.MenuHelper {
         this._addActions();
 
         let clipboard = Gdk.Display.get_default().get_clipboard();
-        clipboard.connect('changed', () => {
+        this._clipboardSignalId = clipboard.connect('changed', () => {
             this._clipboardHasFiles = false;
             this._pasteAction.enabled = false;
             this._desktopManager.updateClipboard().then(hasFiles => {
@@ -65,6 +65,17 @@ export var DesktopMenu = class extends MenuHelper.MenuHelper {
         }).catch(e => {
             console.log(`Error updating clipboard: ${e.message}\n${e.stack}`);
         });
+    }
+
+    /* The clipboard is a process-wide singleton; its 'changed' handler
+     * closes over this DesktopMenu, so it must be disconnected when the
+     * DesktopManager is destroyed or every disable/enable cycle of the
+     * extension leaks one handler + one stale DesktopManager. */
+    disconnectSignals() {
+        if (this._clipboardSignalId !== undefined) {
+            Gdk.Display.get_default().get_clipboard().disconnect(this._clipboardSignalId);
+            this._clipboardSignalId = undefined;
+        }
     }
 
     setClickCoordinates(x, y) {

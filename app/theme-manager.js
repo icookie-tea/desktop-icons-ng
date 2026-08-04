@@ -43,7 +43,7 @@ export var ThemeManager = class {
         try {
             if (this._adwStyleManager.get_system_supports_accent_colors()) {
                 this._accentColorsAvailable = true;
-                this._adwStyleManager.connect('notify', (obj, spec) => {
+                this._adwStyleManagerSignalId = this._adwStyleManager.connect('notify', (obj, spec) => {
                     if ((spec.get_name() === 'accent-color') || (spec.get_name() === 'accent-color-rgba')) {
                         handler();
                     }
@@ -52,6 +52,24 @@ export var ThemeManager = class {
         } catch (e) {
             console.log(`System does not support accent colors: ${e.message}\n${e.stack}`);
             this._accentColorsAvailable = false;
+        }
+    }
+
+    /* Both the Adw.StyleManager notify handler (global singleton) and the
+     * selection-color CssProvider are added for the lifetime of the
+     * DesktopManager; without this the extension's disable/enable cycles
+     * accumulate live handlers and providers on the global display. */
+    disconnect() {
+        if (this._adwStyleManagerSignalId !== undefined) {
+            this._adwStyleManager.disconnect(this._adwStyleManagerSignalId);
+            this._adwStyleManagerSignalId = undefined;
+        }
+        if (this._cssColorProviderSelection !== null) {
+            Gtk.StyleContext.remove_provider_for_display(
+                Gdk.Display.get_default(),
+                this._cssColorProviderSelection
+            );
+            this._cssColorProviderSelection = null;
         }
     }
 
