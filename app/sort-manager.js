@@ -64,6 +64,17 @@ export var SortManager = class {
         };
     }
 
+    /* "Arrange Icons" entry point (desktop-menu 'arrange-icons' action).
+     * cornerInversion is injectable for tests; production callers omit it. */
+    sortAllFilesFromGridsByPosition(cornerInversion = null) {
+        if (this._dm.keepArranged) {
+            return;
+        }
+        this._dm._fileList.forEach(f => f.removeFromGrid(false));
+        this._dm._fileList.sort(this._positionComparator(cornerInversion ?? Prefs.get_start_corner()));
+        this._reassignFilesToDesktop();
+    }
+
     _sortAllFilesFromGridsByModifiedTime() {
         function byTime(a, b) {
             return a._modifiedTime - b._modifiedTime;

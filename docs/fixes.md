@@ -118,6 +118,8 @@
 
 **验证：** `scripts/check.sh` 全绿（8 测试模块，SortManager 30→34 断言）；行为等价改动由现有坐标/粘贴/排序测试锁定。需手动回归：双屏右键粘贴落位、扩展 enable/disable 10 次无内存增长、keep-stacked 下排序、图标属性变化刷新不闪动。
 
+**回归（2026-08-04 晚，用户实测发现）：** 右键菜单“排列图标”报 `this._sortManager.sortAllFilesFromGridsByPosition is not a function`——P2 提取 `_positionComparator` 时误将 `sortAllFilesFromGridsByPosition` 入口方法整体删除（测试只覆盖了 comparator，未覆盖入口）。修复：补回入口方法（可选 `cornerInversion` 参数供测试注入，生产调用不传时行为不变）+ 新增端到端断言（35→35 断言，含 keepArranged 短路与 removeFromGrid/reassign 调用计数）。教训：提取纯函数时必须保留入口方法并补端到端测试。
+
 ---
 
 ## 2026-07-30

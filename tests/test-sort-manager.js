@@ -81,5 +81,35 @@ export function runTests() {
         '50,200 | 100,300 | 100,100 | 200,50',
         'corner bottom-left: x asc, tie-break y desc');
 
+    // 4. sortAllFilesFromGridsByPosition: entry point used by the
+    // 'arrange-icons' menu action (regression: method was dropped during
+    // the comparator extraction, only caught at runtime)
+    const positioned = [
+        { _x1: 100, _y1: 300, _label: { get_text: () => 'd' } },
+        { _x1: 100, _y1: 100, _label: { get_text: () => 'c' } },
+        { _x1: 50, _y1: 200, _label: { get_text: () => 'b' } },
+        { _x1: 200, _y1: 50, _label: { get_text: () => 'a' } },
+    ];
+    let reassigned = false;
+    const dm = {
+        keepArranged: false,
+        _fileList: positioned,
+    };
+    const sm2 = new SortManager(dm);
+    sm2._reassignFilesToDesktop = () => { reassigned = true; };
+    let removed = 0;
+    for (const item of positioned) {
+        item.removeFromGrid = () => { removed++; };
+    }
+    sm2.sortAllFilesFromGridsByPosition([false, false]);
+    assertDeepEqual(cellNames(positioned),
+        '50,200 | 100,100 | 100,300 | 200,50',
+        'arrange-icons sorts by position (top-left corner default)');
+    if (!(removed === 4 && reassigned)) {
+        throw new Error('arrange-icons: expected 4 removeFromGrid calls and reassign');
+    }
+    dm.keepArranged = true;
+    sm2.sortAllFilesFromGridsByPosition(); // must not throw
+
     return summary('SortManager');
 }
