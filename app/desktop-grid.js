@@ -86,7 +86,12 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
         buttonMenuController.button = 3;
         this._container.add_controller(buttonMenuController);
         this.connectSignal(buttonMenuController, 'pressed', (controller, n_press, x, y) => {
-            this._desktopManager.onPressRightButton(controller, x, y, this._container);
+            // Keep the local coords for the popover, but hand the global
+            // pair along too: _clickX/_clickY are consumed as global screen
+            // coordinates (paste / new-folder / template drop position), and
+            // the raw local ones would land on the wrong monitor.
+            const [gx, gy] = this.coordinatesLocalToGlobal(x, y);
+            this._desktopManager.onPressRightButton(controller, x, y, gx, gy, this._container);
         });
 
         let buttonMainController = new Gtk.GestureClick();

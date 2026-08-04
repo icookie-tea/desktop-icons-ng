@@ -10,6 +10,7 @@ import * as TestPendingDrop from './test-pending-drop.js';
 import * as TestGridLayout from './test-grid-layout.js';
 import * as TestSortManager from './test-sort-manager.js';
 import * as TestDropFilename from './test-drop-filename.js';
+import * as TestClickCoordinates from './test-click-coordinates.js';
 
 const tests = [
     TestFileChangesQueue,
@@ -17,6 +18,7 @@ const tests = [
     TestGridLayout,
     TestSortManager,
     TestDropFilename,
+    TestClickCoordinates,
 ];
 
 async function main() {

@@ -11,7 +11,7 @@
 | `refresh_extension.sh` | 开发热刷新：重建 + 重装 + 杀掉运行中的 DING 进程（自动选择 ubuntu/local 安装方式） | `bash scripts/refresh_extension.sh` |
 | `export-zip.sh` | 打包 `ding@rastersoft.com.zip` 用于 extensions.gnome.org | `bash scripts/export-zip.sh` |
 | `kill.py` | 杀掉所有 `ding.js` 进程（被 `refresh_extension.sh` 调用，也可单独使用） | `python3 scripts/kill.py` |
-| `meson_post_install.py` | meson 安装后处理（编译 GSettings schemas、重载 apparmor） | 由 `meson.build` 自动调用 |
+| `meson_post_install.py` | meson 安装后处理（编译 GSettings schemas） | 由 `meson.build` 自动调用 |
 
 ## 依赖
 

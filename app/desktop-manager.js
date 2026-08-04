@@ -568,8 +568,11 @@ export var DesktopManager = class {
         this._clickY = Math.floor(y);
     }
 
-    onPressRightButton(controller, x, y, grid) {
-        this._pressedMouseButton(x, y);
+    onPressRightButton(controller, x, y, gx, gy, grid) {
+        // x/y are container-local (the popover needs them), gx/gy are the
+        // global equivalents stored into _clickX/_clickY — every consumer
+        // of those interprets them as global screen coordinates.
+        this._pressedMouseButton(gx, gy);
         this._desktopMenu.showDesktopMenu(x, y, grid);
     }
 

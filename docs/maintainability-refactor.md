@@ -13,7 +13,7 @@
 
 | 阶段 | 内容 | 关键产出 |
 |---|---|---|
-| 0 | 工具链 | `eslint.config.js`（GJS 全局 + exported 规则）、`tests/` gjs 断言 harness（131 断言）、`scripts/check.sh` 一键验证、`docs/refactor-checklist.md` 人工回归清单 |
+| 0 | 工具链 | `eslint.config.js`（GJS 全局 + exported 规则）、`tests/` gjs 断言 harness（131 断言）、`scripts/check.sh` 一键验证、人工回归清单（`docs/refactor-checklist.md`，已归档） |
 | 1 | 脚本迁移 | 7 个脚本移入 `scripts/`，均支持任意 CWD；meson/README/AGENTS.md 同步 |
 | 2 | 重构 | `_updateDesktopSafe()` 抽取 14 处重复 catch；构造函数 269→27 行 + switch 分派；`app/constants.js` 魔法数字；`app/log.js` 调试门控；死代码清理；`_remoteCall` 模板化（-302 行） |
 | 3 | 拆分 | `desktop-monitor.js`(279)/`grid-layout.js`(111)/`dbus-remote-operations.js`(264)；信号生命周期管理（`_trackSignal`/`destroy()`，修复 ProxyManager #34） |
@@ -41,11 +41,27 @@
 - 裸 `class` 声明不导出（须 `var X = class`）；`export var X;` 无初始化器被 ESLint 报未使用（须 `= null`）
 - gettext：必须 `Gettext.domain('ding').gettext` / `.ngettext`（16 文件 + 3 处 ngettext 遗漏修复）
 
+## 增量更新重构要点（2026-07，原 incremental-update-analysis.md 已归档）
+
+原分析文档描述的重构前架构已不存在（符号均已改名/删除），归档前提炼仍有效的信息：
+
+**已落地：**
+- `FileChangesQueue` 防抖队列（`app/file-changes-queue.js`）+ `DesktopMonitor` 增量事件处理（`app/desktop-monitor.js`，CREATED/MOVED_IN/DELETED 等逐条处理，超限回退全量刷新）
+- `_pendingDropFiles` basename 模糊匹配（应对 Nautilus " (副本)" 冲突重命名，23 断言锁定）
+
+**未落地优化参考（gtk4-ding 对比研究结论，未来可做）：**
+1. 对象复用：`_clearAllFilesFromGrids()` 不销毁 widget 只从 grid 移除（DING 目前每次都销毁重建）
+2. 并行异步枚举：特殊文件夹/本地文件/挂载点用 `Promise.all` 并行加载（DING 目前串行）
+3. 绘制同步：`await fileItem.iconPlaced` 等所有图标到位再继续
+4. `mount-removed` 延迟 500ms 刷新，避免挂载移除竞态（DING 目前立即刷新）
+
+**增量路径已知风险（维护时注意）：** 选中状态 `_selectedFiles` 需按 URI 维护；缩略图加载竞争；`_gridStatus` 一致性；`_renameWindow` 指向的文件可能被增量移除。
+
 ## 验证方式
 
 - `scripts/check.sh`：eslint（零违规）+ 全部 JS `node --check` + gjs 单测（131 断言）+ 结构检查（`_remoteCall` 存在、无裸顶层 class、无裸 `this` 传参、meson manifest 与磁盘一致）
 - 单测覆盖：FileChangesQueue(13)/matchPendingDropEntry(23)/GridLayout(27)/SortManager(30)/generateDropFilename(38)
-- 用户手动构建：`bash scripts/refresh_extension.sh` + `docs/refactor-checklist.md` 人工回归
+- 用户手动构建：`bash scripts/refresh_extension.sh` + 人工回归（原 docs/refactor-checklist.md 已归档，回归项：基础功能/拖放/右键菜单/增量更新与排序/多显示器与几何/概览动画/键盘与剪贴板）
 
 ## 重构中修复的潜伏 bug（详见 docs/fixes.md）
 

@@ -201,7 +201,8 @@ If any of these items is false, .desktop files won't work.
 * [Maintainability Refactor](docs/maintainability-refactor.md) - 2026 refactor summary: stages, ESM migration notes, key decisions, verification
 * [Fixes Log](docs/fixes.md) - detailed bug fix history with root cause analysis
 * [Overview Animation](docs/overview-animation.md) - overview mode fade in/out implementation using Clutter.Clone + OverviewAdjustment
-* [Incremental Update Analysis](docs/incremental-update-analysis.md) - desktop full-rebuild refactoring analysis
+
+External references: [GNOME Shell Extension Best Practices (EGO)](https://wiki.gnome.org/Projects/GnomeShell/Extensions/BestPractices) - official guidelines for extension development
 
 ## Source code and contacting the author
 
