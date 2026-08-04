@@ -22,8 +22,6 @@
 
 ---
 
-## 2026-08-04
-
 ### 移除 Nemo 支持（设置项 + 代码 + schema）
 
 **决定：** 桌面图标扩展自身不需要 Nemo——打开文件夹/"在文件管理器中显示"应始终走系统默认应用（Nautilus）。移除 upstream 的 `use-nemo` 开关，减少维护面。
@@ -42,8 +40,6 @@
 
 ---
 
-## 2026-08-04
-
 ### 模板/脚本枚举泄漏 + localeCompare 参数位 + 死代码清理
 
 | 问题 | 位置 | 修复 |
@@ -61,8 +57,6 @@
 
 ---
 
-## 2026-08-04
-
 ### 提取失败通知静默失效 + 3 处代码清理
 
 | 问题 | 位置 | 修复 |
@@ -75,8 +69,6 @@
 **验证：** `gjs --module tests/run.js` 全部通过（131 断言）；`npx eslint` 无新增错误。
 
 ---
-
-## 2026-08-04
 
 ### 性能优化：O(n²) 算法改 Map/Set 索引 + 低风险清理（不新增功能）
 
@@ -448,8 +440,6 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 
 ---
 
-## 2026-07-30
-
 ### 切换主屏后新图标出现在错误显示器
 
 **症状：**
@@ -490,8 +480,6 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 **提交：** `ecb8791`
 
 ---
-
-## 2026-07-30
 
 ### 清理 primaryMonitor 调试日志
 
@@ -780,8 +768,6 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 **修复（2026-08-02）：** options 移到第 3 参（`localeCompare(b, undefined, {sensitivity: 'accent', numeric: true})`）。现在按名称排序为大小写不敏感 + 数字自然排序（file1 < file2 < file10）；`localeMatcher: 'lookup'` 去掉（默认 best-fit 更合适）。测试断言更新为修复后行为并锁定。
 
 ---
-
-## 2026-08-02 (Maintainability Refactor)
 
 ### 粘贴复制文件不落在鼠标网格（fallback 位置）
 
