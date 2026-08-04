@@ -55,7 +55,11 @@ export var DesktopMonitor = class {
                         let info = new Gio.FileInfo();
                         info.set_attribute_string('metadata::nautilus-icon-position', '');
                         file.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
-                    } catch (e) { }
+                    } catch (e) {
+                        // best-effort: clearing the stale position metadata can
+                        // fail on read-only/foreign files; the icon is placed
+                        // by the regular coordinate logic anyway
+                    }
                 }
                 break;
             case Gio.FileMonitorEvent.MOVED_CREATED:
@@ -63,7 +67,9 @@ export var DesktopMonitor = class {
                     let info = new Gio.FileInfo();
                     info.set_attribute_string('metadata::nautilus-icon-position', '');
                     file.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
-                } catch (e) { }
+                } catch (e) {
+                    // best-effort: see MOVED_IN case above
+                }
                 break;
             case Gio.FileMonitorEvent.ATTRIBUTE_CHANGED:
                 if (file.get_uri() == this._dm._desktopDir.get_uri()) {

@@ -49,81 +49,19 @@ export var SortManager = class {
         this._reassignFilesToDesktop();
     }
 
-    sortAllFilesFromGridsByPosition() {
-        if (this._dm.keepArranged) {
-            return;
-        }
-        this._dm._fileList.forEach(f => f.removeFromGrid(false));
-        let cornerInversion = Prefs.get_start_corner();
-        if (!cornerInversion[0] && !cornerInversion[1]) {
-            this._dm._fileList.sort((a, b) => {
-                if (a._x1 < b._x1) {
-                    return -1;
-                }
-                if (a._x1 > b._x1) {
-                    return 1;
-                }
-                if (a._y1 < b._y1) {
-                    return -1;
-                }
-                if (a._y1 > b._y1) {
-                    return 1;
-                }
-                return 0;
-            });
-        }
-        if (cornerInversion[0] && cornerInversion[1]) {
-            this._dm._fileList.sort((a, b) => {
-                if (a._x1 < b._x1) {
-                    return 1;
-                }
-                if (a._x1 > b._x1) {
-                    return -1;
-                }
-                if (a._y1 < b._y1) {
-                    return 1;
-                }
-                if (a._y1 > b._y1) {
-                    return -1;
-                }
-                return 0;
-            });
-        }
-        if (cornerInversion[0] && !cornerInversion[1]) {
-            this._dm._fileList.sort((a, b) => {
-                if (a._x1 < b._x1) {
-                    return 1;
-                }
-                if (a._x1 > b._x1) {
-                    return -1;
-                }
-                if (a._y1 < b._y1) {
-                    return -1;
-                }
-                if (a._y1 > b._y1) {
-                    return 1;
-                }
-                return 0;
-            });
-        }
-        if (!cornerInversion[0] && cornerInversion[1]) {
-            this._dm._fileList.sort((a, b) => {
-                if (a._x1 < b._x1) {
-                    return -1;
-                }
-                if (a._x1 > b._x1) {
-                    return 1;
-                }
-                if (a._y1 < b._y1) {
-                    return 1;
-                }
-                if (a._y1 > b._y1) {
-                    return -1;
-                }
-                return 0;
-            });
-        }
-        this._reassignFilesToDesktop();
+    /* Comparator for "Arrange Icons" (position order). Corner inversion
+     * flips the x/y directions: top-left grows from the smallest coords,
+     * bottom-right from the largest, etc. Extracted for testability. */
+    _positionComparator(cornerInversion) {
+        const xMul = cornerInversion[0] ? -1 : 1;
+        const yMul = cornerInversion[1] ? -1 : 1;
+        return (a, b) => {
+            const dx = (a._x1 - b._x1) * xMul;
+            if (dx !== 0) {
+                return dx;
+            }
+            return (a._y1 - b._y1) * yMul;
+        };
     }
 
     _sortAllFilesFromGridsByModifiedTime() {

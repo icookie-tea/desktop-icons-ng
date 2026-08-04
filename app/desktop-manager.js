@@ -129,6 +129,8 @@ export var DesktopManager = class {
                 }
             }
         } catch (e) {
+            // mutter may not expose experimental-features; absence just
+            // means no premultiplied-framebuffer optimization
         }
     }
 
@@ -1227,6 +1229,48 @@ export var DesktopManager = class {
         }
     }
 
+    /* Primary-screen fallback cell: where icons with no coordinates land.
+     * Reused by _addFilesToDesktop and _addSingleFileToDesktop. */
+    _getFallbackPosition() {
+        if (this._primaryScreen !== null) {
+            const primaryGrid = this._desktops.find(g => g._monitor === this._primaryScreen.monitorIndex);
+            if (primaryGrid) {
+                return [primaryGrid._x, primaryGrid._y];
+            }
+            return [
+                this._primaryScreen.x + this._primaryScreen.windowMarginLeft,
+                this._primaryScreen.y + this._primaryScreen.windowMarginTop,
+            ];
+        }
+        return [0, 0];
+    }
+
+    /* Desktop that owns point (x, y): getDistance() === 0 wins; otherwise
+     * the first desktop able to host it (getDistance() !== -1), or — with
+     * nearest — the closest one. Returns null when nothing can host it. */
+    _findDesktopFor(x, y, { nearest = false, exactOnly = false } = {}) {
+        let firstAvailable = null;
+        let nearestDesktop = null;
+        let minDistance = -1;
+        for (let desktop of this._desktops) {
+            const distance = desktop.getDistance(x, y);
+            if (distance === 0) {
+                return desktop;
+            }
+            if (exactOnly || distance === -1) {
+                continue;
+            }
+            if (firstAvailable === null) {
+                firstAvailable = desktop;
+            }
+            if ((minDistance === -1) || (distance < minDistance)) {
+                minDistance = distance;
+                nearestDesktop = desktop;
+            }
+        }
+        return nearest ? nearestDesktop : firstAvailable;
+    }
+
     _addFilesToDesktop(fileList, storeMode) {
         if (this._desktops.length == 0) {
             return;
@@ -1244,34 +1288,18 @@ export var DesktopManager = class {
                 fileItem.dropCoordinates = null;
             }
             let [itemX, itemY] = fileItem.savedCoordinates;
-            let addedToDesktop = false;
-            for (let desktop of this._desktops) {
-                if (desktop.getDistance(itemX, itemY) == 0) {
-                    addedToDesktop = true;
-                    desktop.addFileItemCloseTo(fileItem, itemX, itemY, storeMode);
-                    break;
-                }
-            }
-            if (!addedToDesktop) {
+            const desktop = this._findDesktopFor(itemX, itemY, { exactOnly: true });
+            if (desktop !== null) {
+                desktop.addFileItemCloseTo(fileItem, itemX, itemY, storeMode);
+            } else {
                 outOfDesktops.push(fileItem);
             }
         }
         // Now, assign those icons that are outside the current desktops,
         // but have assigned coordinates
         for (let fileItem of outOfDesktops) {
-            let minDistance = -1;
             let [itemX, itemY] = fileItem.savedCoordinates;
-            let newDesktop = null;
-            for (let desktop of this._desktops) {
-                let distance = desktop.getDistance(itemX, itemY);
-                if (distance == -1) {
-                    continue;
-                }
-                if ((minDistance == -1) || (distance < minDistance)) {
-                    minDistance = distance;
-                    newDesktop = desktop;
-                }
-            }
+            const newDesktop = this._findDesktopFor(itemX, itemY, { nearest: true });
             if (newDesktop == null) {
                 print('Not enough space to add icons');
                 break;
@@ -1283,43 +1311,17 @@ export var DesktopManager = class {
         for (let fileItem of notAssignedYet) {
             let x, y;
             if (fileItem.dropCoordinates == null) {
-                if (this._primaryScreen !== null) {
-                    const primaryGrid = this._desktops.find(g => g._monitor === this._primaryScreen.monitorIndex);
-                    if (primaryGrid) {
-                        x = primaryGrid._x;
-                        y = primaryGrid._y;
-                    } else {
-                        x = this._primaryScreen.x + this._primaryScreen.windowMarginLeft;
-                        y = this._primaryScreen.y + this._primaryScreen.windowMarginTop;
-                    }
-                } else {
-                    x = 0;
-                    y = 0;
-                }
+                [x, y] = this._getFallbackPosition();
                 storeMode = Enums.StoredCoordinates.ASSIGN;
             } else {
                 [x, y] = fileItem.dropCoordinates;
                 fileItem.dropCoordinates = null;
                 storeMode = Enums.StoredCoordinates.OVERWRITE;
             }
-            // try first in the designated desktop
-            let assigned = false;
-            for (let desktop of this._desktops) {
-                if (desktop.getDistance(x, y) == 0) {
-                    desktop.addFileItemCloseTo(fileItem, x, y, storeMode);
-                    assigned = true;
-                    break;
-                }
-            }
-            if (assigned) {
-                continue;
-            }
-            // if there is no space in the designated desktop, try in another
-            for (let desktop of this._desktops) {
-                if (desktop.getDistance(x, y) != -1) {
-                    desktop.addFileItemCloseTo(fileItem, x, y, storeMode);
-                    break;
-                }
+            // designated desktop first, any other hostable desktop as fallback
+            const desktop = this._findDesktopFor(x, y);
+            if (desktop !== null) {
+                desktop.addFileItemCloseTo(fileItem, x, y, storeMode);
             }
         }
     }
@@ -1328,61 +1330,30 @@ export var DesktopManager = class {
         if (fileItem.savedCoordinates) {
             const [x, y] = fileItem.savedCoordinates;
             DebugLog.debugLog(`[place] ${fileItem.file.get_basename()} saved=(${x},${y})`);
-            for (let desktop of this._desktops) {
-                if (desktop.getDistance(x, y) === 0) {
-                    desktop.addFileItemCloseTo(fileItem, x, y,
-                        Enums.StoredCoordinates.PRESERVE);
-                    return;
-                }
+            const desktop = this._findDesktopFor(x, y, { exactOnly: true });
+            if (desktop !== null) {
+                desktop.addFileItemCloseTo(fileItem, x, y,
+                    Enums.StoredCoordinates.PRESERVE);
+                return;
             }
         }
         if (fileItem.dropCoordinates) {
             const [x, y] = fileItem.dropCoordinates;
             DebugLog.debugLog(`[place] ${fileItem.file.get_basename()} drop=(${x},${y})`);
             fileItem.dropCoordinates = null;
-            for (let desktop of this._desktops) {
-                if (desktop.getDistance(x, y) === 0) {
-                    desktop.addFileItemCloseTo(fileItem, x, y,
-                        Enums.StoredCoordinates.OVERWRITE);
-                    return;
-                }
-            }
-            for (let desktop of this._desktops) {
-                if (desktop.getDistance(x, y) !== -1) {
-                    desktop.addFileItemCloseTo(fileItem, x, y,
-                        Enums.StoredCoordinates.OVERWRITE);
-                    return;
-                }
+            const desktop = this._findDesktopFor(x, y);
+            if (desktop !== null) {
+                desktop.addFileItemCloseTo(fileItem, x, y,
+                    Enums.StoredCoordinates.OVERWRITE);
+                return;
             }
         }
         DebugLog.debugLog(`[place] ${fileItem.file.get_basename()} FALLBACK primary=${!!this._primaryScreen}`);
-        let x, y;
-        if (this._primaryScreen !== null) {
-            const primaryGrid = this._desktops.find(g => g._monitor === this._primaryScreen.monitorIndex);
-            if (primaryGrid) {
-                x = primaryGrid._x;
-                y = primaryGrid._y;
-            } else {
-                x = this._primaryScreen.x + this._primaryScreen.windowMarginLeft;
-                y = this._primaryScreen.y + this._primaryScreen.windowMarginTop;
-            }
-        } else {
-            x = 0;
-            y = 0;
-        }
-        for (let desktop of this._desktops) {
-            if (desktop.getDistance(x, y) === 0) {
-                desktop.addFileItemCloseTo(fileItem, x, y,
-                    Enums.StoredCoordinates.ASSIGN);
-                return;
-            }
-        }
-        for (let desktop of this._desktops) {
-            if (desktop.getDistance(x, y) !== -1) {
-                desktop.addFileItemCloseTo(fileItem, x, y,
-                    Enums.StoredCoordinates.ASSIGN);
-                return;
-            }
+        const [x, y] = this._getFallbackPosition();
+        const desktop = this._findDesktopFor(x, y);
+        if (desktop !== null) {
+            desktop.addFileItemCloseTo(fileItem, x, y,
+                Enums.StoredCoordinates.ASSIGN);
         }
     }
 

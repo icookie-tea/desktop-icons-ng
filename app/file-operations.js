@@ -53,6 +53,8 @@ export var FileOperations = class {
             try {
                 file.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
             } catch (e) {
+                // gvfs metadata daemon may be unavailable (e.g. non-native
+                // files); coordinates are still tracked via _pendingDropFiles
             }
             if (dropCoordinates != null) {
                 /* The drop-position attribute is stored in the gvfs metadata
