@@ -140,12 +140,12 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
         this._zoom = this._desktopDescription.scaleFactor;
         this._x = this._desktopDescription.x + this._desktopDescription.windowMarginLeft;
         this._y = this._desktopDescription.y + this._desktopDescription.windowMarginTop;
-        DebugLog.debugLog(`[grid] desktop#${this._monitor} rect=(${this._x},${this._y}) win=(${this._windowWidth}x${this._windowHeight})`);
         this._monitor = this._desktopDescription.monitorIndex;
         this._size_divisor = this._zoom;
 
         this._windowWidth = Math.floor((this._desktopDescription.width - (this._desktopDescription.windowMarginRight + this._desktopDescription.windowMarginLeft)) / this._size_divisor);
         this._windowHeight = Math.floor((this._desktopDescription.height - (this._desktopDescription.windowMarginTop + this._desktopDescription.windowMarginBottom)) / this._size_divisor);
+        DebugLog.debugLog(`[grid] desktop#${this._monitor} rect=(${this._x},${this._y}) win=(${this._windowWidth}x${this._windowHeight})`);
     }
 
     updateUnscaledHeightWidthMargins() {

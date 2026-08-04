@@ -1408,16 +1408,9 @@ export var DesktopManager = class {
     }
 
     _addSingleFileToDesktop(fileItem) {
-        if (fileItem.savedCoordinates) {
-            const [x, y] = fileItem.savedCoordinates;
-            DebugLog.debugLog(`[place] ${fileItem.file.get_basename()} saved=(${x},${y})`);
-            const desktop = this._findDesktopFor(x, y, { exactOnly: true });
-            if (desktop !== null) {
-                desktop.addFileItemCloseTo(fileItem, x, y,
-                    Enums.StoredCoordinates.PRESERVE);
-                return;
-            }
-        }
+        // Explicit drop intent wins over any stored position: a stale
+        // nautilus-icon-position (e.g. copied or leftover metadata) must
+        // not pull a freshly created/pasted icon onto another monitor.
         if (fileItem.dropCoordinates) {
             const [x, y] = fileItem.dropCoordinates;
             DebugLog.debugLog(`[place] ${fileItem.file.get_basename()} drop=(${x},${y})`);
@@ -1426,6 +1419,16 @@ export var DesktopManager = class {
             if (desktop !== null) {
                 desktop.addFileItemCloseTo(fileItem, x, y,
                     Enums.StoredCoordinates.OVERWRITE);
+                return;
+            }
+        }
+        if (fileItem.savedCoordinates) {
+            const [x, y] = fileItem.savedCoordinates;
+            DebugLog.debugLog(`[place] ${fileItem.file.get_basename()} saved=(${x},${y})`);
+            const desktop = this._findDesktopFor(x, y, { exactOnly: true });
+            if (desktop !== null) {
+                desktop.addFileItemCloseTo(fileItem, x, y,
+                    Enums.StoredCoordinates.PRESERVE);
                 return;
             }
         }
@@ -1563,6 +1566,10 @@ export var DesktopManager = class {
                 info.set_attribute_string('metadata::nautilus-drop-position', `${position.join(',')}`);
                 info.set_attribute_string('metadata::nautilus-icon-position', '');
                 dir.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
+                // gvfs-metadata writes are async; the create event may
+                // arrive before they land, so also record by basename like
+                // the paste path does (matched in applyDropCoordinates).
+                this._pendingDropFiles[newName] = [position[0], position[1], Date.now()];
             } catch (e) {
                 console.error(e, 'Failed to create folder');
                 const header = _('Folder Creation Failed');

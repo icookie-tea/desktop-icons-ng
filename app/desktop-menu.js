@@ -103,6 +103,10 @@ export var DesktopMenu = class extends MenuHelper.MenuHelper {
             info.set_attribute_string('metadata::nautilus-drop-position', `${this._clickX},${this._clickY}`);
             info.set_attribute_string('metadata::nautilus-icon-position', '');
             destination.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
+            // gvfs-metadata writes are async; the create event may arrive
+            // before they land, so also record the target by basename like
+            // the paste path does (matched in applyDropCoordinates).
+            this._desktopManager._pendingDropFiles[finalName] = [this._clickX, this._clickY, Date.now()];
         } catch (e) {
             console.error(e, `Failed to create template ${e.message}`);
             const header = _('Template Creation Failed');
