@@ -193,7 +193,6 @@ export var DesktopManager = class {
         }
         this._showHidden = Prefs.gtkSettings.get_boolean('show-hidden');
         this.showDropPlace = Prefs.desktopSettings.get_boolean('show-drop-place');
-        this.useNemo = Prefs.desktopSettings.get_boolean('use-nemo');
         this.showLinkEmblem = Prefs.desktopSettings.get_boolean('show-link-emblem');
         this.darkText = Prefs.desktopSettings.get_boolean('dark-text-in-labels');
         this._trackSignal(Prefs.desktopSettings, 'changed', (obj, key) => this._onDesktopSettingsChanged(key));
@@ -230,9 +229,6 @@ export var DesktopManager = class {
             case 'show-link-emblem':
                 this.showLinkEmblem = Prefs.desktopSettings.get_boolean('show-link-emblem');
                 this._updateDesktopSafe('show link emblem changed');
-                return;
-            case 'use-nemo':
-                this.useNemo = Prefs.desktopSettings.get_boolean('use-nemo');
                 return;
             case 'icon-size':
                 this._fileList.forEach(x => x.removeFromGrid(false));

@@ -420,15 +420,6 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
             return;
         }
 
-        if (this._isDirectory && this._desktopManager.useNemo) {
-            try {
-                DesktopIconsUtil.trySpawn(GLib.get_home_dir(), ['nemo', this.file.get_uri()], DesktopIconsUtil.getFilteredEnviron());
-                return;
-            } catch (err) {
-                console.log(`Couldn't launch Nemo: ${err.message}\n${err}`);
-            }
-        }
-
         if (!DBusUtils.GnomeArchiveManager.isAvailable &&
             this._fileType === Gio.FileType.REGULAR &&
             this._desktopManager.autoAr.fileIsCompressed(this.fileName)) {

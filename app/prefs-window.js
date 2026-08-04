@@ -69,7 +69,6 @@ export function preferencesFrame(_Gtk, desktopSettings, nautilusSettings, gtkSet
     desktopGroup.add(buildSwitcher(desktopSettings, 'show-network-volumes', _('Show network drives in the desktop'), _('Show mounted network volumes in the desktop')));
     desktopGroup.add(buildSwitcher(desktopSettings, 'add-volumes-opposite', _('Add new drives to the opposite side of the screen'), _('When adding drives and volumes to the desktop, add them to the opposite side of the screen')));
     desktopGroup.add(buildSwitcher(desktopSettings, 'show-drop-place', _("Highlight the drop place during Drag'n'Drop"), _('Shows a rectangle in the destination place during DnD')));
-    desktopGroup.add(buildSwitcher(desktopSettings, 'use-nemo', _('Use Nemo to open folders'), _('Use Nemo instead of Nautilus to open folders')));
     desktopGroup.add(buildSwitcher(desktopSettings, 'show-link-emblem', _('Add an emblem to soft links'), _('Add an emblem to allow to identify soft links')));
     desktopGroup.add(buildSwitcher(desktopSettings, 'dark-text-in-labels', _('Use dark text in icon labels'), _('Use black for label text')));
     page.add(desktopGroup);

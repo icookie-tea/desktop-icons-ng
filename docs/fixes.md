@@ -2,6 +2,26 @@
 
 ## 2026-08-04
 
+### 移除 Nemo 支持（设置项 + 代码 + schema）
+
+**决定：** 桌面图标扩展自身不需要 Nemo——打开文件夹/"在文件管理器中显示"应始终走系统默认应用（Nautilus）。移除 upstream 的 `use-nemo` 开关，减少维护面。
+
+| 位置 | 变更 |
+|------|------|
+| `app/prefs-window.js` | 删除设置面板 "Use Nemo to open folders" 开关行 |
+| `app/desktop-manager.js` | 删除 `this.useNemo` 读取与 `_onDesktopSettingsChanged` 的 `case 'use-nemo'` |
+| `app/file-item.js` `_doOpenContext` | 删除目录打开时的 Nemo 分支（回退 trySpawn + 错误日志），目录一律走 `launch_default_for_uri_async` |
+| `app/file-item-menu.js` `_onShowInFilesClicked` | 删除 Nemo 分支，直接 `ShowItemsRemote` |
+| `schemas/org.gnome.shell.extensions.ding.gschema.xml` | 删除 `use-nemo` key（已存在的旧 dconf 值成为 orphan，无害） |
+
+**行为变化：** 之前开启该开关的用户打开文件夹/“在文件管理器中显示”会启动 Nemo，现在统一使用系统默认文件管理器。
+
+**验证：** `glib-compile-schemas --strict` 通过；`gjs --module tests/run.js` 全部通过（131 断言）；`npx eslint app/` 无错误。po 翻译条目未手动清理（下次 xgettext 提取自动变 obsolete）。
+
+---
+
+## 2026-08-04
+
 ### 模板/脚本枚举泄漏 + localeCompare 参数位 + 死代码清理
 
 | 问题 | 位置 | 修复 |
