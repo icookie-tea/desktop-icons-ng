@@ -60,7 +60,7 @@
 
 ## 遗留问题（待决策）
 
-- `ding.js` 的 `-P`/searchPath 机制失效：保留参数兼容，删除 `imports.searchPath.unshift`
+- ~~`ding.js` 的 `-P`/searchPath 机制失效~~ **已核实（2026-08-04）：`-P` 参数仍有效**——`codePath` 仍用于 `_initStyles`（stylesheet.css）与 locale 路径；失效的只是 `imports.searchPath.unshift`（已删，ESM 下不再需要）
 - 分支合并策略：`refactor/maintainability` → `refactor-260802` 时机由用户决定
 
 > SortManager localeCompare 选项位置 bug **已修复**（2026-08-02）：options 移到第 3 参，按名称排序变为大小写不敏感 + 数字自然排序，测试断言已更新锁定。

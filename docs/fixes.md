@@ -78,6 +78,48 @@
 
 ---
 
+### 全面优化审计：死代码清理 + enable/disable 泄漏修复 + 落位去重 + 性能优化（optimization-audit 分支）
+
+对全部 37 个 app 模块 + Shell 侧入口的深入审计（约 11K 行全文阅读 + 模式扫描）。总体结论：生命周期管理（`_trackSignal`/cancellable 取消）与异常处理已成体系；发现的问题集中在死代码、全局单例信号泄漏与未落地的性能优化。
+
+**死代码清理（-86 行）：**
+
+| 位置 | 说明 |
+|------|------|
+| `app/dnd-clipboard-utils.js` `makeFileListFromSelection` | 全库无调用 |
+| `app/preferences.js` `setSortOrder` | 7 个 `Prefs.*` 引用方均未调用 |
+| `app/file-operations.js` `doNewFolder` | 重复实现（所有调用点都走 `DesktopManager.doNewFolder`），有行为漂移风险 |
+| `app/desktop-manager.js` `_getSortManager` | 无调用 |
+
+**enable/disable 循环泄漏修复（3 处 + 防御）：** 均为「全局单例对象上连接信号、闭包持有 DesktopManager、`destroy()` 不断开」模式，每次扩展重新启用累积监听器 + 旧对象。
+
+| 位置 | 修复 |
+|------|------|
+| `app/desktop-menu.js` `Gdk.Clipboard 'changed'` | 保存连接 id + `disconnectSignals()`，`destroy()` 调用 |
+| `app/theme-manager.js` `Adw.StyleManager 'notify'` + 选择色 CssProvider | 新增 `disconnect()`：断信号 + `remove_provider_for_display` |
+| `app/desktop-manager.js` `_initStyles` stylesheet CssProvider | 保存 `_cssProvider`，`destroy()` 中移除 |
+| `app/desktop-manager.js` 键盘搜索超时 | `destroy()` 中 `source_remove`（防御：回调会触碰已销毁状态） |
+
+**可维护性重构（行为等价，+117/-174）：**
+
+| 位置 | 变更 |
+|------|------|
+| `app/sort-manager.js` 4 个 corner 排序分支（~40 行） | 参数化 `_positionComparator(cornerInversion)`（~10 行）；新增 4 条 corner 断言锁定行为 |
+| `app/desktop-manager.js` `_addFilesToDesktop`/`_addSingleFileToDesktop` | 提取 `_getFallbackPosition()`（主屏回退坐标，原重复 3 次）与 `_findDesktopFor(x, y, {nearest, exactOnly})`（落位循环去重） |
+| 3 处有意空 catch | 补注释说明为何可忽略（`_initPremultipliedCheck`、`clearFileCoordinates`、`desktop-monitor` 清旧位置元数据） |
+
+**性能优化：**
+
+| 优化 | 说明 |
+|------|------|
+| 图标对象复用（收益最大） | 文件集合不变的全量刷新（设置/mount 变化、F5）不再销毁重建全部 widget：按 URI 集合匹配新旧列表，原地更新 metadata + 缩略图（走缓存）+ dark-text class；集合变化时保持原重建路径。label 暗色 class 提取为 `_applyDarkTextClass()` |
+| `mount-removed` 延迟 500ms | 避免 FUSE 卸载竞态 + 合并移除事件突发（`MOUNT_REMOVED_DELAY_MS`，destroy 清理） |
+| ~~并行枚举~~（评估后不做） | GIO 同步查询在单线程 JS 上无法并行；异步化 FileItem 构造改动过大，page cache 下同步查询已很快 |
+
+**验证：** `scripts/check.sh` 全绿（8 测试模块，SortManager 30→34 断言）；行为等价改动由现有坐标/粘贴/排序测试锁定。需手动回归：双屏右键粘贴落位、扩展 enable/disable 10 次无内存增长、keep-stacked 下排序、图标属性变化刷新不闪动。
+
+---
+
 ## 2026-07-30
 
 ### 设置窗口顶层窗口从 Gtk.Window 迁移到 Adw.PreferencesWindow
