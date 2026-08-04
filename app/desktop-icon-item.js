@@ -255,10 +255,10 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
         this._currentFileName = text;
         this.container.set_tooltip_text(text);
         let lastCutPos = -1;
-        let newText = '';
+        const chars = [];
         for (let pos = 0; pos < text.length; pos++) {
             let character = text[pos];
-            newText += character;
+            chars.push(character);
             if (pos < (text.length - 1)) {
                 var nextChar = text[pos + 1];
             } else {
@@ -281,12 +281,12 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
                 if ((lastCutPos > -1) && ((pos - lastCutPos) < 4)) {
                     continue;
                 }
-                newText += '\u200B';
+                chars.push('\u200B');
             }
         }
         // adding a CR at the end ensures that the text has always two lines, and
         // that allows to have same-size icons.
-        this._label.label = newText;
+        this._label.label = chars.join('');
     }
 
     /** *********************

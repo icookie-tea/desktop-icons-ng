@@ -34,6 +34,25 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
         this._selectedList = null;
         this._width = 0;
         this._height = 0;
+        this._colors = null;
+    }
+
+    _updateColors(dm) {
+        // Cache the RGBA objects and rebuild them only when the accent color
+        // object is replaced (ThemeManager assigns a new Gdk.RGBA on each
+        // configureSelectionColor()), avoiding per-frame allocations while
+        // painting the rubberband / drop preview during drags.
+        if (this._colors !== null && this._colors.selectColor === dm.selectColor) {
+            return;
+        }
+        const { red, green, blue } = dm.selectColor;
+        this._colors = {
+            selectColor: dm.selectColor,
+            fillRubber: new Gdk.RGBA({ red, green, blue, alpha: 0.3 }),
+            borderRubber: new Gdk.RGBA({ red, green, blue, alpha: 1.0 }),
+            fillDrop: new Gdk.RGBA({ red, green, blue, alpha: 0.4 }),
+            borderDrop: new Gdk.RGBA({ red, green, blue, alpha: 1.0 }),
+        };
     }
 
     get selectedList() {
@@ -66,48 +85,26 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
         const dm = this._desktopGrid._desktopManager;
         const grid = this._desktopGrid;
 
+        this._updateColors(dm);
+
         if (dm.rubberBand && dm.selectionRectangle) {
             if (grid.gridGlobalRectangle.intersect(dm.selectionRectangle)[0]) {
                 let [xInit, yInit] = grid.coordinatesGlobalToLocal(dm.x1, dm.y1);
                 let [xFin, yFin] = grid.coordinatesGlobalToLocal(dm.x2, dm.y2);
 
-                const fillColor = new Gdk.RGBA();
-                fillColor.red = dm.selectColor.red;
-                fillColor.green = dm.selectColor.green;
-                fillColor.blue = dm.selectColor.blue;
-                fillColor.alpha = 0.3;
-
-                const borderColor = new Gdk.RGBA();
-                borderColor.red = dm.selectColor.red;
-                borderColor.green = dm.selectColor.green;
-                borderColor.blue = dm.selectColor.blue;
-                borderColor.alpha = 1.0;
-
                 this._snapshotRoundedRect(snapshot,
                     xInit, yInit, xFin - xInit, yFin - yInit,
-                    5, fillColor, borderColor, 1);
+                    5, this._colors.fillRubber, this._colors.borderRubber, 1);
             }
         }
 
         if (dm.showDropPlace && this._selectedList !== null) {
             for (let [x, y] of this._selectedList) {
-                const fillColor = new Gdk.RGBA();
-                fillColor.red = dm.selectColor.red;
-                fillColor.green = dm.selectColor.green;
-                fillColor.blue = dm.selectColor.blue;
-                fillColor.alpha = 0.4;
-
-                const borderColor = new Gdk.RGBA();
-                borderColor.red = dm.selectColor.red;
-                borderColor.green = dm.selectColor.green;
-                borderColor.blue = dm.selectColor.blue;
-                borderColor.alpha = 1.0;
-
                 this._snapshotRoundedRect(snapshot,
                     x + elementSpacing, y + elementSpacing,
                     grid._elementWidth - 2 * elementSpacing,
                     grid._elementHeight - 2 * elementSpacing,
-                    10, fillColor, borderColor, 0.5);
+                    10, this._colors.fillDrop, this._colors.borderDrop, 0.5);
             }
         }
     }

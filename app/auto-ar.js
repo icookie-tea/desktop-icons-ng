@@ -694,7 +694,7 @@ const CompressDialog = class {
         this._passLabel.visible = password;
         this._passEntry.visible = password;
         this._okButton.sensitive = true;
-        if (this._desktopManager._fileList.map(f => f.fileName).includes(outputfile)) {
+        if (this._desktopManager._fileList.some(f => f.fileName === outputfile)) {
             this._okButton.sensitive = false;
             if (!this._nameEntry.has_css_class('not-found')) {
                 this._nameEntry.add_css_class('not-found');

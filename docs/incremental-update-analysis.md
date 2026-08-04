@@ -693,4 +693,3 @@ DING 是串行的：先加载特殊文件夹，再枚举本地文件，最后加
 | gtk4-ding `desktopFolderMonitor.js` | 桌面文件监控模块 |
 | gtk4-ding `desktop-manager.js:468-517` | _drawDesktop + 对象复用 |
 | `.opencode/plans/verified-bugs.md` | DING 已有问题清单 |
-| `docs/memory-leak-analysis.md` | DING 内存泄漏分析 |

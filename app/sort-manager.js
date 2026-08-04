@@ -295,13 +295,17 @@ export var SortManager = class {
 
     _restoreStackInitialCoordinates() {
         if (this._dm.stackInitialCoordinates) {
-            this._dm._fileList.forEach((fileItem) => {
-                this._dm.stackInitialCoordinates.forEach((savedItem) => {
-                    if (savedItem[0] == fileItem.fileName) {
-                        fileItem.savedCoordinates = savedItem[1];
-                    }
-                });
-            });
+            // Map keyed by fileName: later entries override earlier ones, which
+            // matches the old nested-loop semantics (last match wins). Also
+            // avoids the old O(n²) scan and the repeated synchronous
+            // set_attributes_from_info() calls on each match.
+            const coordsMap = new Map(this._dm.stackInitialCoordinates);
+            for (let fileItem of this._dm._fileList) {
+                const coords = coordsMap.get(fileItem.fileName);
+                if (coords !== undefined) {
+                    fileItem.savedCoordinates = coords;
+                }
+            }
         }
         this._dm.stackInitialCoordinates = null;
     }
@@ -318,15 +322,26 @@ export var SortManager = class {
     }
 
     _sortAllFilesFromGridsByKindStacked(restack) {
-        function determineStackTopSizeOrTime() {
+        function firstStackedByType() {
+            // First stacked file of each content type (old loop semantics:
+            // 'break' on the first match). Must be built after the
+            // stackedFiles sort that happens inside the switch below.
+            const map = new Map();
+            for (let unstackitem of stackedFiles) {
+                if (!map.has(unstackitem.attributeContentType)) {
+                    map.set(unstackitem.attributeContentType, unstackitem);
+                }
+            }
+            return map;
+        }
+
+        function determineStackTopSizeOrTime(stackedByType) {
             for (let item of otherFiles) {
                 if (item.isStackMarker) {
-                    for (let unstackitem of stackedFiles) {
-                        if (item.attributeContentType == unstackitem.attributeContentType) {
-                            item.size = unstackitem.fileSize;
-                            item.time = unstackitem.modifiedTime;
-                            break;
-                        }
+                    const unstackitem = stackedByType.get(item.attributeContentType);
+                    if (unstackitem !== undefined) {
+                        item.size = unstackitem.fileSize;
+                        item.time = unstackitem.modifiedTime;
                     }
                 }
             }
@@ -339,11 +354,12 @@ export var SortManager = class {
         let stackedFiles = [];
         let newFileList = [];
         let stackTopMarkerFolderList = [];
-        let unstackList = Prefs.getUnstackList();
+        const unstackSet = new Set(Prefs.getUnstackList());
         if (this._dm._allFileList && restack) {
             this._dm._fileList = this._dm._allFileList;
         }
         this._sortByName(this._dm._fileList);
+        const seenTypes = new Set();
         for (let fileItem of this._dm._fileList) {
             if (fileItem.isSpecial) {
                 specialFiles.push(fileItem);
@@ -356,34 +372,21 @@ export var SortManager = class {
             if (fileItem._isValidDesktopFile) {
                 validDesktopFiles.push(fileItem);
                 continue;
+            }
+            const type = fileItem.attributeContentType;
+            if (seenTypes.has(type)) {
+                stackedFiles.push(fileItem);
             } else {
-                let type = fileItem.attributeContentType;
-                let stacked = false;
-                for (let item of otherFiles) {
-                    if (type == item.attributeContentType) {
-                        stackedFiles.push(fileItem);
-                        stacked = true;
-                    }
-                }
-                if (!stacked) {
-                    fileItem.isStackTop = true;
-                    otherFiles.push(fileItem);
-                }
-                continue;
+                seenTypes.add(type);
+                fileItem.isStackTop = true;
+                otherFiles.push(fileItem);
             }
         }
+        const stackedTypes = new Set(stackedFiles.map(f => f.attributeContentType));
         for (let a of otherFiles) {
-            let instack = false;
-            for (let c of stackedFiles) {
-                if (c.attributeContentType == a.attributeContentType) {
-                    instack = true;
-                    break;
-                }
-            }
-            if (!instack) {
+            if (!stackedTypes.has(a.attributeContentType)) {
                 a.stackUnique = true;
             }
-            continue;
         }
         for (let item of otherFiles) {
             if (!item.stackUnique) {
@@ -425,26 +428,38 @@ export var SortManager = class {
                 break;
             case Enums.SortOrder.MODIFIEDTIME:
                 stackedFiles.sort(byTime);
-                determineStackTopSizeOrTime();
+                determineStackTopSizeOrTime(firstStackedByType());
                 otherFiles.sort(byTime);
                 break;
             case Enums.SortOrder.KIND:
                 break;
             case Enums.SortOrder.SIZE:
                 stackedFiles.sort(bySize);
-                determineStackTopSizeOrTime();
+                determineStackTopSizeOrTime(firstStackedByType());
                 otherFiles.sort(bySize);
                 break;
             default:
                 break;
         }
+        // Group unstacked content types by type, preserving stackedFiles order,
+        // to avoid the old nested scan (and repeated unstackList.includes calls).
+        const unstackedByType = new Map();
+        for (let unstackitem of stackedFiles) {
+            if (!unstackSet.has(unstackitem.attributeContentType)) {
+                continue;
+            }
+            let list = unstackedByType.get(unstackitem.attributeContentType);
+            if (list === undefined) {
+                list = [];
+                unstackedByType.set(unstackitem.attributeContentType, list);
+            }
+            list.push(unstackitem);
+        }
         for (let item of otherFiles) {
             newFileList.push(item);
-            let itemtype = item.attributeContentType;
-            for (let unstackitem of stackedFiles) {
-                if (unstackList.includes(unstackitem.attributeContentType) && (unstackitem.attributeContentType == itemtype)) {
-                    newFileList.push(unstackitem);
-                }
+            const unstacked = unstackedByType.get(item.attributeContentType);
+            if (unstacked !== undefined) {
+                newFileList.push(...unstacked);
             }
         }
         if (this._dm._allFileList) {

@@ -188,6 +188,7 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
     setGridStatus() {
         this._fileItems = {};
         this._gridStatus = {};
+        this._occupiedCount = 0;
         for (let y = 0; y < this._maxRows; y++) {
             for (let x = 0; x < this._maxColumns; x++) {
                 this._setGridUse(x, y, false);
@@ -332,14 +333,9 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
          *          or the distance to the middle point, if none of the previous
          */
 
-        let isFree = false;
-        for (let element in this._gridStatus) {
-            if (!this._gridStatus[element]) {
-                isFree = true;
-                break;
-            }
-        }
-        if (!isFree) {
+        // O(1) full check: track the number of occupied cells instead of
+        // scanning the whole _gridStatus array on every call.
+        if (this._occupiedCount >= this._maxColumns * this._maxRows) {
             return -1;
         }
         if (this._coordinatesBelongToThisGrid(x, y)) {
@@ -420,7 +416,12 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
     }
 
     _setGridUse(x, y, inUse) {
-        this._gridStatus[y * this._maxColumns + x] = inUse;
+        const key = y * this._maxColumns + x;
+        const wasInUse = this._gridStatus[key] === true;
+        if (wasInUse !== inUse) {
+            this._occupiedCount += inUse ? 1 : -1;
+        }
+        this._gridStatus[key] = inUse;
     }
 
     getGridAt(x, y, globalCoordinates = false) {

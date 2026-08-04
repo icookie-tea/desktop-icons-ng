@@ -1108,6 +1108,7 @@ export var DesktopManager = class {
                     try {
                         let fileEnum = source.enumerate_children_finish(result);
                         if (this._desktopFilesChanged && !this._forceDraw) {
+                            fileEnum.close(null);
                             resolve(null);
                             return;
                         }

@@ -1,5 +1,29 @@
 # 修复日志
 
+## 2026-08-04
+
+### 性能优化：O(n²) 算法改 Map/Set 索引 + 低风险清理（不新增功能）
+
+对照 `docs/memory-leak-analysis.md` 中遗留的未修复项，实施 3 个 O(n²) 算法优化与 4 个低风险清理。所有改动均为内部实现，不改变任何用户可见行为、D-Bus 接口或设置项。
+
+**说明：** 本次完成后 `docs/memory-leak-analysis.md` 已删除（内容过时——多数问题早已修复，剩余项为进程级低影响），修复历史统一由本文档承载。
+
+| 优化 | 位置 | 改动 |
+|------|------|------|
+| 堆叠排序 O(n²)→O(n) | `app/sort-manager.js` `_sortAllFilesFromGridsByKindStacked` | 4 处 `otherFiles`×`stackedFiles` 嵌套扫描改为 `Set`/`Map` 索引：`seenTypes` 判首见、`firstStackedByType` 取首匹配（保持 break 语义）、`stackedTypes` 判 stackUnique、`unstackSet`+`unstackedByType` 预分组 unstack 展开（保持 stackedFiles 顺序） |
+| 坐标恢复 O(n²)→O(n) | `app/sort-manager.js` `_restoreStackInitialCoordinates` | `Map<fileName, coords>` 替代嵌套 forEach（后者覆盖前者 = 原"最后匹配生效"语义）；附带消除每次匹配都触发的同步 `set_attributes_from_info()` 写盘 |
+| `getDistance` 空位判断 O(单元格)→O(1) | `app/desktop-grid.js` | 新增 `_occupiedCount` 占用计数，`_setGridUse` 维护，`setGridStatus` 归零；满格判断不再全量扫描 `_gridStatus`（4K 屏 ~8000 单元格） |
+| fileEnum 早退泄漏 | `app/desktop-manager.js` `_doReadAsync` | `_desktopFilesChanged && !_forceDraw` 提前 return 分支补 `fileEnum.close(null)`（原漏关，每次全量刷新泄漏一个目录枚举句柄） |
+| 字符串拼接 | `app/desktop-icon-item.js` `_setLabelName` | 逐字符 `+=` 改为数组 `push` + `join('')` |
+| map 滥用 | `app/auto-ar.js` | 压缩对话框每次按键 `map().includes()` → `some()`（短路、无中间数组） |
+| RGBA 每帧分配 | `app/paint-container.js` `vfunc_snapshot` | 拖拽/橡皮筋绘制每帧新建 4 个 `Gdk.RGBA` → 缓存 + `selectColor` 引用比较（主题切换时 `ThemeManager` 替换对象才重建） |
+
+**等价性保证：** stack top 首次出现顺序、unstack 展开顺序、`determineStackTopSizeOrTime` 首匹配语义均与原实现一致；`firstStackedByType` 在 stackedFiles 排序之后构建（与旧 `break` 时机相同）。
+
+**验证：** `gjs --module tests/run.js` 全部通过（131 断言）；`npx eslint` 无新增错误。
+
+---
+
 ## 2026-07-30
 
 ### 设置窗口顶层窗口从 Gtk.Window 迁移到 Adw.PreferencesWindow
@@ -109,7 +133,7 @@ Nautilus 没有此问题是因为它用 GType 级别检查（`gdk_content_format
 3. `showDesktopMenu` 从缓存同步判断粘贴状态，不再异步 `await`
 
 **新增依赖：**
-- `DesktopMenu` 构造函数连接 `Gdk.Display.get_default().get_clipboard()` 的 `changed` 信号（无断开路径，见 memory-leak-analysis.md 2.2）
+- `DesktopMenu` 构造函数连接 `Gdk.Display.get_default().get_clipboard()` 的 `changed` 信号（无断开路径，进程级影响，见修复日志 2026-08-04 说明）
 
 | 文件 | 变更 |
 |------|------|
