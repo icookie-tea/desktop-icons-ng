@@ -2,6 +2,25 @@
 
 ## 2026-08-04
 
+### 模板/脚本枚举泄漏 + localeCompare 参数位 + 死代码清理
+
+| 问题 | 位置 | 修复 |
+|------|------|------|
+| 目录枚举句柄泄漏（所有路径） | `app/templates-scripts-manager.js` `_readDirectory` | 成功路径与 `_entriesFolderChanged` 早退路径均补 `fileEnum.close(null)`（原每次模板/脚本文件夹变更都泄漏句柄，与 2026-08-04 desktop-manager 修复同类） |
+| localeCompare options 参数位错误 | `app/templates-scripts-manager.js` `_readDirectory` sort | options 误传第 2 参（locales 位）被静默忽略 + `numeric: 'true'` 为字符串 → 移第 3 参 + `numeric: true` + 去掉 `localeMatcher: 'lookup'`（与 2026-08-02 sort-manager 修复同一模式）。修复后模板/脚本子菜单为大小写不敏感 + 数字自然排序 |
+| 超时后缩略图重复工作 | `app/thumbnails.js` `_createThumbnailAsync` | 超时 handler 已调 `_createFailedThumbnailAsync` 并 cancel；generate 回调以 CANCELLED 到达时 catch 再执行一次 → catch 中检测 `CANCELLED` 直接 return |
+| 死枚举 | `app/enums.js` | 删除零使用的 `Selection.LEAVE`、`FileExistOperation`、`WhatToDoWithExecutable` |
+| 死字段 | `app/file-item.js` | 删除只赋值不读取的 `_monitorTrashId` |
+| 重复调用 | `app/desktop-grid.js` | 构造函数 `set_size_request`/`set_default_size` 各调用两次 → 各一次 |
+| 空方法 + 调用点 | `app/file-item-menu.js`、`app/desktop-monitor.js`、`app/desktop-manager.js` | 删除空实现 `refreshedIcons()` 及其 4 处调用 |
+| 多余空行 | `app/desktop-manager.js` | 清理 `updateFileList`/`_addSingleFileToDesktop` 前的连续空行 |
+
+**验证：** `gjs --module tests/run.js` 全部通过（131 断言）；`npx eslint app/` 无错误。
+
+---
+
+## 2026-08-04
+
 ### 提取失败通知静默失效 + 3 处代码清理
 
 | 问题 | 位置 | 修复 |

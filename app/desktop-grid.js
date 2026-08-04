@@ -77,11 +77,9 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
         this._paintContainer = new PaintContainer(this);
         this._container.put(this._paintContainer, 0, 0);
         this.setGridStatus();
-        this._window.set_default_size(this._windowWidth, this._windowHeight);
         this._window.set_size_request(this._windowWidth, this._windowHeight);
+        this._window.set_default_size(this._windowWidth, this._windowHeight);
         this._window.show();
-        this._window.set_size_request(this._windowWidth, this._windowHeight);
-        this._window.set_default_size(this._windowWidth, this._windowHeight);
 
         let buttonMenuController = new Gtk.GestureClick();
         buttonMenuController.propagation_phase = Gtk.PropagationPhase.BUBBLE;

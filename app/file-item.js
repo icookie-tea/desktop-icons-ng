@@ -105,7 +105,7 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
                 }
             });
         } else {
-            this._monitorTrashId = 0;
+            this._scheduleTrashRefreshId = 0;
         }
         this._updateName();
         if (this._dropCoordinates) {

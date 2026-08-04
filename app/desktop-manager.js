@@ -348,8 +348,6 @@ export var DesktopManager = class {
         }
     }
 
-
-
     updateFileList() {
         let updateFileList;
         if (this._allFileList && (this._allFileList.length > 0)) {
@@ -1204,7 +1202,6 @@ export var DesktopManager = class {
             }
         }
         this._placeAllFilesOnGrids();
-        this._fileItemMenu.refreshedIcons();
         this._selectedFiles = null;
     }
 
@@ -1317,22 +1314,6 @@ export var DesktopManager = class {
             }
         }
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     _addSingleFileToDesktop(fileItem) {
         if (fileItem.savedCoordinates) {

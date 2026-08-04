@@ -136,7 +136,6 @@ export var DesktopMonitor = class {
         }
         fileItem.removeFromGrid(true);
         this._dm._fileList.splice(index, 1);
-        this._dm._fileItemMenu.refreshedIcons();
         return true;
     }
     async handleFileCreated(file) {
@@ -157,7 +156,6 @@ export var DesktopMonitor = class {
         this.applyDropCoordinates(fileItem);
         this._dm._fileList.push(fileItem);
         this._dm._addSingleFileToDesktop(fileItem);
-        this._dm._fileItemMenu.refreshedIcons();
         return true;
     }
     handleMovedOut(file, otherFile) {
@@ -213,7 +211,6 @@ export var DesktopMonitor = class {
         for (let desktop of this._dm._desktops) {
             desktop.updateFileItemUri(oldUri, newUri);
         }
-        this._dm._fileItemMenu.refreshedIcons();
         return true;
     }
     applyDropCoordinates(fileItem) {

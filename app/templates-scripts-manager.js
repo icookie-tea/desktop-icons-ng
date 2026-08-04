@@ -148,6 +148,7 @@ export var TemplatesScriptsManager = class extends SignalManager.SignalManager {
                     try {
                         let fileEnum = source.enumerate_children_finish(result);
                         if (this._entriesFolderChanged) {
+                            fileEnum.close(null);
                             resolve(null);
                             return;
                         }
@@ -162,6 +163,7 @@ export var TemplatesScriptsManager = class extends SignalManager.SignalManager {
                             let child = fileEnum.get_child(info);
                             fileList.push([info.get_name(), isDir ? child : child.get_path(), isDir ? [] : null]);
                         }
+                        fileEnum.close(null);
                     } catch (e) {
                         if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
                             resolve(null);
@@ -173,10 +175,9 @@ export var TemplatesScriptsManager = class extends SignalManager.SignalManager {
                         return;
                     }
                     fileList.sort((a, b) => {
-                        return a[0].localeCompare(b[0], {
+                        return a[0].localeCompare(b[0], undefined, {
                             sensitivity: 'accent',
-                            numeric: 'true',
-                            localeMatcher: 'lookup',
+                            numeric: true,
                         });
                     });
                     resolve(fileList);

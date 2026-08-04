@@ -190,9 +190,6 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
         DesktopIconsUtil.trySpawn(null, params, environ);
     }
 
-    refreshedIcons() {
-    }
-
     onToggleStackUnstackThisTypeClicked(menuItem, variantPath) {
         this._desktopManager.onToggleStackUnstackThisTypeClicked(variantPath.get_string()[0]);
     }

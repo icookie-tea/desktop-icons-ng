@@ -112,6 +112,11 @@ export var ThumbnailLoader = class {
                     this._launchNewBuild();
                 });
             } catch (e) {
+                // A cancelled operation means the timeout handler already ran
+                // _createFailedThumbnailAsync; don't run it a second time.
+                if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
+                    return;
+                }
                 print(`Error while creating thumbnail: ${e.message}\n${e.stack}`);
                 this._createFailedThumbnailAsync(file, modifiedTime, resolve);
             }

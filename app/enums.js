@@ -45,7 +45,6 @@ export var Selection = {
     WITH_SHIFT: 1,
     RIGHT_BUTTON: 2,
     ENTER: 3,
-    LEAVE: 4,
     RELEASE: 5,
 };
 
@@ -59,20 +58,6 @@ export var UndoStatus = {
     NONE: 0,
     UNDO: 1,
     REDO: 2,
-};
-
-export var FileExistOperation = {
-    ASK: 0,
-    OVERWRITE: 1,
-    RENAME: 2,
-    SKIP: 3,
-};
-
-export var WhatToDoWithExecutable = {
-    EXECUTE: 0,
-    EXECUTE_IN_TERMINAL: 1,
-    DISPLAY: 2,
-    CANCEL: 3,
 };
 
 export var SortOrder = {
