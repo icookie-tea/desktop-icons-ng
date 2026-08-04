@@ -10,6 +10,3 @@ schemadir = os.path.join(prefix, 'share', 'glib-2.0', 'schemas')
 if 'DESTDIR' not in os.environ:
     print('Compiling GSettings schemas...')
     subprocess.call(['glib-compile-schemas', schemadir])
-    if prefix.startswith('/usr'):
-        print('Reloading apparmor rules...')
-        subprocess.call(['systemctl', 'reload', 'apparmor'])
