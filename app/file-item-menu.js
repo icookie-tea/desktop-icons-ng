@@ -538,7 +538,7 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
             if (targetURI) {
                 DBusUtils.RemoteFileOperations.ExtractRemote(extractFileItemURI, targetURI, true);
             } else {
-                this._desktopManager.DBusManager.doNotify(header, text);
+                this._desktopManager.dbusManager.doNotify(header, text);
             }
             return;
         }
@@ -564,7 +564,7 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
                 if (folder) {
                     DBusUtils.RemoteFileOperations.ExtractRemote(extractFileItemURI, folder, true);
                 } else {
-                    this._desktopManager.DBusManager.doNotify(header, text);
+                    this._desktopManager.dbusManager.doNotify(header, text);
                 }
             }
             dialog.destroy();

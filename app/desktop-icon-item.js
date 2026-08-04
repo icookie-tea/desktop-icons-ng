@@ -576,7 +576,7 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
                 let customIconFile = Gio.File.new_for_uri(customIcon);
                 if (customIconFile.query_exists(null)) {
                     let loadedImage = await this._loadImageAsIcon(customIconFile);
-                    if (loadedImage | this._destroyed) {
+                    if (loadedImage || this._destroyed) {
                         return;
                     }
                 }

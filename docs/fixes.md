@@ -2,6 +2,21 @@
 
 ## 2026-08-04
 
+### 提取失败通知静默失效 + 3 处代码清理
+
+| 问题 | 位置 | 修复 |
+|------|------|------|
+| 提取失败通知不显示（真实 bug） | `app/file-item-menu.js:541,567` | `this._desktopManager.DBusManager.doNotify()` 误用类名（GJS 静默吞 TypeError），改为实例字段 `dbusManager`。影响："无法创建提取文件夹"（提取到新文件夹失败时）和"无法选择提取目录"（FileChooser 无选中目录时）的通知从未弹出 |
+| 按位或异味 | `app/desktop-icon-item.js:579` | `loadedImage \| this._destroyed` → `\|\|`（`loadedImage` 可为 `undefined`，按位或依赖隐式转换） |
+| 冗余分支 | `app/file-operations.js:198-200` | `doNewFolder` catch 块 `if (position \|\| suggestedName) return null; return null;` 两个分支相同，简化为一个 `return null` |
+| accels 前缀不一致 | `app/menu-helper.js:69,82` | `set_accels_for_action(name, ...)` 缺 `"app."` 前缀（与 `_addNewAction` 不一致），统一补上 |
+
+**验证：** `gjs --module tests/run.js` 全部通过（131 断言）；`npx eslint` 无新增错误。
+
+---
+
+## 2026-08-04
+
 ### 性能优化：O(n²) 算法改 Map/Set 索引 + 低风险清理（不新增功能）
 
 对照 `docs/memory-leak-analysis.md` 中遗留的未修复项，实施 3 个 O(n²) 算法优化与 4 个低风险清理。所有改动均为内部实现，不改变任何用户可见行为、D-Bus 接口或设置项。

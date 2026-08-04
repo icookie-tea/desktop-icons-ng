@@ -66,7 +66,7 @@ export var MenuHelper = class {
         });
         this._mainApp.add_action(newAction);
         if (accels !== null) {
-            this._mainApp.set_accels_for_action(name, accels);
+            this._mainApp.set_accels_for_action("app." + name, accels);
         }
         newAction.enabled = true;
     }
@@ -79,7 +79,7 @@ export var MenuHelper = class {
         });
         this._mainApp.add_action(newAction);
         if (accels !== null) {
-            this._mainApp.set_accels_for_action(name, accels);
+            this._mainApp.set_accels_for_action("app." + name, accels);
         }
         newAction.enabled = true;
     }

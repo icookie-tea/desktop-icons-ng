@@ -195,9 +195,6 @@ export var FileOperations = class {
                 const header = _('Folder Creation Failed');
                 const text = _('Error while trying to create a Folder');
                 this._dm.dbusManager.doNotify(header, text);
-                if (position || suggestedName) {
-                    return null;
-                }
                 return null;
             }
             if (opts.rename) {
