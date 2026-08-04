@@ -159,6 +159,7 @@ export var DesktopMonitor = class {
             fileItem._onDestroy();
             return true;
         }
+        DebugLog.debugLog(`[file] created ${file.get_path()} basename=${fileItem.fileName} saved=[${fileItem._savedCoordinates}] drop=[${fileItem._dropCoordinates}]`);
         this.applyDropCoordinates(fileItem);
         this._dm._fileList.push(fileItem);
         this._dm._addSingleFileToDesktop(fileItem);

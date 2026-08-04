@@ -23,6 +23,7 @@ import * as Enums from './enums.js';
 import * as DesktopIconsUtil from './desktop-icons-util.js';
 import * as SignalManager from './signal-manager.js';
 import * as dndClipboardUtils from './dnd-clipboard-utils.js';
+import * as DebugLog from './log.js';
 import { PaintContainer } from './paint-container.js';
 
 import Gettext from 'gettext';
@@ -91,6 +92,7 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
             // coordinates (paste / new-folder / template drop position), and
             // the raw local ones would land on the wrong monitor.
             const [gx, gy] = this.coordinatesLocalToGlobal(x, y);
+            DebugLog.debugLog(`[click] right local=(${x},${y}) global=(${gx},${gy}) grid#${this._monitor} at=(${this._x},${this._y})`);
             this._desktopManager.onPressRightButton(controller, x, y, gx, gy, this._container);
         });
 
@@ -138,6 +140,7 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
         this._zoom = this._desktopDescription.scaleFactor;
         this._x = this._desktopDescription.x + this._desktopDescription.windowMarginLeft;
         this._y = this._desktopDescription.y + this._desktopDescription.windowMarginTop;
+        DebugLog.debugLog(`[grid] desktop#${this._monitor} rect=(${this._x},${this._y}) win=(${this._windowWidth}x${this._windowHeight})`);
         this._monitor = this._desktopDescription.monitorIndex;
         this._size_divisor = this._zoom;
 
@@ -411,6 +414,7 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
             y,
             coordinatesAction,
             fileItem.isDrive && addVolumesOpposite);
+        DebugLog.debugLog(`[place] grid#${this._monitor} add "${fileItem.fileName}" target=(${x},${y}) -> cell(${column},${row}) action=${coordinatesAction}`);
         this._addFileItemTo(fileItem, column, row, coordinatesAction);
     }
 

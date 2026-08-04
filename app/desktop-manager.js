@@ -572,6 +572,7 @@ export var DesktopManager = class {
         // x/y are container-local (the popover needs them), gx/gy are the
         // global equivalents stored into _clickX/_clickY — every consumer
         // of those interprets them as global screen coordinates.
+        DebugLog.debugLog(`[click] stored _click=(${gx},${gy}) menu-local=(${x},${y})`);
         this._pressedMouseButton(gx, gy);
         this._desktopMenu.showDesktopMenu(x, y, grid);
     }
@@ -1307,6 +1308,7 @@ export var DesktopManager = class {
     /* Primary-screen fallback cell: where icons with no coordinates land.
      * Reused by _addFilesToDesktop and _addSingleFileToDesktop. */
     _getFallbackPosition() {
+        DebugLog.debugLog(`[place] fallback primary#${this._primaryIndex} desktops=${this._desktops.length}`);
         if (this._primaryScreen !== null) {
             const primaryGrid = this._desktops.find(g => g._monitor === this._primaryScreen.monitorIndex);
             if (primaryGrid) {
@@ -1329,7 +1331,9 @@ export var DesktopManager = class {
         let minDistance = -1;
         for (let desktop of this._desktops) {
             const distance = desktop.getDistance(x, y);
+            DebugLog.debugLog(`[place] find(${x},${y}) grid#${desktop._monitor} dist=${distance}`);
             if (distance === 0) {
+                DebugLog.debugLog(`[place] find(${x},${y}) -> grid#${desktop._monitor} (exact)`);
                 return desktop;
             }
             if (exactOnly || distance === -1) {
@@ -1343,7 +1347,9 @@ export var DesktopManager = class {
                 nearestDesktop = desktop;
             }
         }
-        return nearest ? nearestDesktop : firstAvailable;
+        const chosen = nearest ? nearestDesktop : firstAvailable;
+        DebugLog.debugLog(`[place] find(${x},${y}) -> ${chosen === null ? 'NULL (no hostable grid)' : `grid#${chosen._monitor} ${nearest ? '(nearest)' : '(first-available)'}`}`);
+        return chosen;
     }
 
     _addFilesToDesktop(fileList, storeMode) {
@@ -1544,6 +1550,7 @@ export var DesktopManager = class {
         if (!position) {
             position = [this._clickX, this._clickY];
         }
+        DebugLog.debugLog(`[click] new-folder at=(${position[0]},${position[1]}) from=_click=(${this._clickX},${this._clickY})`);
 
         const baseName = suggestedName ? suggestedName : _('New Folder');
         let newName = this.getDesktopUniqueFileName(baseName);

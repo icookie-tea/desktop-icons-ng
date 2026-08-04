@@ -26,6 +26,7 @@ import * as Prefs from './preferences.js';
 
 import * as TemplatesScriptsManager from './templates-scripts-manager.js';
 import * as DesktopIconsUtil from './desktop-icons-util.js';
+import * as DebugLog from './log.js';
 import * as MenuHelper from './menu-helper.js';
 import * as Enums from './enums.js';
 
@@ -81,6 +82,7 @@ export var DesktopMenu = class extends MenuHelper.MenuHelper {
     setClickCoordinates(x, y) {
         this._clickX = Math.floor(x);
         this._clickY = Math.floor(y);
+        DebugLog.debugLog(`[click] menu click=(${this._clickX},${this._clickY})`);
     }
 
     _newDocument(menuItem, variantPath) {
@@ -97,6 +99,7 @@ export var DesktopMenu = class extends MenuHelper.MenuHelper {
         try {
             file.copy(destination, Gio.FileCopyFlags.NONE, null, null);
             const info = new Gio.FileInfo();
+            DebugLog.debugLog(`[click] template at=(${this._clickX},${this._clickY}) -> ${finalName}`);
             info.set_attribute_string('metadata::nautilus-drop-position', `${this._clickX},${this._clickY}`);
             info.set_attribute_string('metadata::nautilus-icon-position', '');
             destination.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
