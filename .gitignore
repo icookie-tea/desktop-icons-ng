@@ -7,6 +7,10 @@
 # pi cache
 .pi/git/
 .pi/npm/
+.pi/settings.json
+
+# mcp config
+.mcp.json
 
 # node tooling
 node_modules/
