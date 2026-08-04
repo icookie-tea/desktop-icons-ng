@@ -170,11 +170,7 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
             accessible_role: role,
         });
 
-        if (this._desktopManager.darkText) {
-            this._label.add_css_class('file-label-dark');
-        } else {
-            this._label.add_css_class('file-label');
-        }
+        this._applyDarkTextClass();
 
         this.container.append(this._icon);
         this.container.append(labelContainer);
@@ -205,6 +201,21 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
 
         this._setDragSource(this.container);
         this.container.show();
+    }
+
+    /* Keeps the label CSS class in sync with the dark-text setting. Used at
+     * creation and by the fast-path refresh, which reuses the widget. */
+    _applyDarkTextClass() {
+        if (this._label === null) {
+            return;
+        }
+        if (this._desktopManager.darkText) {
+            this._label.remove_css_class('file-label');
+            this._label.add_css_class('file-label-dark');
+        } else {
+            this._label.remove_css_class('file-label-dark');
+            this._label.add_css_class('file-label');
+        }
     }
 
     _doLabelSizeAllocated() {

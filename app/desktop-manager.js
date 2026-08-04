@@ -218,7 +218,19 @@ export var DesktopManager = class {
             this._updateDesktopSafe('mount added');
         });
         this._trackSignal(this._volumeMonitor, 'mount-removed', () => {
-            this._updateDesktopSafe('mount removed');
+            // Delay the refresh: at removal time the mount's files may still
+            // be queryable (FUSE teardown race), and a short wait coalesces
+            // the removal burst.
+            if (this._mountRemovedTimeoutId) {
+                GLib.source_remove(this._mountRemovedTimeoutId);
+            }
+            this._mountRemovedTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT,
+                Constants.MOUNT_REMOVED_DELAY_MS,
+                () => {
+                    this._mountRemovedTimeoutId = 0;
+                    this._updateDesktopSafe('mount removed');
+                    return GLib.SOURCE_REMOVE;
+                });
         });
     }
 
@@ -226,6 +238,8 @@ export var DesktopManager = class {
         switch (key) {
             case 'dark-text-in-labels':
                 this.darkText = Prefs.desktopSettings.get_boolean('dark-text-in-labels');
+                // fast-path refresh reuses widgets, so sync the label class here
+                this._fileList.forEach(x => x._applyDarkTextClass());
                 this._updateDesktopSafe('dark text changed');
                 return;
             case 'show-link-emblem':
@@ -314,6 +328,10 @@ export var DesktopManager = class {
         if (this.keypressTimeoutID) {
             GLib.source_remove(this.keypressTimeoutID);
             this.keypressTimeoutID = null;
+        }
+        if (this._mountRemovedTimeoutId) {
+            GLib.source_remove(this._mountRemovedTimeoutId);
+            this._mountRemovedTimeoutId = 0;
         }
         if (this._themeManager) {
             this._themeManager.disconnect();
@@ -1053,6 +1071,30 @@ export var DesktopManager = class {
         this._fileList = [];
     }
 
+    /* Like _removeAllFilesFromGrids, but keeps the FileItems alive: used by
+     * the fast-path refresh, which reuses the widgets. */
+    _clearAllFilesFromGrids() {
+        for (let fileItem of this._fileList) {
+            fileItem.removeFromGrid(false);
+        }
+        this._fileList = [];
+    }
+
+    /* True when both lists hold exactly the same files (same URIs, same
+     * count), so icons can be refreshed in place instead of rebuilt. */
+    _canReuseFileItems(newList) {
+        if (this._fileList.length !== newList.length) {
+            return false;
+        }
+        const uris = new Set(newList.map(f => f.uri));
+        for (const item of this._fileList) {
+            if (!uris.has(item.uri)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     async _updateDesktop() {
         if (this._readingDesktopFiles) {
             this._desktopFilesChanged = true;
@@ -1193,8 +1235,38 @@ export var DesktopManager = class {
             // destroyed when the fileItem is removed from the desktop
             this._renameWindow.updateFileItem(null);
         }
-        this._removeAllFilesFromGrids();
-        this._fileList = fileList;
+        // Fast path: same file set — refresh metadata in place instead of
+        // destroying and recreating every icon widget (avoids flicker on
+        // settings/mount refreshes; incremental events already cover the
+        // common file-system changes). Falls back to full rebuild whenever
+        // the file set changed (stack markers also make URIs differ).
+        if (this._canReuseFileItems(fileList)) {
+            const oldByUri = new Map(this._fileList.map(f => [f.uri, f]));
+            const reused = [];
+            for (const newItem of fileList) {
+                const old = oldByUri.get(newItem.uri);
+                if (typeof old._updateMetadataFromFileInfo === 'function') {
+                    old._updateMetadataFromFileInfo(newItem._fileInfo);
+                    // assign the coordinate fields directly: the setters
+                    // would write the stale values back to disk
+                    old._savedCoordinates = old._readCoordinatesFromAttribute(
+                        newItem._fileInfo, 'metadata::nautilus-icon-position');
+                    old._dropCoordinates = old._readCoordinatesFromAttribute(
+                        newItem._fileInfo, 'metadata::nautilus-drop-position');
+                    old._applyDarkTextClass();
+                    old._updateIcon().catch(e => {
+                        print(`Exception while refreshing a reused icon: ${e.message}\n${e.stack}`);
+                    });
+                }
+                newItem._onDestroy();
+                reused.push(old);
+            }
+            this._clearAllFilesFromGrids();
+            this._fileList = reused;
+        } else {
+            this._removeAllFilesFromGrids();
+            this._fileList = fileList;
+        }
         // Select the files that were selected before the repaint
         if (this._selectedFiles) {
             for (let fileItem of fileList) {

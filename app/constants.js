@@ -25,4 +25,5 @@ export var KEYPRESS_SEARCH_TIMEOUT_MS = 1500;   // keyboard name-search reset ti
 export var REFRESH_RETRY_DELAY_MS = 500;        // wait between full-refresh retries
 export var DESKTOP_UPDATE_THROTTLE_US = 1000000; // force redraw if refresh took > 1s
 export var MOVE_PENDING_TIMEOUT_MS = 150;       // MOVED_OUT -> MOVED_IN merge window
+export var MOUNT_REMOVED_DELAY_MS = 500;        // delay before refreshing after mount-removed
 export var THUMBNAIL_TIMEOUT_MS = 5000;         // thumbnail generation timeout
