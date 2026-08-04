@@ -2,6 +2,28 @@
 
 ## 2026-08-04
 
+### 多屏粘贴/新建文件夹落到主屏同位置网格（右键局部坐标被当全局坐标）
+
+**症状：** 双屏（A 左 B 右）下，在 B 屏右键“粘贴”复制的文件，图标出现在 **A 屏与鼠标同位置**的网格，而不是 B 屏鼠标下方；右键“新建文件夹”“新建文档”同样错屏。
+
+**根因：** 坐标空间不一致。右键手势回调（`app/desktop-grid.js`）把**容器局部坐标**直接传给 `onPressRightButton`（左键与拖放路径都会先 `coordinatesLocalToGlobal` 转换——左键是 2022 年补的，右键因 Popover 需要局部坐标而一直未转），存入 `_clickX/_clickY`。而粘贴/新建文件夹/模板路径把 `_clickX/_clickY` 写成 `metadata::nautilus-drop-position`，落位时（`desktop-manager.js` `_addFilesToDesktop`/`_addSingleFileToDesktop` → `getDistance()` → `gridGlobalRectangle.intersect()`）按**全局屏幕坐标**解释。B 屏局部 (300,200) 被当作全局 (300,200)，落在 A 屏矩形内 → 图标放到 A 屏同位置网格。单屏（窗口在原点、边距为 0）时局部≈全局，故一直未暴露；`dcbef19`（粘贴定位功能）引入消费后才变成可见症状。
+
+**修复：** 右键手势回调与左键对称，转换出全局坐标后一并传入；`onPressRightButton` 存全局进 `_clickX/_clickY`，局部坐标仍只用于菜单 Popover 定位。
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktop-grid.js` | 右键回调 `coordinatesLocalToGlobal` 后传 `(x, y, gx, gy, container)` |
+| `app/desktop-manager.js` | `onPressRightButton` 新签名：`_pressedMouseButton(gx, gy)`，`showDesktopMenu(x, y, grid)` 保持局部 |
+| `tests/test-click-coordinates.js` | 新增回归测试：右键存全局/菜单收局部、左键存全局、浮点取整 |
+
+**验证：** `gjs --module tests/run.js` 全绿（新增 11 断言）；`scripts/check.sh` 全部通过。
+
+**影响范围：** 菜单粘贴、右键新建文件夹（`file-operations.js`）、右键新建文档/模板（`desktop-menu.js` `_newDocument`）、Ctrl+V 键盘粘贴（最后一次按压为右键时）。
+
+---
+
+## 2026-08-04
+
 ### 移除 Nemo 支持（设置项 + 代码 + schema）
 
 **决定：** 桌面图标扩展自身不需要 Nemo——打开文件夹/"在文件管理器中显示"应始终走系统默认应用（Nautilus）。移除 upstream 的 `use-nemo` 开关，减少维护面。
