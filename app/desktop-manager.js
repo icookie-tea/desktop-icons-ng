@@ -1537,8 +1537,4 @@ export var DesktopManager = class {
     onToggleStackUnstackThisTypeClicked(type) {
         this._sortManager.onToggleStackUnstackThisTypeClicked(type);
     }
-
-    _getSortManager() {
-        return this._sortManager;
-    }
 };

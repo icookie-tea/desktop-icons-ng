@@ -172,38 +172,4 @@ export var FileOperations = class {
         return newName;
     }
 
-    doNewFolder(position = null, suggestedName = null, opts = { rename: true }) {
-        this._dm.unselectAll();
-
-        if (!position) {
-            position = [this._dm._clickX, this._dm._clickY];
-        }
-
-        const baseName = suggestedName ? suggestedName : _('New Folder');
-        let newName = this.getDesktopUniqueFileName(baseName);
-
-        if (newName) {
-            let dir = DesktopIconsUtil.getDesktopDir().get_child(newName);
-            try {
-                dir.make_directory(null);
-                const info = new Gio.FileInfo();
-                info.set_attribute_string('metadata::nautilus-drop-position', `${position.join(',')}`);
-                info.set_attribute_string('metadata::nautilus-icon-position', '');
-                dir.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
-            } catch (e) {
-                console.error(e, 'Failed to create folder');
-                const header = _('Folder Creation Failed');
-                const text = _('Error while trying to create a Folder');
-                this._dm.dbusManager.doNotify(header, text);
-                return null;
-            }
-            if (opts.rename) {
-                this._dm.newFolderDoRename = newName;
-            }
-            if (position || suggestedName) {
-                return dir.get_uri();
-            }
-        }
-        return null;
-    }
 };

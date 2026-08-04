@@ -182,15 +182,6 @@ export function getSortOrder() {
 
 /**
  *
- * @param order
- */
-export function setSortOrder(order) {
-    let x = Object.values(Enums.SortOrder).indexOf(order);
-    desktopSettings.set_enum(Enums.SortOrder.ORDER, x);
-}
-
-/**
- *
  */
 export function getUnstackList() {
     return desktopSettings.get_strv('unstackedtypes');
