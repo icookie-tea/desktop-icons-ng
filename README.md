@@ -41,7 +41,7 @@ This branch maintains fixes and enhancements not yet merged to the upstream repo
 * **Primary monitor switch icon placement** - new icons now appear on the correct screen after switching primary display in GNOME settings
 * **Folder self-drop routing** - prevents Nautilus "cannot move folder into itself" error and fixes drag-into-selected-folder edge cases
 * **Drag cursor/ghost icon** - ghost preview now follows mouse during drag (was showing default text-file placeholder)
-* **Accent color refresh on theme change** - selection colors update immediately when GNOME accent color changes, no longer requires restart
+* **Accent color refresh on theme change** - selection colors update immediately when the accent color changes (GNOME preset or user-level overrides like Chromaleon), no longer requires restart
 * **Ghost preview size fix** - ghost rectangle now matches actual icon container size instead of full grid cell
 * **Drop target box-shadow suppression** - removed 1px green outline from Adwaita `:drop(active)` on desktop window during drag
 

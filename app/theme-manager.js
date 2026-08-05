@@ -5,7 +5,8 @@
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, version 3 of the License.
+ * the Free Software Foundation, version 3 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -17,6 +18,8 @@
  */
 import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
+import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
 import Adw from 'gi://Adw';
 
 import * as Prefs from './preferences.js';
@@ -40,22 +43,58 @@ export var ThemeManager = class {
     }
 
     connectAccentColorHandler(handler) {
+        // The accent color is resolved in configureSelectionColor() from
+        // (1) a user-level override in ~/.config/gtk-4.0/gtk.css (e.g. the
+        // Chromaleon extension's `@define-color accent_bg_color`), or
+        // (2) the dynamic accent (settings portal / gsettings preset).
+        // Re-read on every event that can change either source:
+        //  - Adw.StyleManager accent-color change (Settings preset change)
+        //  - user gtk.css / imported file changes (override edits)
         try {
-            if (this._adwStyleManager.get_system_supports_accent_colors()) {
-                this._accentColorsAvailable = true;
-                this._adwStyleManagerSignalId = this._adwStyleManager.connect('notify', (obj, spec) => {
-                    if ((spec.get_name() === 'accent-color') || (spec.get_name() === 'accent-color-rgba')) {
-                        handler();
-                    }
-                });
-            }
+            this._accentColorsAvailable =
+                this._adwStyleManager.get_system_supports_accent_colors();
         } catch (e) {
-            console.log(`System does not support accent colors: ${e.message}\n${e.stack}`);
             this._accentColorsAvailable = false;
+        }
+
+        try {
+            this._adwStyleManagerSignalId = this._adwStyleManager.connect('notify', (obj, spec) => {
+                if ((spec.get_name() === 'accent-color') || (spec.get_name() === 'accent-color-rgba')) {
+                    handler();
+                }
+            });
+        } catch (e) {
+            console.log(`Unable to listen to accent color changes: ${e.message}\n${e.stack}`);
+        }
+
+        try {
+            // Monitoring the whole dir also catches Chromaleon replacing
+            // custom-accent.css (the @import target of gtk.css).
+            const cssDir = Gio.File.new_for_path(
+                GLib.build_filenamev([GLib.get_user_config_dir(), 'gtk-4.0'])
+            );
+            this._userCssMonitor = cssDir.monitor(Gio.FileMonitorFlags.NONE, null);
+            this._userCssMonitorSignalId = this._userCssMonitor.connect('changed', () => {
+                // A file write can generate several events (temp file +
+                // rename); debounce and re-read once the dust settles.
+                if (this._userCssChangeTimeoutId !== undefined)
+                    GLib.source_remove(this._userCssChangeTimeoutId);
+                this._userCssChangeTimeoutId = GLib.timeout_add(
+                    GLib.PRIORITY_DEFAULT,
+                    300,
+                    () => {
+                        this._userCssChangeTimeoutId = undefined;
+                        handler();
+                        return GLib.SOURCE_REMOVE;
+                    }
+                );
+            });
+        } catch (e) {
+            console.log(`Unable to monitor user gtk.css: ${e.message}\n${e.stack}`);
         }
     }
 
-    /* Both the Adw.StyleManager notify handler (global singleton) and the
+    /* All notify handlers (global singletons), the file monitor and the
      * selection-color CssProvider are added for the lifetime of the
      * DesktopManager; without this the extension's disable/enable cycles
      * accumulate live handlers and providers on the global display. */
@@ -64,6 +103,17 @@ export var ThemeManager = class {
             this._adwStyleManager.disconnect(this._adwStyleManagerSignalId);
             this._adwStyleManagerSignalId = undefined;
         }
+        if (this._userCssChangeTimeoutId !== undefined) {
+            GLib.source_remove(this._userCssChangeTimeoutId);
+            this._userCssChangeTimeoutId = undefined;
+        }
+        if (this._userCssMonitor !== null) {
+            if (this._userCssMonitorSignalId !== undefined)
+                this._userCssMonitor.disconnect(this._userCssMonitorSignalId);
+            this._userCssMonitor.cancel();
+            this._userCssMonitor = null;
+            this._userCssMonitorSignalId = undefined;
+        }
         if (this._cssColorProviderSelection !== null) {
             Gtk.StyleContext.remove_provider_for_display(
                 Gdk.Display.get_default(),
@@ -71,6 +121,76 @@ export var ThemeManager = class {
             );
             this._cssColorProviderSelection = null;
         }
+    }
+
+    /* Read the accent override from the user stylesheet
+     * (~/.config/gtk-4.0/gtk.css and its @import chain, e.g. Chromaleon's
+     * custom-accent.css). Returns a Gdk.RGBA or null when no override is
+     * defined.
+     *
+     * Reading the file directly (instead of lookup_color()) is deliberate:
+     * GTK only re-parses the user stylesheet on theme reloads, which is
+     * unreliable (Chromaleon forces it via a high-contrast toggle that races
+     * its asynchronous file writes, and a failed re-parse can leave the old
+     * color cached). The file itself is the ground truth. */
+    _readUserAccentOverride() {
+        const cssDir = GLib.build_filenamev([GLib.get_user_config_dir(), 'gtk-4.0']);
+        const mainPath = GLib.build_filenamev([cssDir, 'gtk.css']);
+        const mainFile = Gio.File.new_for_path(mainPath);
+        if (!mainFile.query_exists(null))
+            return null;
+
+        const readFile = (path) => {
+            try {
+                const [ok, bytes] = Gio.File.new_for_path(path).load_contents(null);
+                if (!ok)
+                    return null;
+                return new TextDecoder().decode(bytes);
+            } catch (e) {
+                return null;
+            }
+        };
+
+        const contents = [readFile(mainPath)].filter((c) => c !== null);
+        if (contents.length === 0)
+            return null;
+
+        // Resolve @import url("...") targets relative to gtk.css.
+        const importRe = /@import\s+url\(["']?([^"')]+)["']?\)/g;
+        let m;
+        while ((m = importRe.exec(contents[0])) !== null) {
+            const target = m[1];
+            let path = null;
+            if (target.startsWith('file://')) {
+                const f = Gio.File.new_for_uri(target);
+                if (f.get_path())
+                    path = f.get_path();
+            } else if (target.startsWith('/')) {
+                path = target;
+            } else {
+                path = GLib.build_filenamev([cssDir, target]);
+            }
+            if (path !== null) {
+                const content = readFile(path);
+                if (content !== null)
+                    contents.push(content);
+            }
+        }
+
+        // Strip comments so @define-color inside /* ... */ is ignored, then
+        // take the last definition (later rules win at the same priority).
+        const defineRe = /@define-color\s+accent_bg_color\s+([^;]+);/g;
+        let result = null;
+        for (const content of contents) {
+            const stripped = content.replace(/\/\*[\s\S]*?\*\//g, '');
+            let d;
+            while ((d = defineRe.exec(stripped)) !== null) {
+                const rgba = new Gdk.RGBA();
+                if (rgba.parse(d[1].trim()))
+                    result = rgba;
+            }
+        }
+        return result;
     }
 
     configureSelectionColor() {
@@ -82,17 +202,29 @@ export var ThemeManager = class {
         }
 
         try {
-            if (this._accentColorsAvailable) {
-                this.selectColor = this._adwStyleManager.get_accent_color_rgba();
+            // 1) User-level override (Chromaleon custom accent, or any
+            //    @define-color accent_bg_color in the user gtk.css).
+            const override = this._readUserAccentOverride();
+            if (override !== null) {
+                this.selectColor = override;
             } else {
-                const box = new Gtk.Label();
-                const styleContext = box.get_style_context();
-                styleContext.add_class('view');
-                const [exists, color] = styleContext.lookup_color('accent_bg_color');
-                if (exists)
-                    this.selectColor = color;
-                else
-                    throw new Error('Style Context does not provide accent_bg_color');
+                // 2) Dynamic accent (settings portal / gsettings preset).
+                //    This covers Chromaleon's "GNOME Colors" mode, a disabled
+                //    Chromaleon, and plain systems (no override defined).
+                try {
+                    this.selectColor = this._adwStyleManager.get_accent_color_rgba();
+                } catch (e) {
+                    // 3) Theme named color (older systems without the portal
+                    //    accent).
+                    const box = new Gtk.Label();
+                    const styleContext = box.get_style_context();
+                    styleContext.add_class('view');
+                    const [exists, color] = styleContext.lookup_color('accent_bg_color');
+                    if (exists)
+                        this.selectColor = color;
+                    else
+                        throw new Error('Style Context does not provide accent_bg_color');
+                }
             }
         } catch (e) {
             console.log(e.message);

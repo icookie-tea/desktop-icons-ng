@@ -1,5 +1,30 @@
 # 修复日志
 
+## 2026-08-05
+
+### 强调色改为直接解析用户 gtk.css（跟随 Chromaleon 等用户级覆盖）
+
+**症状：** 安装 Chromaleon（按壁纸生成自定义强调色）后，nautilus、gnome-shell 均跟随自定义色，但 DING 的选中框/橡皮筋/拖放预览仍用系统设置里的 9 种预设强调色。
+
+**根因：** 两条互不相通的强调色通道。Chromaleon 把自定义色写进 `~/.config/gtk-4.0/custom-accent.css`（`@define-color accent_bg_color <hex>`），经用户级 `gtk.css` `@import` 以 USER 优先级（800）覆盖 libadwaita 主题（200）的命名色——nautilus 的 `var(--accent-bg-color)` 由 `@accent_bg_color` 派生，故跟随。而 `org.gnome.desktop.interface accent-color` 是 enum（只能存 9 预设），portal `org.freedesktop.appearance AccentColor` 是另一条通道，Chromaleon 从不修改；DING 此前优先 `get_system_supports_accent_colors()` + `get_accent_color_rgba()` 读这条通道 → 永远拿到预设色。
+
+**修复（两轮演进，最终方案）：**
+
+- **第一轮：** `lookup_color('accent_bg_color')` 优先。实测发现实时跟随不可靠：GTK **不监视** @import 文件，只有主题/高对比度重载才重读用户 CSS；Chromaleon 靠切换 high-contrast 强制重载（GTK 4.22 触发属性是 `gtk-interface-contrast`，不是 `gtk-theme-name`），但该重载与 Chromaleon 的异步写文件存在**时序竞态**，且失败重读会**保留旧解析结果**（gnome-colors 模式下实测卡在旧自定义色）。
+- **最终方案：直接解析文件，不再依赖 GTK 解析缓存。** `_readUserAccentOverride()` 读取 `~/.config/gtk-4.0/gtk.css` 及其 `@import` 链（剥注释后取最后一个 `@define-color accent_bg_color`，`Gdk.RGBA.parse` 校验）；`configureSelectionColor()` 优先级：① 用户覆盖（文件里有定义）→ ② `get_accent_color_rgba()`（portal 预设，覆盖 Chromaleon 的 GNOME Colors 模式 / Chromaleon 关闭 / 纯系统）→ ③ `lookup_color('accent_bg_color')`（旧系统）→ ④ 默认蓝。实时更新改为 **GFileMonitor 监视 `~/.config/gtk-4.0/` 目录**（Chromaleon 每次改色必然重写文件，这是它唯一确定的行为；300ms 防抖吸收 temp+rename 多事件）+ Adw `notify` 无条件连接（设置换预设）。**删除** `gtk-interface-contrast` / `gtk-theme-name` 钩子。
+
+| 文件 | 变更 |
+|------|------|
+| `app/theme-manager.js` | 新增 `_readUserAccentOverride()`（gtk.css + @import 链解析）；`configureSelectionColor()` 四级回退；Adw notify 无条件连接 + `~/.config/gtk-4.0/` 目录 GFileMonitor（300ms 防抖）；`disconnect()` 清理信号/监视器/定时器/provider |
+
+**验证（直接 import 真实 ThemeManager 的探测进程，全场景）：** ① 自定义模式下启动 = 自定义色；② 自定义色切换 → ~0.3s 跟随新色；③ 开启 GNOME Colors → 变为预设色（**此前卡死的场景**）；④ GNOME Colors 模式下切预设（teal→red→pink）→ 依次跟随；⑤ 关闭 GNOME Colors → 回到自定义色。`scripts/check.sh` 全部通过。构建由用户执行。
+
+**影响范围：** 桌面选中框（`.desktop-icons-selected` CSS 类）、橡皮筋/拖放预览（`paint-container.js` 用 `dm.selectColor`）。无新文件 → meson.build 不变。已知限制：监视器只覆盖 `~/.config/gtk-4.0/` 目录内文件（Chromaleon 的产物都在其中）；若该目录不存在则跳过监视（初始读取仍正确）。
+
+**影响范围：** 桌面选中框（`.desktop-icons-selected` CSS 类）、橡皮筋/拖放预览（`paint-container.js` 用 `dm.selectColor`）。无新文件 → meson.build 不变。
+
+---
+
 ## 2026-08-04
 
 ### 多屏粘贴/新建文件夹落到主屏同位置网格（右键局部坐标被当全局坐标）

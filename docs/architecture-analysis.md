@@ -377,11 +377,17 @@ icookie 修复：图片缩略图尺寸不超过 icon_size（防止容器撑宽�
 ```
 ThemeManager
   ├─→ connectAccentColorHandler(handler)
-  │   └─→ Adw.StyleManager::notify(accent-color/rgba) → handler()
+  │   ├─→ Adw.StyleManager::notify(accent-color/rgba) → handler()   // 无条件连接
+  │   └─→ GFileMonitor(~/.config/gtk-4.0/ 目录) → handler()（300ms 防抖）
+  │       （用户 gtk.css / custom-accent.css 覆盖变更；icookie 最终方案：
+  │        不依赖 GTK 解析缓存，直接读文件，见 fixes.md 2026-08-05）
   │       icookie: handler 被包装在 GLib.idle_add 中（修复竞态）
   │
   ├─→ configureSelectionColor()
-  │   ├─→ accentColorsAvailable ? get_accent_color_rgba() : lookup('accent_bg_color')
+  │   ├─→ _readUserAccentOverride() 优先   // 解析 gtk.css + @import 链的
+  │   │     //  @define-color accent_bg_color（Chromaleon 自定义色）
+  │   ├─→ 无覆盖 → get_accent_color_rgba()  // portal/预设（含 GNOME Colors 模式）
+  │   ├─→ 再失败 → lookup('accent_bg_color')  // 旧系统主题命名色
   │   └─→ Gtk.CssProvider → @define-color desktop_icons_bg_color
   │       icookie: 修复 Gtk 4.9 load_from_data API 兼容（-1 vs NULL）
   │
