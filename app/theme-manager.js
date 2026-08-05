@@ -36,6 +36,10 @@ export var ThemeManager = class {
             blue: 0.9,
             alpha: 1.0,
         });
+        // Derived shade (libadwaita --accent-color equivalent: oklab from the
+        // base color, min(l,0.5) light / max(l,0.85) dark). Resolved in
+        // configureSelectionColor() via GTK's own oklab engine.
+        this.accentColor = this.selectColor;
     }
 
     get accentColorsAvailable() {
@@ -248,8 +252,23 @@ export var ThemeManager = class {
                 });
             }
         }
+        // Derived shade = libadwaita's --accent-color formula (oklab, keep
+        // hue, clamp lightness: min(l,0.5) light scheme / max(l,0.85) dark
+        // scheme). The variant is chosen in JS instead of a @media query
+        // because GTK evaluates prefers-color-scheme per-window and a
+        // detached probe widget would resolve the light variant even in dark
+        // mode.
+        let shadeVariant = 'min(l, 0.5)';
+        try {
+            if (Prefs.schemaGnomeDarkSettings.get_string('color-scheme') === 'prefer-dark')
+                shadeVariant = 'max(l, 0.85)';
+        } catch (e) {
+            // keep the light variant
+        }
         let cssColorDefinition =
-            `@define-color desktop_icons_bg_color ${this.selectColor.to_string()};\n`;
+            `@define-color desktop_icons_bg_color ${this.selectColor.to_string()};\n` +
+            `@define-color desktop_icons_accent_color @desktop_icons_bg_color;\n` +
+            `@define-color desktop_icons_accent_color oklab(from @desktop_icons_bg_color ${shadeVariant} a b);\n`;
         this._cssColorProviderSelection = new Gtk.CssProvider();
         // fix for api change Gtk 4.9
         try {
@@ -266,6 +285,19 @@ export var ThemeManager = class {
             this._cssColorProviderSelection,
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         );
+
+        // Resolve the derived shade through GTK's own oklab engine so the
+        // rubberband border/fill and the keyboard selection ring match
+        // libadwaita's --accent-color exactly (e.g. #959595 -> ~#dadada in
+        // dark mode, like Nautilus's grey views).
+        try {
+            const box = new Gtk.Label();
+            const styleContext = box.get_style_context();
+            const [exists, color] = styleContext.lookup_color('desktop_icons_accent_color');
+            this.accentColor = exists ? color : this.selectColor;
+        } catch (e) {
+            this.accentColor = this.selectColor;
+        }
     }
 
     checkApplyDarkModeSetting() {

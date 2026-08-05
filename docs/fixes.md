@@ -42,6 +42,25 @@
 
 ---
 
+### 选中/橡皮筋/hover 颜色与 Nautilus 对齐（libadwaita 同款公式）
+
+**需求：** 开关关闭（灰）时，选中框、hover 框、橡皮筋的颜色与 Nautilus 一致；开启（强调色）时同样对齐。
+
+**现状差异：** DING 用 `selectColor`（强调色或灰）自定透明度：选中 bg 50%、hover 硬编码 `rgba(238,238,238,0.2)`、橡皮筋 fill 30%+border 100%；Nautilus（libadwaita）用：`gridview > child:selected` = accent-bg **25%**、hover = `currentColor 4%`、rubberband = border 1px `--accent-color` + bg 20%——其中 `--accent-color` 是**派生色** `oklab(from accent-bg min(l,0.5) a b)`（暗色模式 `max(l,0.85)`），不是 accent-bg 本身。
+
+**实现：**
+
+| 文件 | 变更 |
+|------|------|
+| `app/theme-manager.js` | 注入 CSS 增加 `desktop_icons_accent_color`（oklab 派生色，变体由 JS 按 `color-scheme` 选 min/max——不用 @media，因为 GTK 对分离 widget 的媒体查询恒解析为浅色变体）；provider 加载后 `lookup_color` 解析回 `this.accentColor` 供 cairo 用 |
+| `app/desktop-manager.js` | 新增 `accentColor` getter；`color-scheme` 变更时额外重算 `configureSelectionColor()` + `queue_draw()`（派生色变体随明暗切换） |
+| `app/paint-container.js` | 橡皮筋改用派生色：fill 20% + border 100%（原 fill 30%）；圆角 5→6（Nautilus 值）；缓存键加入 accentColor |
+| `app/stylesheet.css` | 选中 bg 50%→**25%**；键盘选中环改 `alpha(@desktop_icons_accent_color, 0.5)`（原 bg 色 80%）；hover 改 `color-mix(in srgb, currentColor 4%, transparent)`（原硬编码浅灰 20%） |
+
+**验证（真实 ThemeManager + GTK oklab 引擎探测）：** 暗色模式灰 `#959595` → 派生色 `rgb(206,206,206)`；暗色模式自定义 `#3c6c84` → 派生色 `rgb(163,214,241)`（浅蓝）；浅色变体 `min(l,0.5)` 亦正确（灰 → `rgb(99,99,99)`）；stylesheet.css 含 `color-mix`/`alpha(@color)` 解析无错。`scripts/check.sh` 全部通过。构建由用户执行。
+
+---
+
 ## 2026-08-04
 
 ### 多屏粘贴/新建文件夹落到主屏同位置网格（右键局部坐标被当全局坐标）

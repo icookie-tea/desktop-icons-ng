@@ -39,17 +39,24 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
 
     _updateColors(dm) {
         // Cache the RGBA objects and rebuild them only when the accent color
-        // object is replaced (ThemeManager assigns a new Gdk.RGBA on each
-        // configureSelectionColor()), avoiding per-frame allocations while
-        // painting the rubberband / drop preview during drags.
-        if (this._colors !== null && this._colors.selectColor === dm.selectColor) {
+        // objects are replaced (ThemeManager assigns new Gdk.RGBA objects on
+        // each configureSelectionColor()), avoiding per-frame allocations
+        // while painting the rubberband / drop preview during drags.
+        if (this._colors !== null &&
+            this._colors.selectColor === dm.selectColor &&
+            this._colors.accentColor === dm.accentColor) {
             return;
         }
         const { red, green, blue } = dm.selectColor;
+        const accent = dm.accentColor ?? dm.selectColor;
+        const { red: ar, green: ag, blue: ab } = accent;
         this._colors = {
             selectColor: dm.selectColor,
-            fillRubber: new Gdk.RGBA({ red, green, blue, alpha: 0.3 }),
-            borderRubber: new Gdk.RGBA({ red, green, blue, alpha: 1.0 }),
+            accentColor: dm.accentColor,
+            // libadwaita rubberband: border 1px var(--accent-color),
+            // background color-mix(var(--accent-color) 20%, transparent)
+            fillRubber: new Gdk.RGBA({ red: ar, green: ag, blue: ab, alpha: 0.2 }),
+            borderRubber: new Gdk.RGBA({ red: ar, green: ag, blue: ab, alpha: 1.0 }),
             fillDrop: new Gdk.RGBA({ red, green, blue, alpha: 0.4 }),
             borderDrop: new Gdk.RGBA({ red, green, blue, alpha: 1.0 }),
         };
@@ -94,7 +101,7 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
 
                 this._snapshotRoundedRect(snapshot,
                     xInit, yInit, xFin - xInit, yFin - yInit,
-                    5, this._colors.fillRubber, this._colors.borderRubber, 1);
+                    6, this._colors.fillRubber, this._colors.borderRubber, 1);
             }
         }
 

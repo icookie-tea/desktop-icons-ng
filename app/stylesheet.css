@@ -21,7 +21,8 @@
 }
 
 .file-item-hover {
-   background-color: rgba(238, 238, 238, 0.2);
+   /* libadwaita gridview hover: color-mix(in srgb, currentColor 4%, transparent) */
+   background-color: color-mix(in srgb, currentColor 4%, transparent);
 }
 
 .not-found {
@@ -48,11 +49,13 @@ window.testwindow {
 }
 
 .desktop-icons-selected {
-    background-color: alpha(@desktop_icons_bg_color, 0.5);
+    /* libadwaita gridview child:selected = accent-bg 25% */
+    background-color: alpha(@desktop_icons_bg_color, 0.25);
     border-color: alpha(@desktop_icons_bg_color, 0.0);
 }
 
 .desktop-icons-selected-keyboard:not(:backdrop) {
-    background-color: alpha(@desktop_icons_bg_color, 0.5);
-    border-color: alpha(@desktop_icons_bg_color, 0.8);
+    /* libadwaita focus ring = accent-color (derived shade) 50% */
+    background-color: alpha(@desktop_icons_bg_color, 0.25);
+    border-color: alpha(@desktop_icons_accent_color, 0.5);
 }

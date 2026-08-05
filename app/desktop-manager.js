@@ -189,6 +189,14 @@ export var DesktopManager = class {
                 this._trackSignal(Prefs.schemaGnomeDarkSettings, 'changed', (obj, key) => {
                     if (key === 'color-scheme') {
                         this._themeManager.checkApplyDarkModeSetting();
+                        // the derived shade variant (light/dark) changed
+                        this._themeManager.configureSelectionColor();
+                        for (let desktop of this._desktops) {
+                            desktop.queue_draw();
+                            if (desktop._container) {
+                                desktop._container.queue_draw();
+                            }
+                        }
                     }
                 });
             }
@@ -408,6 +416,10 @@ export var DesktopManager = class {
 
     get selectColor() {
         return this._themeManager.selectColor;
+    }
+
+    get accentColor() {
+        return this._themeManager.accentColor;
     }
 
     clearFileCoordinates(fileList, dropCoordinates) {
