@@ -53,9 +53,11 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
         this._colors = {
             selectColor: dm.selectColor,
             accentColor: dm.accentColor,
-            // libadwaita rubberband: border 1px var(--accent-color),
-            // background color-mix(var(--accent-color) 20%, transparent)
-            fillRubber: new Gdk.RGBA({ red: ar, green: ag, blue: ab, alpha: 0.2 }),
+            // libadwaita rubberband: border 1px var(--accent-color), background
+            // color-mix(var(--accent-color) 20%, transparent). Fill raised to
+            // 25% and the border to 2px so the band stays visible over
+            // wallpaper (Nautilus has a solid view background).
+            fillRubber: new Gdk.RGBA({ red: ar, green: ag, blue: ab, alpha: 0.25 }),
             borderRubber: new Gdk.RGBA({ red: ar, green: ag, blue: ab, alpha: 1.0 }),
             fillDrop: new Gdk.RGBA({ red, green, blue, alpha: 0.4 }),
             borderDrop: new Gdk.RGBA({ red, green, blue, alpha: 1.0 }),
@@ -101,7 +103,7 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
 
                 this._snapshotRoundedRect(snapshot,
                     xInit, yInit, xFin - xInit, yFin - yInit,
-                    6, this._colors.fillRubber, this._colors.borderRubber, 1);
+                    6, this._colors.fillRubber, this._colors.borderRubber, 2);
             }
         }
 
@@ -111,7 +113,7 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
                     x + elementSpacing, y + elementSpacing,
                     grid._elementWidth - 2 * elementSpacing,
                     grid._elementHeight - 2 * elementSpacing,
-                    10, this._colors.fillDrop, this._colors.borderDrop, 0.5);
+                    10, this._colors.fillDrop, this._colors.borderDrop, 1);
             }
         }
     }

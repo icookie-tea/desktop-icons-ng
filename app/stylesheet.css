@@ -21,8 +21,10 @@
 }
 
 .file-item-hover {
-   /* libadwaita gridview hover: color-mix(in srgb, currentColor 4%, transparent) */
-   background-color: color-mix(in srgb, currentColor 4%, transparent);
+   /* libadwaita gridview hover: color-mix(in srgb, currentColor 4%, transparent).
+      Raised to 10% because DING icons sit on wallpaper (no solid view bg),
+      where the 4% tint would be invisible. */
+   background-color: color-mix(in srgb, currentColor 10%, transparent);
 }
 
 .not-found {
@@ -49,13 +51,15 @@ window.testwindow {
 }
 
 .desktop-icons-selected {
-    /* libadwaita gridview child:selected = accent-bg 25% */
-    background-color: alpha(@desktop_icons_bg_color, 0.25);
+    /* libadwaita gridview child:selected = accent-bg 25%. Raised to 35% for
+       readability over wallpaper (Nautilus has a solid view background). */
+    background-color: alpha(@desktop_icons_bg_color, 0.35);
     border-color: alpha(@desktop_icons_bg_color, 0.0);
 }
 
 .desktop-icons-selected-keyboard:not(:backdrop) {
-    /* libadwaita focus ring = accent-color (derived shade) 50% */
-    background-color: alpha(@desktop_icons_bg_color, 0.25);
-    border-color: alpha(@desktop_icons_accent_color, 0.5);
+    /* libadwaita focus ring = accent-color (derived shade) 50%; raised to 70%
+       since the ring is the main keyboard-selection indicator on wallpaper. */
+    background-color: alpha(@desktop_icons_bg_color, 0.35);
+    border-color: alpha(@desktop_icons_accent_color, 0.7);
 }
