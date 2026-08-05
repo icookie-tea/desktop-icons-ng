@@ -71,6 +71,7 @@ export function preferencesFrame(_Gtk, desktopSettings, nautilusSettings, gtkSet
     desktopGroup.add(buildSwitcher(desktopSettings, 'show-drop-place', _("Highlight the drop place during Drag'n'Drop"), _('Shows a rectangle in the destination place during DnD')));
     desktopGroup.add(buildSwitcher(desktopSettings, 'show-link-emblem', _('Add an emblem to soft links'), _('Add an emblem to allow to identify soft links')));
     desktopGroup.add(buildSwitcher(desktopSettings, 'dark-text-in-labels', _('Use dark text in icon labels'), _('Use black for label text')));
+    desktopGroup.add(buildSwitcher(desktopSettings, 'use-accent-color', _('Use the accent color for selection'), _('Use the system accent color for the selection box, rubberband and drop preview. Disable to use a fixed grey color like Nautilus.')));
     page.add(desktopGroup);
 
     // --- Nautilus-shared settings group ---

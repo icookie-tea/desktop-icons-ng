@@ -25,6 +25,23 @@
 
 ---
 
+### 新增开关：是否用强调色绘制选中框/橡皮筋/拖放预览
+
+**需求：** 提供 `use-accent-color` 设置（默认开）。关闭时像 Nautilus 一样**不用强调色**（Nautilus 的列表/网格视图把 `--accent-bg-color` 覆盖成 `#959595` 灰色），开启时用强调色（预设或 Chromaleon 等用户级覆盖）。
+
+**实现：**
+
+| 文件 | 变更 |
+|------|------|
+| `schemas/org.gnome.shell.extensions.ding.gschema.xml` | 新增 `use-accent-color`（boolean，默认 true） |
+| `app/theme-manager.js` | `configureSelectionColor()` 开头分支：关闭时 `selectColor` 直接置为 `#959595` 灰，不经过强调色解析链 |
+| `app/prefs-window.js` | Desktop icons 组新增开关“Use the accent color for selection” |
+| `app/desktop-manager.js` | `_onDesktopSettingsChanged` 新增 `case 'use-accent-color'`：重新 `configureSelectionColor()` + 所有 desktop `queue_draw()`（实时生效） |
+
+**验证：** 真实 ThemeManager 探测：关闭 → `rgb(149,149,149)`（#959595），开启 → `rgb(60,108,132)`（#3c6c84 自定义色），settings changed 实时切换生效。`glib-compile-schemas --strict` 通过；`scripts/check.sh` 全部通过。构建由用户执行。
+
+---
+
 ## 2026-08-04
 
 ### 多屏粘贴/新建文件夹落到主屏同位置网格（右键局部坐标被当全局坐标）

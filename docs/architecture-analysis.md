@@ -384,6 +384,7 @@ ThemeManager
   │       icookie: handler 被包装在 GLib.idle_add 中（修复竞态）
   │
   ├─→ configureSelectionColor()
+  │   ├─→ use-accent-color 关闭 → 固定灰 #959595（Nautilus 风格）
   │   ├─→ _readUserAccentOverride() 优先   // 解析 gtk.css + @import 链的
   │   │     //  @define-color accent_bg_color（Chromaleon 自定义色）
   │   ├─→ 无覆盖 → get_accent_color_rgba()  // portal/预设（含 GNOME Colors 模式）

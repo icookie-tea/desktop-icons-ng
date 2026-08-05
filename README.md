@@ -31,6 +31,7 @@ This branch maintains fixes and enhancements not yet merged to the upstream repo
 
 ### New Features
 
+* **Accent color toggle** - new "Use the accent color for selection" option: when off, selection box/rubberband/drop preview use a fixed grey like Nautilus; when on, they follow the system accent (preset or user-level overrides like Chromaleon)
 * **Overview transition sync** - desktop icons fade in/out frame-synchronized with Shell overview transitions via Clutter.Clone + OverviewAdjustment (replaces old post-hoc ease animation)
 * **Terminal fallback** - added `ptyxis` to the terminal emulator fallback list
 * **Drag text/URLs to desktop** - drag text from editors or URLs into desktop creates `.txt` files, matching Nautilus behavior (handles Chinese, URL sanitization, filename deduplication)

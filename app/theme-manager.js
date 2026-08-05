@@ -201,40 +201,52 @@ export var ThemeManager = class {
             );
         }
 
-        try {
-            // 1) User-level override (Chromaleon custom accent, or any
-            //    @define-color accent_bg_color in the user gtk.css).
-            const override = this._readUserAccentOverride();
-            if (override !== null) {
-                this.selectColor = override;
-            } else {
-                // 2) Dynamic accent (settings portal / gsettings preset).
-                //    This covers Chromaleon's "GNOME Colors" mode, a disabled
-                //    Chromaleon, and plain systems (no override defined).
-                try {
-                    this.selectColor = this._adwStyleManager.get_accent_color_rgba();
-                } catch (e) {
-                    // 3) Theme named color (older systems without the portal
-                    //    accent).
-                    const box = new Gtk.Label();
-                    const styleContext = box.get_style_context();
-                    styleContext.add_class('view');
-                    const [exists, color] = styleContext.lookup_color('accent_bg_color');
-                    if (exists)
-                        this.selectColor = color;
-                    else
-                        throw new Error('Style Context does not provide accent_bg_color');
-                }
-            }
-        } catch (e) {
-            console.log(e.message);
-            console.log('Setting default accent color to blue');
+        if (!Prefs.desktopSettings.get_boolean('use-accent-color')) {
+            // Nautilus-style fixed grey (Nautilus overrides --accent-bg-color
+            // to #959595 in its list/grid views): selection, rubberband and
+            // drop preview do not follow the accent color.
             this.selectColor = new Gdk.RGBA({
-                red: 0,
-                green: 0,
-                blue: 0.9,
+                red: 0x95 / 255,
+                green: 0x95 / 255,
+                blue: 0x95 / 255,
                 alpha: 1.0,
             });
+        } else {
+            try {
+                // 1) User-level override (Chromaleon custom accent, or any
+                //    @define-color accent_bg_color in the user gtk.css).
+                const override = this._readUserAccentOverride();
+                if (override !== null) {
+                    this.selectColor = override;
+                } else {
+                    // 2) Dynamic accent (settings portal / gsettings preset).
+                    //    This covers Chromaleon's "GNOME Colors" mode, a disabled
+                    //    Chromaleon, and plain systems (no override defined).
+                    try {
+                        this.selectColor = this._adwStyleManager.get_accent_color_rgba();
+                    } catch (e) {
+                        // 3) Theme named color (older systems without the portal
+                        //    accent).
+                        const box = new Gtk.Label();
+                        const styleContext = box.get_style_context();
+                        styleContext.add_class('view');
+                        const [exists, color] = styleContext.lookup_color('accent_bg_color');
+                        if (exists)
+                            this.selectColor = color;
+                        else
+                            throw new Error('Style Context does not provide accent_bg_color');
+                    }
+                }
+            } catch (e) {
+                console.log(e.message);
+                console.log('Setting default accent color to blue');
+                this.selectColor = new Gdk.RGBA({
+                    red: 0,
+                    green: 0,
+                    blue: 0.9,
+                    alpha: 1.0,
+                });
+            }
         }
         let cssColorDefinition =
             `@define-color desktop_icons_bg_color ${this.selectColor.to_string()};\n`;

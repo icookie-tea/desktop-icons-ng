@@ -242,6 +242,15 @@ export var DesktopManager = class {
                 this._fileList.forEach(x => x._applyDarkTextClass());
                 this._updateDesktopSafe('dark text changed');
                 return;
+            case 'use-accent-color':
+                this._themeManager.configureSelectionColor();
+                for (let desktop of this._desktops) {
+                    desktop.queue_draw();
+                    if (desktop._container) {
+                        desktop._container.queue_draw();
+                    }
+                }
+                return;
             case 'show-link-emblem':
                 this.showLinkEmblem = Prefs.desktopSettings.get_boolean('show-link-emblem');
                 this._updateDesktopSafe('show link emblem changed');

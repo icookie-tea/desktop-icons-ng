@@ -95,6 +95,11 @@
         <summary>Use black for label text</summary>
         <description>Paint the label text in black instead of white. Useful when using light backgrounds.</description>
     </key>
+    <key type="b" name="use-accent-color">
+        <default>true</default>
+        <summary>Use the accent color for selection</summary>
+        <description>Use the system accent color for the selection box, rubberband and drop preview. Disable to use a fixed grey color like Nautilus.</description>
+    </key>
     <key type="b" name="check-x11wayland">
         <default>true</default>
         <summary>Show a popup if running on X11Wayland</summary>
