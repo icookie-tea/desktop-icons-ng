@@ -100,6 +100,11 @@
         <summary>Use the accent color for selection</summary>
         <description>Use the system accent color for the selection box, rubberband and drop preview. Disable to use a fixed grey color like Nautilus.</description>
     </key>
+    <key type="b" name="accent-shade-follow-color-scheme">
+        <default>false</default>
+        <summary>Follow the color scheme for the accent shade</summary>
+        <description>When enabled, the selection ring and rubberband use a darker shade in light mode and a brighter shade in dark mode, like Nautilus. When disabled (default), the brighter dark-mode shade is always used, because the desktop wallpaper does not change with the color scheme.</description>
+    </key>
     <key type="b" name="check-x11wayland">
         <default>true</default>
         <summary>Show a popup if running on X11Wayland</summary>

@@ -251,6 +251,7 @@ export var DesktopManager = class {
                 this._updateDesktopSafe('dark text changed');
                 return;
             case 'use-accent-color':
+            case 'accent-shade-follow-color-scheme':
                 this._themeManager.configureSelectionColor();
                 for (let desktop of this._desktops) {
                     desktop.queue_draw();

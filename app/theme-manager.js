@@ -253,17 +253,20 @@ export var ThemeManager = class {
             }
         }
         // Derived shade = libadwaita's --accent-color formula (oklab, keep
-        // hue, clamp lightness: min(l,0.5) light scheme / max(l,0.85) dark
-        // scheme). The variant is chosen in JS instead of a @media query
-        // because GTK evaluates prefers-color-scheme per-window and a
-        // detached probe widget would resolve the light variant even in dark
-        // mode.
-        let shadeVariant = 'min(l, 0.5)';
+        // hue, clamp lightness). libadwaita switches the variant with the
+        // color scheme (min(l,0.5) light / max(l,0.85) dark) because Nautilus
+        // sits on a solid black/white background. The desktop wallpaper does
+        // not change with the color scheme, so by default we always use the
+        // brighter dark-mode variant; following the scheme is opt-in via
+        // 'accent-shade-follow-color-scheme'.
+        let shadeVariant = 'max(l, 0.85)';
         try {
-            if (Prefs.schemaGnomeDarkSettings.get_string('color-scheme') === 'prefer-dark')
-                shadeVariant = 'max(l, 0.85)';
+            if (Prefs.desktopSettings.get_boolean('accent-shade-follow-color-scheme') &&
+                Prefs.schemaGnomeDarkSettings.get_string('color-scheme') !== 'prefer-dark') {
+                shadeVariant = 'min(l, 0.5)';
+            }
         } catch (e) {
-            // keep the light variant
+            // keep the bright variant
         }
         let cssColorDefinition =
             `@define-color desktop_icons_bg_color ${this.selectColor.to_string()};\n` +

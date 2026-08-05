@@ -61,6 +61,8 @@
 
 **壁纸可读性优化（与 Nautilus 纯色背景的差异）：** 颜色公式与 Nautilus 一致，但透明度按壁纸场景加码（Nautilus 的 25%/4%/20% 在纯色视图背景上成立，壁纸上会被吞）：选中 bg 25%→**35%**、hover 4%→**10%**、橡皮筋填充 20%→**25%** + 边框 1px→**2px**、键盘选中环 50%→**70%**（保留 3px 宽）、拖放预览边框 0.5px→**1px**。两种模式（灰/强调色）统一生效。
 
+**派生色明暗跟随改为可选（icookie 需求）：** libadwaita 的派生色随配色方案切换（浅色 `min(l,0.5)` 深色变体 / 深色 `max(l,0.85)` 亮色变体）——这在 Nautilus 的黑白纯色背景上合理，但桌面**壁纸不随明暗切换**，故新增 `accent-shade-follow-color-scheme`（默认 **false**）：关闭时始终用较亮的深色模式变体（壁纸场景可读性最优）；开启时跟随配色方案（与 Nautilus 一致）。开关实时生效（`_onDesktopSettingsChanged` 与 `use-accent-color` 合并处理）；`color-scheme` 变更仍会重算派生色（跟随模式需要）。验证：真实 ThemeManager 探测——follow=false 时 dark 下 pink→`rgb(255,160,216)`（亮变体）；切 follow=true（dark）仍为亮变体；切 use-accent-color=false 灰→`rgb(206,206,206)`。
+
 ---
 
 ## 2026-08-04
