@@ -21,10 +21,13 @@
 }
 
 .file-item-hover {
-   /* libadwaita gridview hover: color-mix(in srgb, currentColor 4%, transparent).
-      Raised to 10% because DING icons sit on wallpaper (no solid view bg),
-      where the 4% tint would be invisible. */
-   background-color: color-mix(in srgb, currentColor 10%, transparent);
+   /* Nautilus/libadwaita hover: color-mix(in srgb, currentColor 4%, transparent)
+      — but currentColor flips white/black with the color scheme, and the
+      desktop wallpaper does NOT change with the scheme. Use a scheme-
+      independent neutral overlay instead (white 12% + black 12% = grey
+      rgba(128,128,128,0.24), verified via GTK): the white part shows on dark
+      wallpapers, the black part on light ones, regardless of theme. */
+   background-color: color-mix(in srgb, white 12%, black 12%);
 }
 
 .not-found {
