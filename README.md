@@ -16,7 +16,9 @@ with these advantages:
 ## Changes from Upstream
 
 This branch maintains fixes and enhancements not yet merged to the upstream repository
-(<https://gitlab.com/rastersoft/desktop-icons-ng>). Key improvements:
+(<https://gitlab.com/rastersoft/desktop-icons-ng>). It installs as an independent extension under
+its own UUID (`desktop-icons-ng@icookie-tea.github.io`), so it no longer replaces the original
+DING (`ding@rastersoft.com`). Key improvements:
 
 ### Bug Fixes
 
@@ -61,12 +63,14 @@ This branch maintains fixes and enhancements not yet merged to the upstream repo
 The easiest way of installing DING is to run the `scripts/local_install.sh` script. It performs the build steps
 specified in the next section.
 
-In Ubuntu, unfortunately, it is not possible to use it directly because the internal desktop-icons-ng
-extension interferes. Fortunately, you can find .deb packages for Ubuntu in the oficial page:
+In Ubuntu, the distro bundles its own desktop-icons-ng under `ding@rastersoft.com`. Because this
+fork installs under its own UUID (`desktop-icons-ng@icookie-tea.github.io`), the two no longer
+clash: run `scripts/local_install.sh` and disable the bundled extension in the "Extensions" app.
+If you prefer the upstream version, you can find .deb packages for Ubuntu in the oficial page:
 
 <https://www.rastersoft.com/programas/ding.html>
 
-If you still want to use the extension from source code, the only way is to install the
+If you still want to use the upstream extension from source code, the only way is to install the
 package "gnome-session" to be able to use the standard gnome shell session, and there install the
 following extensions from extensions.gnome.org:
 
@@ -152,13 +156,20 @@ For a regular use and local development these are the steps to build the
 project and install it:
 
 ```bash
-meson --prefix=$HOME/.local/ --localedir=share/gnome-shell/extensions/ding@rastersoft.com/locale .build
+meson --prefix=$HOME/.local/ --localedir=share/gnome-shell/extensions/desktop-icons-ng@icookie-tea.github.io/locale .build
 ninja -C .build install
 ```
 
 It is strongly recommended to delete the destination folder
-($HOME/.local/share/gnome-shell/extensions/ding@rastersoft.com) before doing this, to ensure that no old
+($HOME/.local/share/gnome-shell/extensions/desktop-icons-ng@icookie-tea.github.io) before doing this, to ensure that no old
 data is kept.
+
+If you previously installed this project (or upstream DING) under the old UUID, remove the stale copy
+too, otherwise both extensions will load at once:
+
+```bash
+rm -rf ~/.local/share/gnome-shell/extensions/ding@rastersoft.com
+```
 
 ## Installing with Puppet
 
@@ -185,7 +196,7 @@ To create a ZIP file with the extension, just run:
 ./scripts/export-zip.sh
 ```
 
-This will create the file `ding@rastersoft.com.zip` with the extension, following the rules for publishing at extensions.gnome.org.
+This will create the file `desktop-icons-ng@icookie-tea.github.io.zip` with the extension, following the rules for publishing at extensions.gnome.org.
 
 ## .desktop files limitations
 

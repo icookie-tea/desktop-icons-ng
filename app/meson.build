@@ -1,6 +1,6 @@
 prefix = get_option('prefix')
 
-extensions_dir = join_paths(prefix, 'share', 'gnome-shell', 'extensions', 'ding@rastersoft.com', 'app')
+extensions_dir = join_paths(prefix, 'share', 'gnome-shell', 'extensions', 'desktop-icons-ng@icookie-tea.github.io', 'app')
 
 install_data([
     'ask-rename-popup.js',

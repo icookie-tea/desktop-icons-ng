@@ -1,7 +1,7 @@
 {
-    "description": "Adds icons to the desktop. Fork of the original Desktop Icons extension, with several enhancements .",
-    "name": "Desktop Icons NG (DING)",
+    "description": "Adds icons to the desktop. Fork of Desktop Icons NG (DING) with Nautilus-aligned colors, accent-color support and other enhancements.",
+    "name": "Desktop Icons Next",
     "shell-version": ["50", "51"],
-    "uuid": "ding@rastersoft.com",
-    "url": "https://gitlab.com/rastersoft/desktop-icons-ng"
+    "uuid": "desktop-icons-ng@icookie-tea.github.io",
+    "url": "https://github.com/icookie-tea/desktop-icons-ng"
 }

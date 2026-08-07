@@ -2,7 +2,7 @@
 
 ## 一、概述
 
-Desktop Icons NG (DING, `ding@rastersoft.com`) 是一个 GNOME Shell 扩展（支持 Shell 50/51），用于在桌面上显示文件图标。其核心设计是 **Shell 扩展 + 独立 GTK4 进程** 的双层架构：GNOME Shell 扩展负责管理窗口几何和生命周期，独立的 GJS 进程负责渲染图标和处理用户交互。
+Desktop Icons NG (DING, `desktop-icons-ng@icookie-tea.github.io`) 是一个 GNOME Shell 扩展（支持 Shell 50/51），用于在桌面上显示文件图标。（本 fork 已改用独立 UUID，与原版 `ding@rastersoft.com` 互不覆盖。）其核心设计是 **Shell 扩展 + 独立 GTK4 进程** 的双层架构：GNOME Shell 扩展负责管理窗口几何和生命周期，独立的 GJS 进程负责渲染图标和处理用户交互。
 
 icookie 分支在此基础上进行了大量重构和功能增强，包括模块化拆分、增量更新、概览动画、拖放修复、**ESM 迁移**、可维护性重构等。
 

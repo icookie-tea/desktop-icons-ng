@@ -6,7 +6,7 @@ PREFIX=/usr
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR" || exit 1
 
-sudo rm -rf ${PREFIX}/share/gnome-shell/extensions/ding@rastersoft.com/*
+sudo rm -rf ${PREFIX}/share/gnome-shell/extensions/desktop-icons-ng@icookie-tea.github.io/*
 rm -rf .build
 mkdir .build
 meson setup --prefix=${PREFIX} .build

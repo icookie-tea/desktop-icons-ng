@@ -12,7 +12,7 @@ set -e
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_DIR" || exit 1
 BUILD_DIR="${REPO_DIR}/builddir"
-UUID="ding@rastersoft.com"
+UUID="desktop-icons-ng@icookie-tea.github.io"
 LOCAL_PREFIX="${REPO_DIR}/${UUID}"
 EXTENSIONS_DIR="${LOCAL_PREFIX}/share/gnome-shell/extensions/${UUID}"
 SCHEMADIR="${LOCAL_PREFIX}/share/glib-2.0/schemas"

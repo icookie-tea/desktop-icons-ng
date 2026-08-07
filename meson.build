@@ -10,7 +10,7 @@ prefix = get_option('prefix')
 datadir = join_paths (prefix, get_option('datadir'))
 schema_dir = join_paths(datadir, 'glib-2.0', 'schemas')
 
-extensions_dir = join_paths(prefix, 'share', 'gnome-shell', 'extensions', 'ding@rastersoft.com')
+extensions_dir = join_paths(prefix, 'share', 'gnome-shell', 'extensions', 'desktop-icons-ng@icookie-tea.github.io')
 
 install_data([
     'emulate-x11-window-type.js',
