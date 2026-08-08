@@ -17,7 +17,6 @@
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
-import Gdk from 'gi://Gdk';
 import Adw from 'gi://Adw';
 export var GnomeAutoar = null;
 /* Non-blocking dynamic import — see thumbnails.js for why a top-level
@@ -561,25 +560,18 @@ const CompressDialog = class {
         }
         this._desktopManager = desktopManager;
         this._destinationFolder = destinationFolder;
-        this._dialog = new Adw.Window({
+        this._dialog = new Adw.Dialog({
             title: _('Create archive'),
         });
-        // Adw.Window: ordinary non-modal window like the settings window.
-        // Adw.Dialog was the wrong choice — it is a GtkWidget, modal by
-        // design with no way to turn it off, and a bare modal Adw.Dialog
-        // made GNOME Shell briefly spawn a new dynamic workspace (the
-        // stick/raise trailing-space hack fixed that but pinned the dialog
-        // to all workspaces). The window's own Adw.HeaderBar (title +
-        // window buttons) hosts the OK/Cancel buttons.
         const containerOut = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
             width_request: 390,
         });
         this._dialog.set_child(containerOut);
-        // Adw.Window's default titlebar is an internal AdwGizmo with no
-        // pack API — provide our own Adw.HeaderBar (title + window buttons
-        // are automatic) and host the OK/Cancel buttons in it.
-        const topBar = new Adw.HeaderBar();
+        const topBar = new Adw.HeaderBar({
+            'show-title': true,
+            'decoration-layout': '',
+        });
         this._okButton = Gtk.Button.new_with_label(_('OK'));
         this._okButton.add_css_class('suggested-action');
         this._okButton.sensitive = false;
@@ -592,17 +584,7 @@ const CompressDialog = class {
             this._compressResponse("CANCEL");
         });
         topBar.pack_start(this._cancelButton);
-        this._dialog.set_titlebar(topBar);
-        // Esc closes the dialog (Adw.Window has no default Escape handling).
-        const dialogKeyController = new Gtk.EventControllerKey();
-        this._dialog.add_controller(dialogKeyController);
-        dialogKeyController.connect('key-pressed', (controller, keyval, keycode, state) => {
-            if (keyval === Gdk.KEY_Escape) {
-                this._compressResponse('CANCEL');
-                return true;
-            }
-            return false;
-        });
+        containerOut.append(topBar);
 
         const container = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,

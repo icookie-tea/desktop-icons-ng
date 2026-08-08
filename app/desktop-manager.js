@@ -893,31 +893,23 @@ export var DesktopManager = class {
         if (this._findFileWindow) {
             this._closeFindFiles(false);
         }
-        this._findFileWindow = new Adw.Window({
+        this._findFileWindow = new Adw.Dialog({
             'title': _('Find Files on Desktop'),
         });
-        // Adw.Window: ordinary non-modal window like the settings window
-        // (Adw.PreferencesWindow is its subclass). Adw.Dialog was the wrong
-        // choice — it is a GtkWidget, modal by design with no way to turn
-        // it off, and a bare modal Adw.Dialog made GNOME Shell briefly
-        // spawn a new dynamic workspace (the stick/raise trailing-space
-        // hack fixed that but pinned the dialog to all workspaces).
-        // The window's own Adw.HeaderBar (title + window buttons) hosts
-        // the OK/Cancel buttons.
         const container = new Gtk.Box({
             'orientation': Gtk.Orientation.VERTICAL,
         });
         this._findFileWindow.set_child(container);
-        // Adw.Window's default titlebar is an internal AdwGizmo with no
-        // pack API — provide our own Adw.HeaderBar (title + window buttons
-        // are automatic) and host the OK/Cancel buttons in it.
-        const topBar = new Adw.HeaderBar();
+        const topBar = new Adw.HeaderBar({
+            'show-title': true,
+            'decoration-layout': '',
+        });
         this._findFileButton = Gtk.Button.new_with_label(_('OK'));
         this._findFileButton.sensitive = false;
         topBar.pack_end(this._findFileButton);
         const cancelButton = Gtk.Button.new_with_label(_('Cancel'));
         topBar.pack_start(cancelButton);
-        this._findFileWindow.set_titlebar(topBar);
+        container.append(topBar);
 
         this._findFileTextArea = new Gtk.Entry({
             margin_start: 18,
