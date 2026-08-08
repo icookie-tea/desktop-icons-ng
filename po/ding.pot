@@ -711,6 +711,22 @@ msgstr ""
 msgid "Use dark text in icon labels"
 msgstr ""
 
+#: app/prefs-window.js:74
+msgid "Use the accent color for selection"
+msgstr ""
+
+#: app/prefs-window.js:74
+msgid "Use the system accent color for the selection box, rubberband and drop preview. Disable to use a fixed grey color like Nautilus."
+msgstr ""
+
+#: app/prefs-window.js:75
+msgid "Follow the color scheme for the accent shade"
+msgstr ""
+
+#: app/prefs-window.js:75
+msgid "Use a darker shade in light mode and a brighter shade in dark mode, like Nautilus. Disabled by default: the brighter shade is always used, because the desktop wallpaper does not change with the color scheme."
+msgstr ""
+
 #: app/prefswindow.js:91
 msgid "Settings shared with Nautilus"
 msgstr ""

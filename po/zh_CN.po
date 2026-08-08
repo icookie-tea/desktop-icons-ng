@@ -782,6 +782,22 @@ msgstr "为软链接添加标志"
 msgid "Use dark text in icon labels"
 msgstr "图标标签使用深色文本"
 
+#: app/prefs-window.js:74
+msgid "Use the accent color for selection"
+msgstr "选中时使用强调色"
+
+#: app/prefs-window.js:74
+msgid "Use the system accent color for the selection box, rubberband and drop preview. Disable to use a fixed grey color like Nautilus."
+msgstr "选中框、橡皮筋和拖放预览使用系统强调色。关闭后使用与 Nautilus 一致的固定灰色。"
+
+#: app/prefs-window.js:75
+msgid "Follow the color scheme for the accent shade"
+msgstr "强调色阴影跟随配色方案"
+
+#: app/prefs-window.js:75
+msgid "Use a darker shade in light mode and a brighter shade in dark mode, like Nautilus. Disabled by default: the brighter shade is always used, because the desktop wallpaper does not change with the color scheme."
+msgstr "浅色模式下使用更深的阴影，深色模式下使用更亮的阴影，与 Nautilus 一致。默认关闭：始终使用更亮的阴影，因为桌面壁纸不随配色方案变化。"
+
 #: app/prefswindow.js:91
 msgid "Settings shared with Nautilus"
 msgstr "与 Nautilus 共享的设置"
