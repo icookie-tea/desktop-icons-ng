@@ -6,16 +6,18 @@
 
 **症状：** 打开 Ctrl+F 搜索对话框或压缩对话框时，GNOME Shell 顶栏短暂出现一个新的工作区（约 1 秒后消失）。设置面板（Adw.PreferencesWindow）和错误弹窗（Gtk.MessageDialog）无此现象。
 
-**根因：** 两者都是裸的 modal `Adw.Dialog`（继承 GtkWindow，NORMAL 类型、modal 默认 true、未 stick）。对照：错误弹窗走 `windowHidePagerTaskbarModal` 尾空格协议 → `_parseTitle` 解析出 T（置顶）+ D（所有工作区）→ `make_above()` + `stick()`——窗口不属于任何特定工作区，不触发动态工作区行为；设置面板非 modal 也无此问题。另：压缩对话框的 transient parent（桌面窗口，DESKTOP 类型 + sticky）已存在仍复现，说明与 parent 无关，是 modal + 无 stick 的 Adw.Dialog 自身行为。
+**根因：** 两者都是裸的 modal `Adw.Dialog`（继承 GtkWindow，NORMAL 类型、modal 默认 true）。对照：设置面板非 modal 无此问题；压缩对话框即使有 transient parent（桌面窗口，DESKTOP 类型 + sticky）仍复现——**触发因素是 modal 标志**（Wayland 下 xdg_toplevel.set_modal）。
 
-**修复：** 两个对话框都补 `DesktopIconsUtil.windowHidePagerTaskbarModal(dialog, true)`（尾空格 → T+D stick + modal + grab_focus），与错误弹窗一致；auto-ar.js 补缺失的 `DesktopIconsUtil` import。副作用：搜索框/压缩框现在在所有工作区跟随桌面显示（切换工作区不丢失），且置顶。
+**修复（两轮）：**
+- **第一轮（stick hack）：** `windowHidePagerTaskbarModal(dialog, true)` 尾空格协议 → `_parseTitle` 解析 T+D → 置顶 + stick 所有工作区。问题消失，但窗口被钉在所有工作区 + 置顶，不符合预期 UX（用户要求类似设置面板的普通窗口行为）。
+- **最终方案：** 移除尾空格 hack，`Adw.Dialog` 构造加 **`modal: false`**——与设置面板一致：普通非模态窗口、当前工作区、可正常 Alt+Tab/点按其他窗口。副作用：搜索框/压缩框打开时不再阻塞桌面交互（点击桌面图标会转移焦点）。
 
 | 文件 | 变更 |
 |------|------|
-| `app/desktop-manager.js` | `findFiles` 中 `_findFileWindow` 加 `windowHidePagerTaskbarModal(..., true)` |
-| `app/auto-ar.js` | CompressDialog 的 `_dialog` 加 `windowHidePagerTaskbarModal(..., true)`；补 import |
+| `app/desktop-manager.js` | `_findFileWindow` 构造加 `modal: false`；删 windowHidePagerTaskbarModal 调用 |
+| `app/auto-ar.js` | CompressDialog `_dialog` 构造加 `modal: false`；删调用与多余 import |
 
-**验证：** 打开 Ctrl+F / 压缩对话框，顶栏不再闪现新工作区；窗口在所有工作区可见。eslint / node --check / 单测全绿。
+**验证：** 打开 Ctrl+F / 压缩对话框：无新工作区闪现；窗口为普通窗口行为（当前工作区、非置顶、非 stick）。eslint / node --check / 单测全绿。
 
 ### 压缩对话框崩溃（审计修复引入的回归：present 参数类型）
 
