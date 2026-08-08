@@ -17,6 +17,7 @@
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
+import Gdk from 'gi://Gdk';
 import Adw from 'gi://Adw';
 export var GnomeAutoar = null;
 /* Non-blocking dynamic import — see thumbnails.js for why a top-level
@@ -560,15 +561,28 @@ const CompressDialog = class {
         }
         this._desktopManager = desktopManager;
         this._destinationFolder = destinationFolder;
-        this._dialog = new Adw.Dialog({
+        this._dialog = new Gtk.Window({
             title: _('Create archive'),
         });
         // Ordinary non-modal window like the settings window (a bare modal
-        // Adw.Dialog made GNOME Shell briefly spawn a new dynamic
-        // workspace; the stick/raise trailing-space hack fixed that but
-        // pinned the dialog to all workspaces). 'modal' is a Gtk.Window
-        // property, not an Adw.Dialog construct property — set it here.
-        this._dialog.set_modal(false);
+        // Adw.Dialog made GNOME Shell briefly spawn a new dynamic workspace;
+        // the stick/raise trailing-space hack fixed that but pinned the
+        // dialog to all workspaces). Adw.Dialog is a GtkWidget (not a
+        // GtkWindow) and modal by design — use a plain Gtk.Window instead.
+        // Undecorated: the in-dialog Adw.HeaderBar (OK/Cancel) provides the
+        // buttons and the drag surface.
+        this._dialog.set_decorated(false);
+        // Esc closes the dialog (Gtk.Window has no default Escape handling,
+        // unlike Adw.Dialog's can_close).
+        const dialogKeyController = new Gtk.EventControllerKey();
+        this._dialog.add_controller(dialogKeyController);
+        dialogKeyController.connect('key-pressed', (controller, keyval, keycode, state) => {
+            if (keyval === Gdk.KEY_Escape) {
+                this._compressResponse('CANCEL');
+                return true;
+            }
+            return false;
+        });
         const containerOut = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
             width_request: 390,
@@ -670,13 +684,10 @@ const CompressDialog = class {
 
         this._fillComboBox();
         this._dialog.show();
-        // Adw.Dialog.present() takes a GtkWidget parent. DesktopGrid is a
-        // plain JS class (its Gtk.ApplicationWindow lives at ._window) —
-        // passing the grid object itself throws "not a subclass of
-        // GObject_Object". (The historical `this._grid.Window` was an
-        // undefined property → null parent, which silently worked but left
-        // the dialog without a transient parent.)
-        this._dialog.present(this._grid._window);
+        // Present as a transient of the desktop window (Gtk.Window API,
+        // unlike Adw.Dialog.present which took the widget itself).
+        this._dialog.set_transient_for(this._grid._window);
+        this._dialog.present();
         this._updateStatus();
         this._extensionPopover.connect('show', () => {
             for (let index in this._compressOptions) {

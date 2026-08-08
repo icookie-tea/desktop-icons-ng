@@ -893,17 +893,18 @@ export var DesktopManager = class {
         if (this._findFileWindow) {
             this._closeFindFiles(false);
         }
-        this._findFileWindow = new Adw.Dialog({
+        this._findFileWindow = new Gtk.Window({
             'title': _('Find Files on Desktop'),
         });
-        // Behave like the settings window (ordinary, non-modal window on
-        // the current workspace) instead of a modal dialog: a bare modal
-        // Adw.Dialog made GNOME Shell briefly spawn a new dynamic
-        // workspace; the trailing-space stick/raise hack fixed that but
-        // pinned the dialog to all workspaces, which is not the desired UX.
-        // Note: 'modal' is a Gtk.Window property, not an Adw.Dialog
-        // construct property — set it after construction.
-        this._findFileWindow.set_modal(false);
+        // Behave like the settings window: an ordinary, non-modal window on
+        // the current workspace. Adw.Dialog is a GtkWidget (not a GtkWindow)
+        // and is modal by design with no way to turn it off — a bare modal
+        // Adw.Dialog made GNOME Shell briefly spawn a new dynamic workspace
+        // (the stick/raise trailing-space hack fixed that but pinned the
+        // dialog to all workspaces, which is not the desired UX).
+        // Undecorated: the in-dialog Adw.HeaderBar (Cancel/OK) provides the
+        // buttons and the drag surface.
+        this._findFileWindow.set_decorated(false);
         const container = new Gtk.Box({
             'orientation': Gtk.Orientation.VERTICAL,
         });
@@ -964,7 +965,7 @@ export var DesktopManager = class {
             this._refreshSearchTimeout();
         });
         this._findFileWindow.show();
-        this._findFileWindow.present(window);
+        this._findFileWindow.present();
         this._findFileTextArea.grab_focus();
         if (text) {
             this._findFileTextArea.set_text(text);
