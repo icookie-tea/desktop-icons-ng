@@ -576,7 +576,10 @@ const CompressDialog = class {
             width_request: 390,
         });
         this._dialog.set_child(containerOut);
-        const topBar = this._dialog.titlebar;
+        // Adw.Window's default titlebar is an internal AdwGizmo with no
+        // pack API — provide our own Adw.HeaderBar (title + window buttons
+        // are automatic) and host the OK/Cancel buttons in it.
+        const topBar = new Adw.HeaderBar();
         this._okButton = Gtk.Button.new_with_label(_('OK'));
         this._okButton.add_css_class('suggested-action');
         this._okButton.sensitive = false;
@@ -589,6 +592,7 @@ const CompressDialog = class {
             this._compressResponse("CANCEL");
         });
         topBar.pack_start(this._cancelButton);
+        this._dialog.set_titlebar(topBar);
         // Esc closes the dialog (Adw.Window has no default Escape handling).
         const dialogKeyController = new Gtk.EventControllerKey();
         this._dialog.add_controller(dialogKeyController);

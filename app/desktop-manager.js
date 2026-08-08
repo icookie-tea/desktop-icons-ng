@@ -908,12 +908,16 @@ export var DesktopManager = class {
             'orientation': Gtk.Orientation.VERTICAL,
         });
         this._findFileWindow.set_child(container);
-        const topBar = this._findFileWindow.titlebar;
+        // Adw.Window's default titlebar is an internal AdwGizmo with no
+        // pack API — provide our own Adw.HeaderBar (title + window buttons
+        // are automatic) and host the OK/Cancel buttons in it.
+        const topBar = new Adw.HeaderBar();
         this._findFileButton = Gtk.Button.new_with_label(_('OK'));
         this._findFileButton.sensitive = false;
         topBar.pack_end(this._findFileButton);
         const cancelButton = Gtk.Button.new_with_label(_('Cancel'));
         topBar.pack_start(cancelButton);
+        this._findFileWindow.set_titlebar(topBar);
 
         this._findFileTextArea = new Gtk.Entry({
             margin_start: 18,
