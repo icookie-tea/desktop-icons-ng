@@ -18,7 +18,6 @@
 'use strict';
 import GLib from 'gi://GLib'
 import Meta from 'gi://Meta'
-import Clutter from 'gi://Clutter'
 
 class ManageWindow {
     /* This class is added to each managed window, and it's used to
@@ -53,26 +52,6 @@ class ManageWindow {
             this._parseTitle();
         }));
         this._parseTitle();
-
-        // Fade the desktop window in on first appearance (fresh login,
-        // crash-restart): without this the icons pop in instantly. Only
-        // DESKTOP windows — DIALOG windows (e.g. Adw.Dialog) stay
-        // immediate. The map signal fires before the compositor renders
-        // the first frame, so setting opacity 0 here causes no flash.
-        // The fade lives on the window actor, so it composes with the
-        // overview clone layer (which animates its own opacity) without
-        // interference.
-        if (window.get_window_type() === Meta.WindowType.DESKTOP) {
-            const actor = window.get_compositor_private();
-            if (actor) {
-                actor.opacity = 0;
-                actor.ease({
-                    opacity: 255,
-                    duration: 350,
-                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                });
-            }
-        }
     }
 
     _moveIntoPlace() {
