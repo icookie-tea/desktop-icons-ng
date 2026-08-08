@@ -106,7 +106,7 @@
 | P2-5 | `app/auto-ar.js:25,71` | `_refreshExtensions()` 只在构造时执行，晚于动态 import resolve 时永不刷新 → 压缩/解压菜单消失（疑似，实测大概率在 activate 前 resolve） | `.then` 里赋值后补调 `_refreshExtensions()` | 低-中 | 启动日志打印 format_last 时机 |
 | P2-6 | `app/desktop-menu.js:161` | `GLib.getenv('XDG_CURRENT_DESKTOP').split(':')` 未设置时 getenv 返回 null → TypeError | `(GLib.getenv(...) ?? '').split(':')` | 低 | `env -u XDG_CURRENT_DESKTOP` 独立模式点设置 |
 | P2-7 | `app/desktop-icons-util.js:191` + `file-item-menu.js:173-186` | `getFilteredEnviron`/`_onScriptClicked` 只服务于已失效的脚本菜单（死路径连带，见 P0-3） | 随 P0-3 一并处理 | 低 | grep 确认 |
-| P2-8 | `gnome-shell-override.js:71-75` | Clone 层只在 `WorkspaceBackground._init` 时捕获当时已存在的 DESKTOP 窗口；崩溃重启后的新 DING 窗口永不补进既有层 → 首次会话/重启后 Overview 动画不生效（疑似） | 注入代码里连接 `window_manager 'map'` 动态补建 Clone；或 `monitors-changed` 时重建层 | 中 | 真机：全新登录后第一次进 Overview 看淡入；DING 崩溃重启后再进 |
+| P2-8 | `gnome-shell-override.js:71-75` | ~~Clone 层只在 `WorkspaceBackground._init` 时捕获当时已存在的 DESKTOP 窗口；崩溃重启后的新 DING 窗口永不补进既有层 → 首次会话/重启后 Overview 动画不生效（疑似）~~ **已实测排除（2026-08-10）**：全新登录后 Overview 过渡平滑（动画工作）；`pkill -f ding.js` 崩溃重启后动画仍平滑。两轮推理（登录后不生效 / 崩溃重启后失效）均被真机推翻——GNOME Shell 的 workspace/background 重建路径比假设的频繁（登录时 display config 应用会重建 workspace），clone 机制比预期健壮。无需修复 | — | — | 已排除（真机验证） |
 | P2-9 | `extension.js:299-336` | 构造时同步全量扫描 /proc + 阻塞 `proc.wait(null)` | 先按名称过滤纯数字目录 + 只读含 "ding.js" 的 cmdline；kill 改异步 | 低 | 启停耗时对比 |
 
 ---
