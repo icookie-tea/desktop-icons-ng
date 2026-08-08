@@ -664,7 +664,13 @@ const CompressDialog = class {
 
         this._fillComboBox();
         this._dialog.show();
-        this._dialog.present(this._grid);
+        // Adw.Dialog.present() takes a GtkWidget parent. DesktopGrid is a
+        // plain JS class (its Gtk.ApplicationWindow lives at ._window) —
+        // passing the grid object itself throws "not a subclass of
+        // GObject_Object". (The historical `this._grid.Window` was an
+        // undefined property → null parent, which silently worked but left
+        // the dialog without a transient parent.)
+        this._dialog.present(this._grid._window);
         this._updateStatus();
         this._extensionPopover.connect('show', () => {
             for (let index in this._compressOptions) {

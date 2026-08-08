@@ -137,7 +137,7 @@
 - [P3] `app/dnd-clipboard-utils.js:81-97` — DING_ICON_LIST 与 URI_LIST 两个 case 代码逐字重复 → 合并 case 标签
 - [P3] `app/file-item-menu.js:574-578` — `_getExtractable()` 循环首迭代即 return（只检查第一个文件；当前被 `selectedItemsNum == 1` 守卫掩盖）→ 改 `.every()`
 - [P3] `app/ask-rename-popup.js:63` — `clamp(fileItem.displayName, 30, 50)` 传字符串恒得 NaN → `set_width_chars(0)`；应为 `.length`
-- [P3] `app/auto-ar.js:651` — `this._dialog.present(this._grid.Window)` 访问不存在属性（应为 `this._grid`）→ 对话框无父窗口呈现
+- [P3] `app/auto-ar.js:667` — `this._dialog.present(this._grid.Window)` 访问不存在属性（`_grid` 是纯 JS 类 DesktopGrid，其窗口在 `._window`）→ **已修（2026-08-10）**：初版误改为 `present(this._grid)` 导致 GJS 抛 `not a subclass of GObject_Object`（压缩对话框崩溃），正确修复为 `present(this._grid._window)`；另 `desktop-manager.js:785,828` 的 `findFiles(grid.Window)` 同样传 undefined parent（见 fixes.md 2026-08-10）
 - [P3] `app/paint-container.js:24` vs `desktop-grid.js:34` — `elementSpacing = 2` 重复定义 → 统一导入
 - [P3] `app/desktop-grid.js:85,105` — 构造函数双重 `setGridStatus()`（每次 O(网格) 初始化）
 - [P3] `app/grid-layout.js:54-64,96-97` — margin-only 变更也全量重建所有 Grid 窗口；`for...in` 遍历数组 → 改 for-of

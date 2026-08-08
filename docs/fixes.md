@@ -123,7 +123,15 @@
 | `app/desktop-manager.js` | `findFiles` 入口守卫：已有查找窗口先关闭（防连按 Ctrl+F 双窗口/信号泄漏/关错窗口，P2-1）；`doNewFolder` catch 两相同分支合并 |
 | `app/file-item-menu.js` | `_getExtractable()` 首迭代 return → `.every()` 全量检查 |
 | `app/ask-rename-popup.js:63` | `clamp(fileItem.displayName, …)` 字符串恒 NaN → `.length` |
-| `app/auto-ar.js:657` | `this._dialog.present(this._grid.Window)` 不存在属性 → `this._grid`；动态 import 竞态：`GnomeAutoar` resolve 后对所有 AutoAr 实例补 `_refreshExtensions()`（P2-5） |
+### 压缩对话框崩溃（审计修复引入的回归：present 参数类型）
+
+**症状：** 图标右键 → 压缩 → `Gjs-CRITICAL: TypeError: Object … is not a subclass of GObject_Object`，CompressDialog 构造失败。
+
+**根因：** 2026-08-09 审计批次把 `this._dialog.present(this._grid.Window)` 按“属性名笔误”改为 `present(this._grid)`——但 `DesktopGrid` 是**纯 JS 类**（窗口在 `. _window`，Gtk.ApplicationWindow），`Adw.Dialog.present()` 期望 GObject 参数 → GJS 抛 TypeError。原始代码的 `_grid.Window`（undefined → null）反而静默工作（无 transient parent）。
+
+**修复：** `app/auto-ar.js:667` → `present(this._grid._window)`（正确的 GtkWidget）。教训：审计建议“应为 this._grid”是错的，同类 `findFiles(grid.Window)`（desktop-manager.js:785,828）也传 undefined parent，已在 2026-08-10 一并核查（Ctrl+F 搜索窗口相关，见上一条）。
+
+**验证：** 右键压缩文件/文件夹 → 压缩对话框正常出现（不再抛错）；eslint / node --check / 单测全绿。
 | `app/menu-helper.js`、`app/stack-item.js`、`app/file-operations.js` | 删三处死 gettext 定义（`const _ = Gettext.domain('ding').gettext` 零调用） |
 | `app/sort-manager.js` | 两处冗余条件分支简化（if/else 同 continue；恒真 `!_isSpecial`） |
 | `app/desktop-grid.js` | 构造函数删重复 `setGridStatus()`（resizeGrid 已做）；删死方法 `updateGridDescription`（字段由构造函数设置） |
