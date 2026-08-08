@@ -1300,6 +1300,13 @@ export var DesktopManager = class {
         }
         this._placeAllFilesOnGrids();
         this._selectedFiles = null;
+        // First icon pass done — show the desktop windows now (desktop mode
+        // defers their initial show until here so the compositor's first
+        // frame already contains the icons and the shell map animation
+        // animates actual content; see DesktopGrid constructor).
+        for (const grid of this._desktops) {
+            grid.showWindow();
+        }
     }
 
     _placeAllFilesOnGrids(redisplay = false) {

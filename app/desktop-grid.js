@@ -34,7 +34,7 @@ const _ = Gettext.domain('ding').gettext;
 export var elementSpacing = 2;
 
 export var DesktopGrid = class extends SignalManager.SignalManager {
-    constructor(desktopManager, desktopName, desktopDescription, asDesktop) {
+    constructor(desktopManager, desktopName, desktopDescription, asDesktop, deferShow = false) {
         super();
         this._signalIds = [];
         this._destroying = false;
@@ -79,7 +79,16 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
         this._container.put(this._paintContainer, 0, 0);
         this._window.set_size_request(this._windowWidth, this._windowHeight);
         this._window.set_default_size(this._windowWidth, this._windowHeight);
-        this._window.show();
+        // In desktop mode the window is normally shown only after the first
+        // icon pass completed (_drawDesktop → showWindow), so the very first
+        // frame the compositor sees already contains the icons: the shell's
+        // window-map animation then animates actual icons instead of an
+        // empty window (upstream gets this by timing luck; we make it
+        // deterministic). Standalone/debug windows show immediately.
+        this._shown = false;
+        if (!deferShow) {
+            this.showWindow();
+        }
 
         let buttonMenuController = new Gtk.GestureClick();
         buttonMenuController.propagation_phase = Gtk.PropagationPhase.BUBBLE;
@@ -202,6 +211,15 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
         this.updateGridRectangle();
         this.setSizeContainer();
         this.setGridStatus();
+    }
+
+    /** Shows the desktop window; no-op if already shown (used to defer the
+     * first show until the initial icon pass placed the items). */
+    showWindow() {
+        if (!this._shown) {
+            this._shown = true;
+            this._window.show();
+        }
     }
 
     destroy() {

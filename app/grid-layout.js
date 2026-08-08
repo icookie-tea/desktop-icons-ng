@@ -101,7 +101,12 @@ export var GridLayout = class {
             } else {
                 desktopName = `DING ${desktop.monitorIndex + 1}`;
             }
-            this._dm._desktops.push(new DesktopGrid.DesktopGrid(this._dm, desktopName, desktop, this._dm._asDesktop));
+            this._dm._desktops.push(new DesktopGrid.DesktopGrid(this._dm, desktopName, desktop, this._dm._asDesktop,
+                // Defer showing in desktop mode: the window is shown by
+                // _drawDesktop once the first icon pass placed the items,
+                // so the compositor's first frame (and the shell map
+                // animation) shows actual icons instead of an empty window.
+                this._dm._asDesktop));
         }
     }
     dbusAdvertiseUpdate() {
