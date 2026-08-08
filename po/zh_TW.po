@@ -658,6 +658,10 @@ msgstr "設定"
 msgid "Size for the desktop icons"
 msgstr "桌面圖示的大小"
 
+#: app/prefs-window.js:59
+msgid "Set the size for the desktop icons"
+msgstr "設定桌面圖示的大小"
+
 #: app/prefswindow.js:64
 msgid "Tiny"
 msgstr "極小"
@@ -686,13 +690,25 @@ msgstr "在桌面顯示垃圾桶圖示"
 msgid "Show external drives in the desktop"
 msgstr "在桌面顯示外接磁碟機"
 
+#: app/prefs-window.js:68
+msgid "Show the disk drives connected to the computer"
+msgstr "顯示連接到電腦的磁碟機"
+
 #: app/prefswindow.js:68 schemas/org.gnome.shell.extensions.ding.gschema.xml:50
 msgid "Show network drives in the desktop"
 msgstr "在桌面顯示網路資料夾"
 
+#: app/prefs-window.js:69
+msgid "Show mounted network volumes in the desktop"
+msgstr "在桌面顯示已掛載的網路磁碟區"
+
 #: app/prefswindow.js:71
 msgid "New icons alignment"
 msgstr "新圖示對齊方式"
+
+#: app/prefs-window.js:65
+msgid "Set the corner from where the icons will start to be placed"
+msgstr "設定新圖示開始放置的角落"
 
 #: app/prefswindow.js:73
 msgid "Top-left corner"
@@ -714,6 +730,10 @@ msgstr "右下角"
 msgid "Add new drives to the opposite side of the screen"
 msgstr "將新掛載磁碟機置於螢幕的另一邊"
 
+#: app/prefs-window.js:70
+msgid "When adding drives and volumes to the desktop, add them to the opposite side of the screen"
+msgstr "將磁碟機和磁碟區加入桌面時，置於螢幕的另一邊"
+
 #: app/prefswindow.js:79
 msgid "Highlight the drop place during Drag'n'Drop"
 msgstr "拖放時突顯預計放置位置"
@@ -725,6 +745,10 @@ msgstr "使用 Nemo 開啟資料夾"
 #: app/prefswindow.js:82
 msgid "Add an emblem to soft links"
 msgstr "為符號連結新增徽章"
+
+#: app/prefs-window.js:72
+msgid "Add an emblem to allow to identify soft links"
+msgstr "新增徽章以識別符號連結"
 
 #: app/prefswindow.js:84
 msgid "Use dark text in icon labels"
@@ -754,6 +778,10 @@ msgstr "與「檔案」共用設定"
 msgid "Click type for open files"
 msgstr "開啟檔案的點擊方式"
 
+#: app/prefs-window.js:84
+msgid "How to open files with the mouse"
+msgstr "用滑鼠開啟檔案的方式"
+
 #: app/prefswindow.js:113
 msgid "Single click"
 msgstr "單擊"
@@ -766,6 +794,10 @@ msgstr "雙擊"
 msgid "Show hidden files"
 msgstr "顯示隱藏檔"
 
+#: app/prefs-window.js:85
+msgid "Show hidden files in the desktop"
+msgstr "在桌面顯示隱藏檔"
+
 #: app/prefswindow.js:115
 msgid "Show a context menu item to delete permanently"
 msgstr "在快速選單顯示永久刪除"
@@ -773,6 +805,10 @@ msgstr "在快速選單顯示永久刪除"
 #: app/prefswindow.js:120
 msgid "Action to do when launching a program from the desktop"
 msgstr "在桌面執行應用程式時的動作"
+
+#: app/prefs-window.js:96
+msgid "What to do when launching a program from the desktop"
+msgstr "從桌面啟動程式時的動作"
 
 #: app/prefswindow.js:121
 msgid "Display the content of the file"
@@ -789,6 +825,10 @@ msgstr "詢問要做什麼"
 #: app/prefswindow.js:129
 msgid "Show image thumbnails"
 msgstr "顯示影像縮圖"
+
+#: app/prefs-window.js:104
+msgid "When to show thumbnails for image files"
+msgstr "何時顯示影像檔案的縮圖"
 
 #: app/prefswindow.js:130
 msgid "Never"

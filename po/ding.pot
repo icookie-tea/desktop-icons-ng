@@ -639,6 +639,10 @@ msgstr ""
 msgid "Size for the desktop icons"
 msgstr ""
 
+#: app/prefs-window.js:59
+msgid "Set the size for the desktop icons"
+msgstr ""
+
 #: app/prefswindow.js:64
 msgid "Tiny"
 msgstr ""
@@ -667,12 +671,24 @@ msgstr ""
 msgid "Show external drives in the desktop"
 msgstr ""
 
+#: app/prefs-window.js:68
+msgid "Show the disk drives connected to the computer"
+msgstr ""
+
 #: app/prefswindow.js:68 schemas/org.gnome.shell.extensions.ding.gschema.xml:50
 msgid "Show network drives in the desktop"
 msgstr ""
 
+#: app/prefs-window.js:69
+msgid "Show mounted network volumes in the desktop"
+msgstr ""
+
 #: app/prefswindow.js:71
 msgid "New icons alignment"
+msgstr ""
+
+#: app/prefs-window.js:65
+msgid "Set the corner from where the icons will start to be placed"
 msgstr ""
 
 #: app/prefswindow.js:73
@@ -695,6 +711,10 @@ msgstr ""
 msgid "Add new drives to the opposite side of the screen"
 msgstr ""
 
+#: app/prefs-window.js:70
+msgid "When adding drives and volumes to the desktop, add them to the opposite side of the screen"
+msgstr ""
+
 #: app/prefswindow.js:79
 msgid "Highlight the drop place during Drag'n'Drop"
 msgstr ""
@@ -705,6 +725,10 @@ msgstr ""
 
 #: app/prefswindow.js:82
 msgid "Add an emblem to soft links"
+msgstr ""
+
+#: app/prefs-window.js:72
+msgid "Add an emblem to allow to identify soft links"
 msgstr ""
 
 #: app/prefswindow.js:84
@@ -735,6 +759,10 @@ msgstr ""
 msgid "Click type for open files"
 msgstr ""
 
+#: app/prefs-window.js:84
+msgid "How to open files with the mouse"
+msgstr ""
+
 #: app/prefswindow.js:113
 msgid "Single click"
 msgstr ""
@@ -747,12 +775,20 @@ msgstr ""
 msgid "Show hidden files"
 msgstr ""
 
+#: app/prefs-window.js:85
+msgid "Show hidden files in the desktop"
+msgstr ""
+
 #: app/prefswindow.js:115
 msgid "Show a context menu item to delete permanently"
 msgstr ""
 
 #: app/prefswindow.js:120
 msgid "Action to do when launching a program from the desktop"
+msgstr ""
+
+#: app/prefs-window.js:96
+msgid "What to do when launching a program from the desktop"
 msgstr ""
 
 #: app/prefswindow.js:121
@@ -769,6 +805,10 @@ msgstr ""
 
 #: app/prefswindow.js:129
 msgid "Show image thumbnails"
+msgstr ""
+
+#: app/prefs-window.js:104
+msgid "When to show thumbnails for image files"
 msgstr ""
 
 #: app/prefswindow.js:130
