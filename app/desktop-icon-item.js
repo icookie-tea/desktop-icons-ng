@@ -31,6 +31,7 @@ import * as DesktopIconsUtil from './desktop-icons-util.js';
 import * as Prefs from './preferences.js';
 import * as Enums from './enums.js';
 import * as SignalManager from './signal-manager.js';
+import * as DebugLog from './log.js';
 
 import * as Signals from './signals.js';
 import Gettext from 'gettext';
@@ -152,12 +153,16 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
             justify: Gtk.Justification.CENTER,
             lines: 2,
         });
-        // GTK4 equivalent of the GTK3 'size-allocate' hook: drives
-        // _doLabelSizeAllocated() (label geometry bookkeeping) and, in
+        // GTK4 dropped the GTK3 'size-allocate' signal, and Gtk.Widget has
+        // no 'allocation' GObject property either (so notify::allocation is
+        // a silently-dead connection). 'realize' is the closest reliable
+        // hook: it fires exactly once when the label joins the widget tree,
+        // by which time the file name and newFolderDoRename are both set.
+        // Drives _doLabelSizeAllocated() (geometry bookkeeping) and, in
         // FileItem, _checkForRename() — without this connection the
-        // "rename newly created folder" flow (newFolderDoRename) never
-        // fires.
-        this.connectSignal(this._label, 'notify::allocation',
+        // "rename newly created folder" flow never fires.
+        DebugLog.debugLog(`[rename] label realize hook connected`);
+        this.connectSignal(this._label, 'realize',
             () => this._doLabelSizeAllocated());
         const twoLinesLabel = new Gtk.Label({
             label: " \n ",
@@ -226,6 +231,7 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
     }
 
     _doLabelSizeAllocated() {
+        DebugLog.debugLog(`[rename] label realized (${this.fileName ?? '?'})`);
         this._calculateLabelRectangle();
     }
 

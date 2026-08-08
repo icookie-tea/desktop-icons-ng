@@ -1588,6 +1588,7 @@ export var DesktopManager = class {
                 return null;
             }
             if (opts.rename) {
+                DebugLog.debugLog(`[rename] newFolderDoRename=${newName}`);
                 this.newFolderDoRename = newName;
             }
             if (position || suggestedName) {

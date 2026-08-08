@@ -14,9 +14,9 @@
 ### P0-1 新建文件夹后"自动改名"功能静默失效
 - **位置**：`app/file-item.js:281-289` + `app/desktop-manager.js:1606`
 - **证据**：`_checkForRename()` 唯一入口是 `_doLabelSizeAllocated()`（file-item.js:283），而 `_doLabelSizeAllocated` 全仓只有定义与 super 调用（desktop-icon-item.js:221、file-item.js:281-282），**无任何信号连接/调用点**。GTK3 时代有 `connectSignal(this._labelEventBox, 'size-allocate', ...)`，GTK4 移植 `_createIconActor` 时丢失。管道另一端完整：`doNewFolder` 仍在设置 `this.newFolderDoRename = newName`（desktop-manager.js:1606，`opts.rename` 默认 true），`doRename` 完成才清空（file-operations.js:155）。
-- **根因**：GTK4 移植时 size-allocate/`notify::allocation` 触发链被删，方法留而无调用点。
-- **建议**：`_createIconActor` 补 `this.connectSignal(this._label, 'notify::allocation', () => this._doLabelSizeAllocated())`；或删除整条死链并清理 `newFolderDoRename`（若决定废弃该功能）。
-- **风险**：中（功能失效，非崩溃）。**验证**：右键新建文件夹观察无改名弹窗；单测直接调 `item._doLabelSizeAllocated()` 断言 `doRename` 被调。
+- **根因**：GTK4 移植时 size-allocate 触发链被删，方法留而无调用点。
+- **建议**：`_createIconActor` 补 `this.connectSignal(this._label, 'realize', () => this._doLabelSizeAllocated())`（GTK4 无 size-allocate 信号且**无 `allocation` GObject 属性**——`notify::allocation` 是静默死连接，2026-08-09 实测排除；`realize` 是 label 加入 widget 树时必然触发的可靠钩子），或删除整条死链并清理 `newFolderDoRename`（若决定废弃该功能）。
+- **风险**：中（功能失效，非崩溃）。**验证**：已修——DING_DEBUG 日志链路 `newFolderDoRename` → `label realized` → `checkForRename match=true` → 弹框出现（见 fixes.md 2026-08-09）
 
 ### P0-2 Nautilus 文件操作的 platform_data 恒为空 dict（含 Wayland surface handle 泄漏）
 > **纯 Wayland 下影响面最大**：`GdkWayland.WaylandToplevel` 是唯一顶层类型，`parent-handle` 是 Nautilus 进度对话框关联桌面窗口的唯一机制——当前所有操作都在丢失它（进度框永远不以桌面窗口为 parent），且每次操作泄漏一个 surface handle。

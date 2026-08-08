@@ -37,9 +37,11 @@
 
 **根因：** GTK4 移植时丢了 GTK3 的 `size-allocate` 触发链：`_checkForRename()` 唯一入口 `_doLabelSizeAllocated()` 全仓无调用点（desktop-icon-item.js:221 定义、file-item.js:281 override，无任何信号连接）。管道另一端完整（`doNewFolder` 设置 `newFolderDoRename`，`doRename` 完成清空），缺的只是触发器。
 
-**修复：** `app/desktop-icon-item.js` `_createIconActor` 补 `this.connectSignal(this._label, 'notify::allocation', () => this._doLabelSizeAllocated())`（GTK4 等价触发；信号经 SignalManager 生命周期管理，destroy 自动断开）。
+**修复（两轮演进）：**
+- **第一轮（错误方案）：** `_createIconActor` 补 `notify::allocation` 连接——**无效**。GTK4 的 `Gtk.Widget` 没有 `allocation` GObject 属性（Python gi `list_properties` 验证：36 个属性中不存在；GTK3 的 `size-allocate` 是信号，GTK4 既无此信号也无属性通知），GJS 连接无效的 `notify::xxx` 静默接受但永不触发。DING_DEBUG 日志证实：`hook connected` 后无任何回调。
+- **最终方案：** 改用 GTK4 真实存在的 **`realize` 信号**——label 加入 widget 树时必然触发一次，此时文件名与 `newFolderDoRename` 均已就绪（改名弹框不依赖布局尺寸；基类 `_calculateLabelRectangle` 记录的 labelwidth/labelheight 无活消费者，realize 时读 0 无害）。
 
-**验证：** 右键新建文件夹观察自动改名弹框；`notify::allocation` 在 label 首次分配时触发（newFolderDoRename 匹配 fileName 才弹框，改名完成后已清空不重复弹）。
+**验证：** DING_DEBUG 日志链路完整：`newFolderDoRename=新建文件夹` → `label realized` → `checkForRename pending=新建文件夹 fileName=新建文件夹 match=true` → 弹框出现；改名完成后全量刷新 `pending=null`（不重复弹框）。
 
 #### P0-3：Nautilus Scripts 子菜单被创建后丢弃，脚本功能整体失效
 

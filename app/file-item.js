@@ -29,6 +29,7 @@ import * as Prefs from './preferences.js';
 import * as Enums from './enums.js';
 import * as DBusUtils from './dbus-utils.js';
 import * as dndClipboardUtils from './dnd-clipboard-utils.js';
+import * as DebugLog from './log.js';
 
 import * as Signals from './signals.js';
 import Gettext from 'gettext';
@@ -284,6 +285,7 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
     }
 
     _checkForRename() {
+        DebugLog.debugLog(`[rename] checkForRename pending=${this._desktopManager.newFolderDoRename} fileName=${this.fileName} match=${this._desktopManager.newFolderDoRename == this.fileName}`);
         if (this._desktopManager.newFolderDoRename) {
             if (this._desktopManager.newFolderDoRename == this.fileName) {
                 this._desktopManager.doRename(this, true);
