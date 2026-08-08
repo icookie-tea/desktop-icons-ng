@@ -23,13 +23,13 @@
 
 #### P0-4：`doKillAllOldDesktopProcesses` 自 ESM 迁移起失效
 
-**症状：** Shell 热重启（Alt+F2→r / 崩溃自动重启）后旧 DING 进程存活，与新进程争 `com.rastersoft.ding`（GtkApplication 无 REPLACE 标志）→ 新进程退出、1s 无限重启循环，桌面图标丢失直到手动 kill。
+**症状：** Shell 热重启（`killall -3 gnome-shell` / 崩溃自动重启 / 注销重登）后旧 DING 进程存活，与新进程争 `com.rastersoft.ding`（GtkApplication 无 REPLACE 标志）→ 新进程退出、1s 无限重启循环，桌面图标丢失直到手动 kill。
 
 **根因：** shebang 为 `#!/usr/bin/env -S gjs --module`，`/proc/<pid>/cmdline` 实际是 `gjs --module <path>/ding.js -E -P ...`，而匹配条件是 `contents.startsWith("gjs <path>/ding.js")`——永远 false（实测：等价 shebang 脚本 `startsWith` 不匹配、`includes` 匹配）。
 
 **修复：** `extension.js` `doKillAllOldDesktopProcesses` 改为 `contents.includes(<ding.js 路径>)` 匹配。
 
-**验证：** 等价 shebang 实测（修复前 false / 修复后 true）；真机 Alt+F2→r 回归。
+**验证：** 等价 shebang 实测（修复前 false / 修复后 true）；真机 `killall -3 gnome-shell` 或注销重登回归（注：GNOME ≥ 50 纯 Wayland 下 Alt+F2→r 已不可用）。
 
 #### P0-1：新建文件夹后“自动改名”静默失效
 
@@ -110,7 +110,7 @@
 | `app/notify-x11-under-wayland.js` | **文件删除**（含 2 条翻译） |
 | `schemas/org.gnome.shell.extensions.ding.gschema.xml` | 删 `check-x11wayland` key |
 | `app/meson.build`、`po/POTFILES.in` | 同步移除条目 |
-| `extension.js` | 过时注释更新（Alt+F2→r 在 Wayland 同样存在） |
+| `extension.js` | 过时注释更新（GNOME ≥ 50 纯 Wayland，重启方式为 `killall -3 gnome-shell` / 注销重登） |
 
 **验证：** `glib-compile-schemas --strict` 通过；meson 清单与磁盘一致；check.sh 全绿。
 

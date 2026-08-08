@@ -61,10 +61,11 @@ export default class DING extends Extension {
 
         /* Ensures that there aren't "rogue" processes.
         * This is a safeguard measure for the case of Gnome Shell being
-        * relaunched (Alt+F2→r, or a shell crash restart) while the old DING
-        * process is still alive, to kill any stale instance. That's why it
-        * must be here, in init(), and not in enable() or disable() (disable
-        * already guarantees that the current instance is killed).
+        * relaunched (killall -3 gnome-shell, a shell crash restart, or a
+        * fresh login) while the old DING process is still alive, to kill
+        * any stale instance. That's why it must be here, in init(), and
+        * not in enable() or disable() (disable already guarantees that
+        * the current instance is killed).
         */
         this.doKillAllOldDesktopProcesses();
     }

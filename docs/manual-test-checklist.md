@@ -49,7 +49,9 @@ chmod +x ~/.local/share/nautilus/scripts/hello.sh
 - **回归**：普通小文件复制/移动/重命名/删除/回收站/清空回收站均正常（platform_data 不再为空，确保没改坏调用链）
 
 ### 4. Shell 热重启无残留进程（P0-4 killAll 修复）
-- [ ] Alt+F2 → `r` 重启 Shell
+- [ ] 重启 GNOME Shell（纯 Wayland 下 Alt+F2→r 已不可用，任选其一）：
+  - `killall -3 gnome-shell`（SIGQUIT，gnome-session 自动重启 shell；会关闭当前应用窗口）
+  - 或注销重登（最干净，完整触发扩展 init → doKillAllOldDesktopProcesses）
 - **预期**：重启后桌面正常出现
 - 验证：
 ```bash

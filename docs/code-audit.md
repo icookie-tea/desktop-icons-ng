@@ -38,8 +38,8 @@
 - **证据**：shebang `#!/usr/bin/env -S gjs --module` 使 `/proc/<pid>/cmdline` 实际为 `gjs --module <path>/ding.js -E -P ...`，而匹配条件是 `contents.startsWith("gjs <path>/ding.js")` —— 实测（等价 shebang 脚本）：`startsWith("gjs /tmp/x.js")` 对 `gjs --module /tmp/x.js` 返回 false，`includes` 才为 true。ESM 迁移给 shebang 加 `--module` 时未同步此匹配。
 - **根因**：字符串匹配与真实 argv 脱节。
 - **建议**：改 `contents.includes(build_filenamev([this.path,'app','ding.js']))`。
-- **风险**：中——**纯 Wayland 下场景依然存在**：Shell 热重启（Alt+F2→r 的 Run Dialog 在 Wayland 仍在，或 Shell 崩溃自动重启/扩展更新重载）时旧进程存活 → 新旧两进程争 `com.rastersoft.ding`（GtkApplication 无 REPLACE 标志）→ 新进程退出、1s 无限重启循环，桌面图标丢失直到手动 kill。另见 extension.js:64 注释 "under X11, with Alt+F2 and R" 需随修复更新。
-- **验证**：Alt+F2→r 实测；或单元测试复现 cmdline 匹配。
+- **风险**：中——**纯 Wayland 下场景依然存在**：Shell 热重启（`killall -3 gnome-shell` / 崩溃自动重启 / 注销重登——GNOME ≥ 50 纯 Wayland 下 Alt+F2→r 已不可用）时旧进程存活 → 新旧两进程争 `com.rastersoft.ding`（GtkApplication 无 REPLACE 标志）→ 新进程退出、1s 无限重启循环，桌面图标丢失直到手动 kill。另见 extension.js:64 注释（已随修复更新）。
+- **验证**：`killall -3 gnome-shell` 或注销重登实测；或单元测试复现 cmdline 匹配。
 
 ---
 
@@ -129,7 +129,7 @@
 - [P3] `app/notify-x11-under-wayland.js` — 整个模块（2.1K）死代码（仅被 `_initX11Check` 引用）
 - [P3] `schemas/org.gnome.shell.extensions.ding.gschema.xml:108` — `check-x11wayland` key 死 key（纯 Wayland 下永不生效）
 - [P3] 删除需同步：meson.build 移除 `notify-x11-under-wayland.js`、POTFILES.in 移除条目（含 2 条翻译：'Desktop Icons NG is running under X11Wayland' 等）、po 清理
-- [P3] `extension.js:64` — 注释 "under X11, with Alt+F2 and R" 过时（Wayland 下 Alt+F2→r 同样存在）
+- [P3] `extension.js:64` — 注释 "under X11, with Alt+F2 and R" 过时（GNOME ≥ 50 纯 Wayland 下 Alt+F2→r 已不可用，重启方式为 `killall -3 gnome-shell` / 注销重登；已随 P0-4 修复更新）
 
 ### 冗余/错误写法（行为等价或低影响）
 - [P3] `app/desktop-manager.js:1583-1587` — `doNewFolder` catch 块两分支相同（`if (position || suggestedName) { return null; } return null;`）→ 单 `return null`
