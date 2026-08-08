@@ -562,12 +562,13 @@ const CompressDialog = class {
         this._destinationFolder = destinationFolder;
         this._dialog = new Adw.Dialog({
             title: _('Create archive'),
-            // Ordinary non-modal window like the settings window (a bare
-            // modal Adw.Dialog made GNOME Shell briefly spawn a new dynamic
-            // workspace; the stick/raise trailing-space hack fixed that but
-            // pinned the dialog to all workspaces).
-            modal: false,
         });
+        // Ordinary non-modal window like the settings window (a bare modal
+        // Adw.Dialog made GNOME Shell briefly spawn a new dynamic
+        // workspace; the stick/raise trailing-space hack fixed that but
+        // pinned the dialog to all workspaces). 'modal' is a Gtk.Window
+        // property, not an Adw.Dialog construct property — set it here.
+        this._dialog.set_modal(false);
         const containerOut = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
             width_request: 390,
