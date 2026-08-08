@@ -152,6 +152,13 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
             justify: Gtk.Justification.CENTER,
             lines: 2,
         });
+        // GTK4 equivalent of the GTK3 'size-allocate' hook: drives
+        // _doLabelSizeAllocated() (label geometry bookkeeping) and, in
+        // FileItem, _checkForRename() — without this connection the
+        // "rename newly created folder" flow (newFolderDoRename) never
+        // fires.
+        this.connectSignal(this._label, 'notify::allocation',
+            () => this._doLabelSizeAllocated());
         const twoLinesLabel = new Gtk.Label({
             label: " \n ",
             yalign: 0.0,

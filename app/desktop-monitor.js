@@ -145,6 +145,14 @@ export var DesktopMonitor = class {
         return true;
     }
     async handleFileCreated(file) {
+        // Deduplicate against a full refresh that already picked this file
+        // up: a queued CREATE event can flush right after _drawDesktop()
+        // replaced _fileList with a list that already contains the new
+        // file — adding it again would place a second, overlapping icon.
+        if (this._dm.getFileItemFromURI(file.get_uri())) {
+            DebugLog.debugLog(`[file] created ${file.get_path()} already tracked, skipping`);
+            return true;
+        }
         let fileInfo;
         try {
             fileInfo = file.query_info(Enums.DEFAULT_ATTRIBUTES,

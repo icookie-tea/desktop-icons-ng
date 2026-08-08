@@ -15,3 +15,4 @@
 # node tooling
 node_modules/
 __pycache__/
+schemas/gschemas.compiled

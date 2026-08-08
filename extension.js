@@ -61,10 +61,10 @@ export default class DING extends Extension {
 
         /* Ensures that there aren't "rogue" processes.
         * This is a safeguard measure for the case of Gnome Shell being
-        * relaunched (for example, under X11, with Alt+F2 and R), to kill
-        * any old DING instance. That's why it must be here, in init(),
-        * and not in enable() or disable() (disable already guarantees that
-        * the current instance is killed).
+        * relaunched (Alt+F2→r, or a shell crash restart) while the old DING
+        * process is still alive, to kill any stale instance. That's why it
+        * must be here, in init(), and not in enable() or disable() (disable
+        * already guarantees that the current instance is killed).
         */
         this.doKillAllOldDesktopProcesses();
     }
@@ -191,6 +191,12 @@ export default class DING extends Extension {
         }
 
         this.data.dbusConnectionId = Gio.bus_own_name(Gio.BusType.SESSION, 'com.rastersoft.dingextension', Gio.BusNameOwnerFlags.NONE, null, (connection, name) => {
+            // disable() may have run while the name was being acquired (fast
+            // enable/disable cycles, session shutdown): never launch a
+            // desktop process that nothing would manage afterwards.
+            if (!this.data.isEnabled) {
+                return;
+            }
             this.data.dbusConnection = connection;
 
             this.data.disableTimer = new Gio.SimpleAction({
@@ -324,8 +330,14 @@ export default class DING extends Extension {
                     contents += String.fromCharCode(readData[i]);
                 }
             }
-            let path = `gjs ${GLib.build_filenamev([this.path, 'app', 'ding.js'])}`;
-            if (contents.startsWith(path)) {
+            // The shebang `#!/usr/bin/env -S gjs --module` makes /proc/<pid>/cmdline
+            // read "gjs --module <path>/ding.js -E -P ..." — match on the script
+            // path alone (includes), not on a "gjs <path>" prefix, otherwise
+            // the ESM-era processes are never recognized and stale DING
+            // processes survive Shell restarts (two processes then race for
+            // the com.rastersoft.ding application name).
+            let path = GLib.build_filenamev([this.path, 'app', 'ding.js']);
+            if (contents.includes(path)) {
                 let proc = new Gio.Subprocess({ argv: ['/bin/kill', filename] });
                 proc.init(null);
                 proc.wait(null);

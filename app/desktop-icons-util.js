@@ -132,8 +132,8 @@ export function launchTerminal(workdir, command) {
         }
     }
     new ShowErrorPopup.ShowErrorPopup(
-        'No Terminal',
-        'Cannot open a terminal, because none is installed or configured properly.',
+        _('No Terminal'),
+        _('Cannot open a terminal, because none is installed or configured properly.'),
         true
     );
 }

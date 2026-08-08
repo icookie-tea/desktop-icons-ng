@@ -20,9 +20,18 @@ import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
 export var GnomeAutoar = null;
 /* Non-blocking dynamic import — see thumbnails.js for why a top-level
- * await is avoided. */
+ * await is avoided. The AutoAr instance may be constructed before the
+ * import resolves (typelib loading is async), so once the module lands
+ * we re-run _refreshExtensions() on every live instance; otherwise the
+ * compress/extract menus would stay empty until a restart. */
+const _autoArInstances = [];
 import('gi://GnomeAutoar').then(
-    m => { GnomeAutoar = m.default; },
+    m => {
+        GnomeAutoar = m.default;
+        for (const instance of _autoArInstances) {
+            instance._refreshExtensions();
+        }
+    },
     () => {});
 
 import * as Enums from './enums.js';
@@ -37,8 +46,9 @@ const _ = Gettext.domain('ding').gettext;
 export var AutoAr = class {
     constructor(desktopManager) {
         this._desktopManager = desktopManager;
+        _autoArInstances.push(this);
         this._progressWindow = new Gtk.Window({
-            title: 'Archives Operations',
+            title: _('Archives Operations'),
             resizable: false,
             deletable: false,
             modal: false,
@@ -471,6 +481,12 @@ const progressDialog = class {
             this._waitingForPassword = false;
             if (retval) {
                 await this.doExtractFile(fullPath, folder, folderName);
+            } else {
+                // User cancelled the passphrase dialog: release the progress
+                // element and the LOGOUT|SUSPEND session inhibit exactly like
+                // the completion path does. (Historical bug: this branch
+                // leaked the progress window element and the inhibit forever.)
+                this._destroy();
             }
         }
     }
@@ -648,7 +664,7 @@ const CompressDialog = class {
 
         this._fillComboBox();
         this._dialog.show();
-        this._dialog.present(this._grid.Window);
+        this._dialog.present(this._grid);
         this._updateStatus();
         this._extensionPopover.connect('show', () => {
             for (let index in this._compressOptions) {

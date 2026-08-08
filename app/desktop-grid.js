@@ -77,7 +77,6 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
 
         this._paintContainer = new PaintContainer(this);
         this._container.put(this._paintContainer, 0, 0);
-        this.setGridStatus();
         this._window.set_size_request(this._windowWidth, this._windowHeight);
         this._window.set_default_size(this._windowWidth, this._windowHeight);
         this._window.show();
@@ -130,10 +129,6 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
         });
         this.updateGridRectangle();
         this.resizeGrid();
-    }
-
-    updateGridDescription(desktopDescription) {
-        this._desktopDescription = desktopDescription;
     }
 
     updateWindowGeometry() {

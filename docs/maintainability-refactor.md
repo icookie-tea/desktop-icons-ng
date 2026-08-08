@@ -49,18 +49,18 @@
 - `FileChangesQueue` 防抖队列（`app/file-changes-queue.js`）+ `DesktopMonitor` 增量事件处理（`app/desktop-monitor.js`，CREATED/MOVED_IN/DELETED 等逐条处理，超限回退全量刷新）
 - `_pendingDropFiles` basename 模糊匹配（应对 Nautilus " (副本)" 冲突重命名，23 断言锁定）
 
-**未落地优化参考（gtk4-ding 对比研究结论，未来可做）：**
-1. 对象复用：`_clearAllFilesFromGrids()` 不销毁 widget 只从 grid 移除（DING 目前每次都销毁重建）
-2. 并行异步枚举：特殊文件夹/本地文件/挂载点用 `Promise.all` 并行加载（DING 目前串行）
-3. 绘制同步：`await fileItem.iconPlaced` 等所有图标到位再继续
-4. `mount-removed` 延迟 500ms 刷新，避免挂载移除竞态（DING 目前立即刷新）
+**未落地优化参考（gtk4-ding 对比研究结论，2026-08-09 更新——4 项中 3 项已落地/决定不做）：**
+1. 对象复用：`_clearAllFilesFromGrids()` 不销毁 widget 只从 grid 移除 —— **已落地**（2026-08-04 审计：desktop-manager.js fast-path 按 URI 集合复用，原地更新 metadata + 缩略图）
+2. 并行异步枚举：特殊文件夹/本地文件/挂载点用 `Promise.all` 并行加载 —— **明确决定不做**（2026-08-04：GIO 同步查询在单线程 JS 无法并行；异步化 FileItem 构造改动过大）
+3. 绘制同步：`await fileItem.iconPlaced` 等所有图标到位再继续 —— **未落地**（全库无此符号，未来可做）
+4. `mount-removed` 延迟 500ms 刷新，避免挂载移除竞态 —— **已落地**（2026-08-04：`MOUNT_REMOVED_DELAY_MS`，constants.js）
 
 **增量路径已知风险（维护时注意）：** 选中状态 `_selectedFiles` 需按 URI 维护；缩略图加载竞争；`_gridStatus` 一致性；`_renameWindow` 指向的文件可能被增量移除。
 
 ## 验证方式
 
-- `scripts/check.sh`：eslint（零违规）+ 全部 JS `node --check` + gjs 单测（131 断言）+ 结构检查（`_remoteCall` 存在、无裸顶层 class、无裸 `this` 传参、meson manifest 与磁盘一致）
-- 单测覆盖：FileChangesQueue(13)/matchPendingDropEntry(23)/GridLayout(27)/SortManager(30)/generateDropFilename(38)
+- `scripts/check.sh`：eslint（零违规）+ 全部 JS `node --check` + gjs 单测（69 断言）+ 结构检查（`_remoteCall` 存在、无裸顶层 class、无裸 `this` 传参、meson manifest 与磁盘一致）
+- 单测覆盖：FileChangesQueue(13)/matchPendingDropEntry(23)/GridLayout(27)/SortManager(35)/generateDropFilename(43)/click-coordinates(53)/link-emblem(58)/ScriptsMenu(69——harness 的 `passed` 为跨模块累积值，各模块打印的是累计值，文档曾误读为 131)
 - 用户手动构建：`bash scripts/refresh_extension.sh` + 人工回归（原 docs/refactor-checklist.md 已归档，回归项：基础功能/拖放/右键菜单/增量更新与排序/多显示器与几何/概览动画/键盘与剪贴板）
 
 ## 重构中修复的潜伏 bug（详见 docs/fixes.md）

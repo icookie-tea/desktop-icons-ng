@@ -107,8 +107,26 @@ export var ThumbnailLoader = class {
             try {
                 let thumbnailPixbuf = obj.generate_thumbnail_finish(res);
                 this._thumbnailFactoryLarge.save_thumbnail_async(thumbnailPixbuf, file.uri, modifiedTime, this._doCancel, (obj, res) => {
-                    obj.save_thumbnail_finish(res);
-                    this._resolveThumbnail(file, resolve);
+                    try {
+                        obj.save_thumbnail_finish(res);
+                    } catch (e) {
+                        // A cancelled operation means the timeout handler
+                        // already ran _createFailedThumbnailAsync (which
+                        // resolves the promise); just bail out.
+                        if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
+                            return;
+                        }
+                        print(`Error while saving thumbnail: ${e.message}\n${e.stack}`);
+                        resolve(null);
+                        this._launchNewBuild();
+                        return;
+                    }
+                    if (!this._resolveThumbnail(file, resolve)) {
+                        // Saved, but the lookup missed (file moved/renamed in
+                        // between): resolve with null instead of hanging the
+                        // promise forever.
+                        resolve(null);
+                    }
                     this._launchNewBuild();
                 });
             } catch (e) {

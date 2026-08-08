@@ -47,84 +47,97 @@ export class GnomeShellOverride {
         return function (...args) {
             origninalMethod.call(this, ...args);
 
-            /** @enum {number} */
-            const ControlsState = {
-                HIDDEN: 0,
-                WINDOW_PICKER: 1,
-                APP_GRID: 2,
-            };
+            // All of the below touches deep GNOME Shell private state
+            // (_stateAdjustment, _bgManager, _backgroundGroup). If any of it
+            // moves between Shell versions, the whole animation must degrade
+            // silently: an exception thrown inside the injected _init would
+            // bubble up the Workspace construction chain and could break
+            // Shell startup rendering.
+            try {
+                /** @enum {number} */
+                const ControlsState = {
+                    HIDDEN: 0,
+                    WINDOW_PICKER: 1,
+                    APP_GRID: 2,
+                };
 
-            const opaque = 255;
-            const transparent = 0;
+                const opaque = 255;
+                const transparent = 0;
 
-            const overviewAdjustment =
-                Main.overview._overview._controls._stateAdjustment;
-
-            function _windowIsOnThisMonitor(metawindow, monitorIndex) {
-                const geometry =
-                    global.display.get_monitor_geometry(monitorIndex);
-                const [intersects] =
-                    metawindow.get_frame_rect().intersect(geometry);
-                return intersects;
-            }
-
-            const desktopWindows = global.get_window_actors().filter(a =>
-                a.meta_window.get_window_type() === Meta.WindowType.DESKTOP &&
-                _windowIsOnThisMonitor(a.meta_window, this._monitorIndex));
-
-            if (desktopWindows.length) {
-                const desktopLayer = new Clutter.Actor({
-                    layout_manager: new DesktopLayout(),
-                    clip_to_allocation: true,
-                });
-
-                for (let windowActor of desktopWindows) {
-                    const clone = new Clutter.Clone({
-                        source: windowActor,
-                    });
-                    desktopLayer.add_child(clone);
-
-                    windowActor.connectObject('destroy', () => {
-                        clone.destroy();
-                    }, this);
+                const overviewAdjustment =
+                    Main.overview?._overview?._controls?._stateAdjustment;
+                if (!overviewAdjustment || !this._bgManager || !this._backgroundGroup) {
+                    return;
                 }
 
-                const offset = 0;
-                const syncAll = Clutter.BindConstraint.new(
-                    this._bgManager.backgroundActor,
-                    Clutter.BindCoordinate.ALL,
-                    offset);
-                desktopLayer.add_constraint(syncAll);
+                function _windowIsOnThisMonitor(metawindow, monitorIndex) {
+                    const geometry =
+                        global.display.get_monitor_geometry(monitorIndex);
+                    const [intersects] =
+                        metawindow.get_frame_rect().intersect(geometry);
+                    return intersects;
+                }
 
-                overviewAdjustment.connectObject('notify::value',
-                    () => {
-                        const params =
-                            overviewAdjustment.getStateTransitionParams();
-                        const {initialState, finalState, progress,
-                            transitioning} = params;
+                const desktopWindows = global.get_window_actors().filter(a =>
+                    a.meta_window.get_window_type() === Meta.WindowType.DESKTOP &&
+                    _windowIsOnThisMonitor(a.meta_window, this._monitorIndex));
 
-                        if (transitioning) {
-                            if (finalState === ControlsState.HIDDEN)
+                if (desktopWindows.length) {
+                    const desktopLayer = new Clutter.Actor({
+                        layout_manager: new DesktopLayout(),
+                        clip_to_allocation: true,
+                    });
+
+                    for (let windowActor of desktopWindows) {
+                        const clone = new Clutter.Clone({
+                            source: windowActor,
+                        });
+                        desktopLayer.add_child(clone);
+
+                        windowActor.connectObject('destroy', () => {
+                            clone.destroy();
+                        }, this);
+                    }
+
+                    const offset = 0;
+                    const syncAll = Clutter.BindConstraint.new(
+                        this._bgManager.backgroundActor,
+                        Clutter.BindCoordinate.ALL,
+                        offset);
+                    desktopLayer.add_constraint(syncAll);
+
+                    overviewAdjustment.connectObject('notify::value',
+                        () => {
+                            const params =
+                                overviewAdjustment.getStateTransitionParams();
+                            const {initialState, finalState, progress,
+                                transitioning} = params;
+
+                            if (transitioning) {
+                                if (finalState === ControlsState.HIDDEN)
+                                    desktopLayer.opacity =
+                                        Util.lerp(transparent, opaque, progress);
+                                else if (initialState === ControlsState.HIDDEN)
+                                    desktopLayer.opacity =
+                                        Util.lerp(opaque, transparent, progress);
+                                else
+                                    desktopLayer.opacity = transparent;
+                            } else {
                                 desktopLayer.opacity =
-                                    Util.lerp(transparent, opaque, progress);
-                            else if (initialState === ControlsState.HIDDEN)
-                                desktopLayer.opacity =
-                                    Util.lerp(opaque, transparent, progress);
-                            else
-                                desktopLayer.opacity = transparent;
-                        } else {
-                            desktopLayer.opacity =
-                                overviewAdjustment.value < 0.5
-                                    ? opaque : transparent;
-                        }
-                    },
-                    this
-                );
+                                    overviewAdjustment.value < 0.5
+                                        ? opaque : transparent;
+                            }
+                        },
+                        this
+                    );
 
-                this._backgroundGroup.insert_child_above(
-                    desktopLayer,
-                    this._bgManager.backgroundActor
-                );
+                    this._backgroundGroup.insert_child_above(
+                        desktopLayer,
+                        this._bgManager.backgroundActor
+                    );
+                }
+            } catch (e) {
+                console.error('DING: overview animation setup failed, degrading to no animation:', e);
             }
         };
     }
@@ -146,12 +159,18 @@ class DesktopLayout extends Clutter.LayoutManager {
     vfunc_allocate(container, box) {
         const monitorIndex = Main.layoutManager.findIndexForActor(container);
         const monitor = Main.layoutManager.monitors[monitorIndex];
+        if (!monitor) {
+            return;
+        }
         const hscale = box.get_width() / monitor.width;
         const vscale = box.get_height() / monitor.height;
 
         for (const child of container) {
             const childBox = new Clutter.ActorBox();
             const frameRect = child.get_source()?.metaWindow.get_frame_rect();
+            if (!frameRect) {
+                continue;
+            }
 
             childBox.set_size(
                 Math.round(frameRect.width * hscale),

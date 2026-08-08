@@ -29,7 +29,6 @@ install_data([
     'file-utils.js',
     'log.js',
     'menu-helper.js',
-    'notify-x11-under-wayland.js',
     'preferences.js',
     'prefs-window.js',
     'promise-utils.js',

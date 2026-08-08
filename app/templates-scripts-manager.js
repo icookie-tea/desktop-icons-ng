@@ -194,6 +194,11 @@ export var TemplatesScriptsManager = class extends SignalManager.SignalManager {
         if ((scriptsList == null) || (scriptsList.length == 0)) {
             return null;
         }
+        // Scripts and templates must dispatch to different actions:
+        // app.create-script (run the executable) vs app.create-template
+        // (create a new file from the template).
+        const actionName = (this._flags & TemplatesScriptsManagerFlags.ONLY_EXECUTABLE) ?
+            'app.create-script' : 'app.create-template';
         let scriptSubMenu = new Gio.Menu();
         for (let fileItem of scriptsList) {
             let menuItemName = fileItem[0];
@@ -204,7 +209,7 @@ export var TemplatesScriptsManager = class extends SignalManager.SignalManager {
             let subDirs = fileItem[2];
             if (subDirs === null) {
                 let menuItem = Gio.MenuItem.new(menuItemName, null);
-                menuItem.set_action_and_target_value("app.create-template", GLib.Variant.new_string(menuItemPath));
+                menuItem.set_action_and_target_value(actionName, GLib.Variant.new_string(menuItemPath));
                 scriptSubMenu.append_item(menuItem);
             } else {
                 let subMenu = this._createTemplatesScriptsSubMenu(subDirs);

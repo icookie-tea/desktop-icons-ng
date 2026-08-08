@@ -1,5 +1,138 @@
 # 修复日志
 
+## 2026-08-09
+
+### 全面代码审计修复批次（audit-fixes，见 docs/code-audit.md）
+
+对全库做了三轮并行全文审计（核心/交互/Shell 侧），产出 docs/code-audit.md 分级清单（P0×4 / P1×8 / P2×9 / P3×29 / 文档一致性 9 项）。本批实施 P0 全部 + P1 五项 + P2/P3 精选；剩余项（P1-8 deprecated API、P2-2 绘制每帧分配、P2-8 Overview 动态补建等）见审计报告，后续按需实施。环境假设：GNOME ≥ 50 纯 Wayland（用户确认），X11 相关代码视为死代码。
+
+#### P0-2/P1-4：Nautilus 文件操作 platform_data 恒为空 + Wayland surface handle 泄漏
+
+**症状：** 所有经 `RemoteFileOperationsManager` 的文件操作（移动/复制/重命名/回收站/永久删除/清空回收站/撤销/重做）发送的 platform_data 恒为空 dict——Nautilus 进度对话框永远不以桌面窗口为 parent；且每次操作 `export_handle` 一个 Wayland surface handle，从不 unexport。
+
+**根因：** `platformData()` 是 async 函数（返回 `{data, freePlatformData}`），但 7 处调用点把 **Promise 对象本身** 传进 `_remoteCall`（GJS 把 Promise 静默组包成空 `a{sv}`）；`RenameURIRemote` 写 `await this.platformData().data`——Promise 无 `.data` 属性 → undefined。另：`parentWindow.get_surface()` 在 `if (parentWindow)` 判空**之前**执行，启动/关闭瞬间 `get_active_window()` 为 null 时 TypeError 使整条 Promise reject。
+
+**修复：**
+
+| 文件 | 变更 |
+|------|------|
+| `app/dbus-remote-operations.js` | 新增 `_remoteCallWithPlatformData()` 模板：`await this.platformData()` 后取 `.data` 传给 proxy 调用，D-Bus 回调中调 `freePlatformData()`（unexport handle）；8 个方法（Move/Copy/Rename/Trash/Delete/EmptyTrash/Undo/Redo）全部改用它；`get_surface()` 移入判空块内并 try/catch；`freePlatformData` 内部判空+容错 |
+| `app/dbus-remote-operations.js` `LegacyRemoteFileOperationsManager.DeleteURIsRemote` | **顺带修复 P1-5：** 移除 fire-and-forget 的 `EmptyTrashRemote()`——历史 bug 导致 legacy 接口下每次“永久删除”都先清空整个回收站；现在直接走 `TrashFilesRemote` |
+
+**验证：** `node --check` + eslint 通过；真机验证建议：Wayland 下操作文件后 Nautilus 进度框以桌面窗口为 parent；连续复制-粘贴 50 次观察 handle 不再增长。
+
+#### P0-4：`doKillAllOldDesktopProcesses` 自 ESM 迁移起失效
+
+**症状：** Shell 热重启（Alt+F2→r / 崩溃自动重启）后旧 DING 进程存活，与新进程争 `com.rastersoft.ding`（GtkApplication 无 REPLACE 标志）→ 新进程退出、1s 无限重启循环，桌面图标丢失直到手动 kill。
+
+**根因：** shebang 为 `#!/usr/bin/env -S gjs --module`，`/proc/<pid>/cmdline` 实际是 `gjs --module <path>/ding.js -E -P ...`，而匹配条件是 `contents.startsWith("gjs <path>/ding.js")`——永远 false（实测：等价 shebang 脚本 `startsWith` 不匹配、`includes` 匹配）。
+
+**修复：** `extension.js` `doKillAllOldDesktopProcesses` 改为 `contents.includes(<ding.js 路径>)` 匹配。
+
+**验证：** 等价 shebang 实测（修复前 false / 修复后 true）；真机 Alt+F2→r 回归。
+
+#### P0-1：新建文件夹后“自动改名”静默失效
+
+**症状：** 右键新建文件夹/新建文档后不再自动弹出改名框。
+
+**根因：** GTK4 移植时丢了 GTK3 的 `size-allocate` 触发链：`_checkForRename()` 唯一入口 `_doLabelSizeAllocated()` 全仓无调用点（desktop-icon-item.js:221 定义、file-item.js:281 override，无任何信号连接）。管道另一端完整（`doNewFolder` 设置 `newFolderDoRename`，`doRename` 完成清空），缺的只是触发器。
+
+**修复：** `app/desktop-icon-item.js` `_createIconActor` 补 `this.connectSignal(this._label, 'notify::allocation', () => this._doLabelSizeAllocated())`（GTK4 等价触发；信号经 SignalManager 生命周期管理，destroy 自动断开）。
+
+**验证：** 右键新建文件夹观察自动改名弹框；`notify::allocation` 在 label 首次分配时触发（newFolderDoRename 匹配 fileName 才弹框，改名完成后已清空不重复弹）。
+
+#### P0-3：Nautilus Scripts 子菜单被创建后丢弃，脚本功能整体失效
+
+**症状：** `~/.local/share/nautilus/scripts/` 下的脚本永远不出现在图标右键菜单。
+
+**根因：** 两个 bug：① `file-item-menu.js:247` `this._scriptsMonitor.createMenu()` 返回的 submenu **从未 `append_submenu`**（`added_element` 变量逻辑也因此失效）；② 即使 append，菜单项 action 硬编码 `app.create-template`（模板语义），脚本会被当模板处理。
+
+**修复：**
+
+| 文件 | 变更 |
+|------|------|
+| `app/templates-scripts-manager.js` | `_createTemplatesScriptsSubMenu` action 按 flags 区分：`ONLY_EXECUTABLE` → `app.create-script`，否则 `app.create-template` |
+| `app/file-item-menu.js` | `_addActions` 注册 `create-script` action → `_onScriptClicked(路径)`；`_createMenu` 补 `section.append_submenu(_('Scripts'), submenu)` |
+| `tests/test-scripts-menu.js` | 新增回归测试（8 断言）：脚本模式 action、模板模式 action、空列表 null、子目录递归 |
+| `tests/run.js` | 注册新测试组 |
+
+**验证：** TDD 先红后绿（修复前 `app.create-template` 断言失败）；`scripts/check.sh` 全绿。
+
+#### P1-3：加密压缩密码框点 Cancel 永久泄漏进度元素 + LOGOUT|SUSPEND 抑制
+
+**症状：** 提取加密 zip → 密码框 → 点 Cancel 后：进度窗口残留元素、`mainApp.inhibit` 永不释放（此后无法注销/休眠），直到进程退出。
+
+**根因：** `doExtractFile` 的 finally 在 `_waitingForPassword` 时跳过 `_destroy()`，密码等待分支 `retval=false`（Cancel）后不清理。
+
+**修复：** `app/auto-ar.js` Cancel 分支补 `this._destroy()`。
+
+**验证：** 提取加密 zip → Cancel → 进度窗口元素移除、注销/休眠恢复。
+
+#### P1-1：缩略图队列可永久停摆
+
+**根因：** `save_thumbnail_async` 回调体无 try/catch——`save_thumbnail_finish` 抛错（磁盘满/缓存损坏）后 `_launchNewBuild()` 不再执行、`_running` 恒 true，后续所有 `getThumbnail` promise 永不 resolve、队列无限积压；另 `_resolveThumbnail` 返回 false（lookup 未命中）时 resolve 永不调用。
+
+**修复：** `app/thumbnails.js` save 回调包 try/catch（CANCELLED → 超时已处理，直接 return；其他错误 → `resolve(null)` + `_launchNewBuild()`）；`_resolveThumbnail` false 分支补 `resolve(null)`。
+
+**验证：** mock `save_thumbnail_finish` 抛错 → 队列继续处理后续文件。
+
+#### P1-2：增量创建与全量刷新竞态可致重复图标
+
+**根因：** `handleFileCreated` 直接 push 新 FileItem，无 URI 去重；CREATE 事件在 `_drawDesktop` 之后 flush（全量枚举已含该文件）时 → 同一文件两个图标重叠。
+
+**修复：** `app/desktop-monitor.js` `handleFileCreated` 开头 `getFileItemFromURI(file.get_uri())` 命中则跳过（debug 日志记录）。
+
+**验证：** F5 后 200ms 窗口内创建文件，不再出现重复图标。
+
+#### P1-7：name_acquired 回调无 isEnabled 守卫
+
+**根因：** disable() 在 D-Bus 名称获取窗口内执行时（快速 enable/disable、登出），回调仍会 `launchDesktop()` 拉起无人管理的新进程。
+
+**修复：** `extension.js` name_acquired 回调开头 `if (!this.data.isEnabled) return;`。
+
+**验证：** 反复快速 enable/disable 后 `pgrep -f ding.js` 无孤儿进程。
+
+#### P1-6：gnome-shell-override 私有 API 覆写无防护
+
+**根因：** 注入的 `WorkspaceBackground._init` 直接访问 `Main.overview._overview._controls._stateAdjustment` 等 Shell 私有路径；Shell 版本变动时异常会沿 Workspace 构造链上抛，可能破坏 Shell 启动渲染。
+
+**修复：** `gnome-shell-override.js`：注入逻辑整体包 try/catch（失败静默降级为无动画）+ 可选链/特性检测（`!overviewAdjustment || !this._bgManager || !this._backgroundGroup` 直接 return）；`DesktopLayout.vfunc_allocate` 补 `monitor`/`frameRect` 空值守卫。
+
+**验证：** 50/51 真机 Overview 淡入淡出回归（动画正常 = 注入路径无异常）。
+
+#### 纯 Wayland 环境清理：X11 残留死代码整组删除
+
+| 位置 | 变更 |
+|------|------|
+| `app/desktop-manager.js` | 删 `using_X11` 字段与 `_initX11Check` X11 分支（每次启动白写 `check-x11wayland` dconf 的 else 分支一并消失）；`mainApp.hold()` 保活逻辑保留并更名 `_initDesktopHold` |
+| `app/notify-x11-under-wayland.js` | **文件删除**（含 2 条翻译） |
+| `schemas/org.gnome.shell.extensions.ding.gschema.xml` | 删 `check-x11wayland` key |
+| `app/meson.build`、`po/POTFILES.in` | 同步移除条目 |
+| `extension.js` | 过时注释更新（Alt+F2→r 在 Wayland 同样存在） |
+
+**验证：** `glib-compile-schemas --strict` 通过；meson 清单与磁盘一致；check.sh 全绿。
+
+#### 翻译补包 + 杂项清理
+
+| 位置 | 变更 |
+|------|------|
+| `app/desktop-icons-util.js:135` | 'No Terminal' 错误弹窗两条字符串补 `_()` |
+| `app/auto-ar.js:41` | 进度窗口标题 'Archives Operations' 补 `_()` |
+| `app/desktop-manager.js` | `findFiles` 入口守卫：已有查找窗口先关闭（防连按 Ctrl+F 双窗口/信号泄漏/关错窗口，P2-1）；`doNewFolder` catch 两相同分支合并 |
+| `app/file-item-menu.js` | `_getExtractable()` 首迭代 return → `.every()` 全量检查 |
+| `app/ask-rename-popup.js:63` | `clamp(fileItem.displayName, …)` 字符串恒 NaN → `.length` |
+| `app/auto-ar.js:657` | `this._dialog.present(this._grid.Window)` 不存在属性 → `this._grid`；动态 import 竞态：`GnomeAutoar` resolve 后对所有 AutoAr 实例补 `_refreshExtensions()`（P2-5） |
+| `app/menu-helper.js`、`app/stack-item.js`、`app/file-operations.js` | 删三处死 gettext 定义（`const _ = Gettext.domain('ding').gettext` 零调用） |
+| `app/sort-manager.js` | 两处冗余条件分支简化（if/else 同 continue；恒真 `!_isSpecial`） |
+| `app/desktop-grid.js` | 构造函数删重复 `setGridStatus()`（resizeGrid 已做）；删死方法 `updateGridDescription`（字段由构造函数设置） |
+| `app/desktop-menu.js:161` | `GLib.getenv('XDG_CURRENT_DESKTOP')` 可能 null → `?? ''` |
+
+**验证：** `scripts/check.sh` 全绿（eslint 零违规 / node --check / 8 测试组 69 断言 / 结构检查）；`glib-compile-schemas --strict` 通过；meson 清单一致。构建由用户执行。
+
+**影响范围：** 桌面图标右键菜单新增 Scripts 子菜单（脚本功能恢复）；新建文件夹改名框恢复；Nautilus 文件操作进度框现在以桌面窗口为 parent；X11Wayland 提示弹窗移除（纯 Wayland 环境不再需要）。无新增安装文件（删除 notify-x11-under-wayland.js 已同步 meson）。
+
+---
+
 ## 2026-08-08
 
 ### 修复：软链接标志（show-link-emblem）开关无效

@@ -6,7 +6,7 @@ Desktop Icons NG (DING, `desktop-icons-ng@icookie-tea.github.io`) 是一个 GNOM
 
 icookie 分支在此基础上进行了大量重构和功能增强，包括模块化拆分、增量更新、概览动画、拖放修复、**ESM 迁移**、可维护性重构等。
 
-> **模块系统：** 自 2026-07 起，GTK4 子进程层（`app/`）已全部迁移到 **ESM**（`import ... from './xxx.js'` / `gi://`），用 `gjs --module app/ding.js` 启动；`extension.js` 等 Shell 侧文件仍为 legacy（`imports.*`）以兼容 GNOME Shell 加载机制。脚本统一在 `scripts/` 目录。
+> **模块系统：** 自 2026-07 起，GTK4 子进程层（`app/`）已全部迁移到 **ESM**（`import ... from './xxx.js'` / `gi://`），用 `gjs --module app/ding.js` 启动；Shell 侧 `extension.js`/`prefs.js` 也已 ESM 化，仅 `desktop-icons-integration.js`（第三方扩展用 `imports.*` 加载）与 `visible-area.js:18`（`imports.signals` 兼容残留）保留 legacy 风格。脚本统一在 `scripts/` 目录。
 
 ---
 
@@ -81,7 +81,7 @@ enable()
 innerEnable()
   ├─→ x11Manager.enable()
   │   └─→ 连接 window_manager 'map' / 'destroy' 信号
-  │       连接 Main.overview 'hiding' 信号
+  │       （注：旧版曾连接 Main.overview 'hiding' 信号，已随 fc84044 移除）
   │
   ├─→ gnomeShellOverride.enable()           // icookie 新增
   │   └─→ InjectionManager.overrideMethod(WorkspaceBackground, '_init')
@@ -104,7 +104,8 @@ innerEnable()
 
 ```
 launchDesktop()
-  └─→ LaunchSubprocess.spawnv(['gjs', '--module', 'app/ding.js', '-E', '-P', <path>])
+  └─→ LaunchSubprocess.spawnv([<ding.js路径>, '-E', '-P', <app路径>])
+      （`gjs --module` 来自 shebang `#!/usr/bin/env -S gjs --module`，argv 本身不含）
        ├─→ Meta.WaylandClient.new_subprocess()   // Wayland 子进程协议
        ├─→ 连接 stdout/stderr，日志输出到 journal
        ├─→ 启动 6 秒超时定时器（防止卡死）
@@ -171,7 +172,6 @@ extension.js: getDesktopGeometry()
   └─→ 通过 D-Bus Action 'desktopGeometry' 传递给子进程
 
 icookie 分支额外改动：
-  ├─→ 大量 console.log debug 日志（用于排查显示器切换问题）
   └─→ improved primaryMonitor handling: _primaryIndex < _desktopList.length 时才赋值
 ```
 

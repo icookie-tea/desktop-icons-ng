@@ -109,10 +109,9 @@ export var SortManager = class {
             if (fileItem._isValidDesktopFile) {
                 validDesktopFiles.push(fileItem);
                 continue;
-            } else {
-                otherFiles.push(fileItem);
-                continue;
             }
+            otherFiles.push(fileItem);
+            continue;
         }
         this._sortByName(specialFiles);
         this._sortByName(directoryFiles);
@@ -149,12 +148,9 @@ export var SortManager = class {
                 specialFiles.push(fileItem);
                 continue;
             }
-            if (!fileItem._isSpecial) {
-                otherFiles.push(fileItem);
-                fileItem.savedCoordinates = null;
-                fileItem.dropCoordinates = null;
-                continue;
-            }
+            otherFiles.push(fileItem);
+            fileItem.savedCoordinates = null;
+            fileItem.dropCoordinates = null;
         }
         newFileList.push(...specialFiles);
         newFileList.push(...otherFiles);

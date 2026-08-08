@@ -158,7 +158,8 @@ export var DesktopMenu = class extends MenuHelper.MenuHelper {
             desktopFile.launch([], context);
         });
         this._addNewAction('show-settings', null, () => {
-            if (GLib.getenv('XDG_CURRENT_DESKTOP').split(':').includes('ubuntu')) {
+            const currentDesktop = GLib.getenv('XDG_CURRENT_DESKTOP') ?? '';
+            if (currentDesktop.split(':').includes('ubuntu')) {
                 const desktopFile = GioUnix.DesktopAppInfo.new('gnome-ubuntu-panel.desktop');
                 const context = Gdk.Display.get_default().get_app_launch_context();
                 //context.set_timestamp(Gtk.get_current_event_time());

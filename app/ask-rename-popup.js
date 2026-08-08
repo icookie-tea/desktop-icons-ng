@@ -60,7 +60,7 @@ export var AskRenamePopup = class extends SignalManager.SignalManager {
         });
         this._textArea.update_property([Gtk.AccessibleProperty.LABEL], [_("New filename")]);
         this._textArea.text = fileItem.fileName;
-        this._textArea.set_width_chars(DesktopIconsUtil.clamp(fileItem.displayName, RENAME_ENTRY_MIN_CHARS, RENAME_ENTRY_MAX_CHARS))
+        this._textArea.set_width_chars(DesktopIconsUtil.clamp(fileItem.displayName.length, RENAME_ENTRY_MIN_CHARS, RENAME_ENTRY_MAX_CHARS))
         contentBox.append(this._textArea);
         this._button = new Gtk.Button({
             label: allowReturnOnSameName ? _('OK') : _('Rename'),

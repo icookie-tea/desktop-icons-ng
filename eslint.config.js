@@ -1,9 +1,10 @@
 /**
  * ESLint flat config for DING (GJS codebase).
  *
- * - Root .js files (extension.js, prefs.js, visibleArea.js, ...) are ESM
- *   modules running inside GNOME Shell.
- * - app/*.js files are legacy `imports.gi` scripts running under plain gjs.
+ * - Root .js files (extension.js, prefs.js, visible-area.js, ...) and
+ *   app/*.js are ESM modules (GNOME Shell / gjs --module).
+ * - app/desktop-icons-integration.js is a legacy `imports.*` script loaded
+ *   by third-party extensions inside GNOME Shell.
  * - The custom `exported-comments` rule marks `var X` symbols that carry a
  *   `/* exported X *​/` GJS comment as "used", so no-unused-vars accepts them.
  */

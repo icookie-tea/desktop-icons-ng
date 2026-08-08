@@ -59,6 +59,52 @@ export var DbusOperationsManager = class {
         });
     }
 
+    /**
+     * Template for remote D-Bus calls that need Wayland platform_data
+     * (parent-handle / timestamp / window-position). `platformData()` is
+     * async (it exports a Wayland surface handle first), so this helper
+     * awaits it, passes the resulting a{sv} dict to the proxy call and
+     * releases the handle once the D-Bus round-trip completes.
+     *
+     * NOTE: the platform_data must be a plain object or undefined here —
+     * GJS's D-Bus layer serializes it into the a{sv} variant. Passing the
+     * Promise itself (a historical bug) silently produces an empty dict.
+     */
+    async _remoteCallWithPlatformData(manager, methodName, errorMessage, args, callback, proxyMethod = null) {
+        if (!manager.proxy) {
+            this._sendNoProxyError(callback);
+            return;
+        }
+        let platform = null;
+        try {
+            platform = await this.platformData();
+        } catch (e) {
+            console.error(e, 'Impossible to determine the parent window');
+        }
+        try {
+            manager.proxy[proxyMethod || methodName](...args, platform ? platform.data : undefined, (result, error) => {
+                if (platform && platform.freePlatformData) {
+                    try {
+                        platform.freePlatformData();
+                    } catch (e) {
+                        // ignore unexport errors
+                    }
+                }
+                if (callback) {
+                    callback(result, error);
+                }
+                if (error) {
+                    console.log(`${errorMessage}: ${error.message}`);
+                }
+            });
+        } catch (e) {
+            console.log(`${errorMessage}: ${e.message}`);
+            if (callback) {
+                callback(null, e.message);
+            }
+        }
+    }
+
     ShowItemPropertiesRemote(selection, timestamp, callback) {
         this._remoteCall(this.freeDesktopFileManager, 'ShowItemPropertiesRemote', 'Error showing properties', [selection, this._getStartupId(selection, timestamp)], callback);
     }
@@ -128,13 +174,14 @@ export var RemoteFileOperationsManager = class extends DbusOperationsManager {
                 'timestamp': Gdk.CURRENT_TIME,
             };
             const parentWindow = eventParameters.parentWindow;
-            const topLevel = parentWindow.get_surface();
             const windowPosition = 'center';
             const timestamp = eventParameters.timestamp;
             let parentHandle = '';
+            let topLevel = null;
 
             if (parentWindow) {
                 try {
+                    topLevel = parentWindow.get_surface();
                     if (topLevel.constructor.$gtype === GdkWayland.WaylandToplevel.$gtype) {
                         let handle = await this.getWaylandParentHandle(topLevel);
                         if (handle) {
@@ -143,6 +190,7 @@ export var RemoteFileOperationsManager = class extends DbusOperationsManager {
                     }
                 } catch (e) {
                     console.error(e, 'Impossible to determine the parent window');
+                    topLevel = null;
                 }
             }
 
@@ -152,59 +200,50 @@ export var RemoteFileOperationsManager = class extends DbusOperationsManager {
                     'timestamp': new GLib.Variant('u', timestamp),
                     'window-position': new GLib.Variant('s', windowPosition),
                 },
-                freePlatformData: () => {topLevel.unexport_handle();},
+                freePlatformData: () => {
+                    if (topLevel) {
+                        try {
+                            topLevel.unexport_handle();
+                        } catch (e) {
+                            // ignore unexport errors
+                        }
+                    }
+                },
             };
         };
     }
 
 
-    MoveURIsRemote(fileList, uri, callback) {
-        this._remoteCall(this.fileOperationsManager, 'MoveURIsRemote', 'Error moving files', [fileList, uri, this.platformData()], callback);
+    async MoveURIsRemote(fileList, uri, callback) {
+        this._remoteCallWithPlatformData(this.fileOperationsManager, 'MoveURIsRemote', 'Error moving files', [fileList, uri], callback);
     }
 
-    CopyURIsRemote(fileList, uri, callback) {
-        this._remoteCall(this.fileOperationsManager, 'CopyURIsRemote', 'Error copying files', [fileList, uri, this.platformData()], callback);
+    async CopyURIsRemote(fileList, uri, callback) {
+        this._remoteCallWithPlatformData(this.fileOperationsManager, 'CopyURIsRemote', 'Error copying files', [fileList, uri], callback);
     }
 
     async RenameURIRemote(fileList, uri, callback) {
-        if (!this.fileOperationsManager.proxy) {
-            this._sendNoProxyError(callback);
-            return;
-        }
-        const platformData = await this.platformData().data;
-        this.fileOperationsManager.proxy.RenameURIRemote(
-            fileList,
-            uri,
-            platformData,
-            (result, error) => {
-                if (callback) {
-                    callback(result, error);
-                }
-                if (error) {
-                    console.log(`Error copying files: ${error.message}`);
-                }
-            }
-        );
+        this._remoteCallWithPlatformData(this.fileOperationsManager, 'RenameURIRemote', 'Error renaming files', [fileList, uri], callback);
     }
 
-    TrashURIsRemote(fileList, callback) {
-        this._remoteCall(this.fileOperationsManager, 'TrashURIsRemote', 'Error moving files', [fileList, this.platformData()], callback);
+    async TrashURIsRemote(fileList, callback) {
+        this._remoteCallWithPlatformData(this.fileOperationsManager, 'TrashURIsRemote', 'Error moving files', [fileList], callback);
     }
 
-    DeleteURIsRemote(fileList, callback) {
-        this._remoteCall(this.fileOperationsManager, 'DeleteURIsRemote', 'Error deleting files on the desktop', [fileList, this.platformData()], callback);
+    async DeleteURIsRemote(fileList, callback) {
+        this._remoteCallWithPlatformData(this.fileOperationsManager, 'DeleteURIsRemote', 'Error deleting files on the desktop', [fileList], callback);
     }
 
-    EmptyTrashRemote(askConfirmation, callback) {
-        this._remoteCall(this.fileOperationsManager, 'EmptyTrashRemote', 'Error trashing files on the desktop', [askConfirmation, this.platformData()], callback);
+    async EmptyTrashRemote(askConfirmation, callback) {
+        this._remoteCallWithPlatformData(this.fileOperationsManager, 'EmptyTrashRemote', 'Error trashing files on the desktop', [askConfirmation], callback);
     }
 
-    UndoRemote(callback) {
-        this._remoteCall(this.fileOperationsManager, 'UndoRemote', 'Error performing undo', [this.platformData()], callback);
+    async UndoRemote(callback) {
+        this._remoteCallWithPlatformData(this.fileOperationsManager, 'UndoRemote', 'Error performing undo', [], callback);
     }
 
-    RedoRemote(callback) {
-        this._remoteCall(this.fileOperationsManager, 'RedoRemote', 'Error performing redo', [this.platformData()], callback);
+    async RedoRemote(callback) {
+        this._remoteCallWithPlatformData(this.fileOperationsManager, 'RedoRemote', 'Error performing redo', [], callback);
     }
 
     UndoStatus() {
@@ -236,9 +275,10 @@ export var LegacyRemoteFileOperationsManager = class extends DbusOperationsManag
     }
 
     DeleteURIsRemote(fileList, callback) {
-        if (this.fileOperationsManager.proxy) {
-            this.EmptyTrashRemote();
-        }
+        // Legacy FileOperations has no permanent-delete method; trash the
+        // files instead. Do NOT empty the trash first (historical bug:
+        // fire-and-forget EmptyTrashRemote() wiped the whole recycle bin
+        // before every permanent delete).
         this._remoteCall(this.fileOperationsManager, 'DeleteURIsRemote', 'Error deleting files on the desktop', [fileList], callback, 'TrashFilesRemote');
     }
 

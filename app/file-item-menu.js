@@ -77,6 +77,12 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
             DesktopIconsUtil.spawnCommandLine(`"${execLine}"`);
         }, 's');
 
+        // Nautilus scripts (~/.local/share/nautilus/scripts): menu items
+        // carry app.create-script with the script path as target.
+        this._addNewAction('create-script', null, (action, parameter) => {
+            this._onScriptClicked(parameter.get_string()[0]);
+        }, 's');
+
         this._actionCut = this._addNewAction('cut-file', ["<Control>x"], this._desktopManager.doCut.bind(this._desktopManager));
 
         this._actionCopy = this._addNewAction('copy-file', ["<Control>c"], this._desktopManager.doCopy.bind(this._desktopManager));
@@ -246,6 +252,9 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
         if (fileItem.isAllSelectable && !fileItem.isStackMarker) {
             let submenu = this._scriptsMonitor.createMenu();
             if (submenu !== null) {
+                // Historical bug: the submenu was built but never appended,
+                // silently killing the whole Nautilus-scripts feature.
+                section.append_submenu(_('Scripts'), submenu);
                 added_element = true;
             }
             if (added_element) {
@@ -572,10 +581,10 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
     }
 
     _getExtractable() {
-        for (let item of this._desktopManager.getCurrentSelection(false)) {
-            return this._decompressibleTypes.includes(item.attributeContentType);
-        }
-        return false;
+        // All selected items must be extractable; the historical
+        // implementation returned after checking only the first item.
+        return this._desktopManager.getCurrentSelection(false)
+            .every(item => this._decompressibleTypes.includes(item.attributeContentType));
     }
 
     _mailFilesFromSelection() {

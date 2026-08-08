@@ -27,7 +27,6 @@ import * as FileItem from './file-item.js';
 import * as DesktopIconsUtil from './desktop-icons-util.js';
 import * as Prefs from './preferences.js';
 import * as Enums from './enums.js';
-import * as NotifyX11UnderWayland from './notify-x11-under-wayland.js';
 import * as DBusUtils from './dbus-utils.js';
 import * as ShowErrorPopup from './show-error-popup.js';
 import * as Thumbnails from './thumbnails.js';
@@ -55,8 +54,7 @@ export var DesktopManager = class {
         this._lastSelected = null;
         this._fileList = [];
 
-        this.using_X11 = Gdk.Display.get_default().constructor.$gtype.name === 'GdkX11Display';
-        this._initX11Check(asDesktop);
+        this._initDesktopHold(asDesktop);
         this._selectedFiles = null;
         this._clickCaptured = false;
         this._popupCounter = 0;
@@ -76,28 +74,11 @@ export var DesktopManager = class {
         this._initProcessLifecycle();
     }
 
-    _initX11Check(asDesktop) {
+    _initDesktopHold(asDesktop) {
         if (asDesktop) {
-            this.mainApp.hold(); // Don't close the application if there are no desktops
+            // Don't close the application if there are no desktops
+            this.mainApp.hold();
             this._hold_active = true;
-            if (this.using_X11) {
-                let usingWayland = GLib.getenv('XDG_SESSION_TYPE') == 'wayland';
-                if (usingWayland) {
-                    // the system is using Wayland, but GTK is using X11!!!!!!
-                    DBusUtils.extensionControl.activate_action('disableTimer', null);
-                    if (Prefs.desktopSettings.get_boolean('check-x11wayland')) {
-                        this._notifyX11UnderWayland = new NotifyX11UnderWayland.NotifyX11UnderWayland(doNotShowAnymore => {
-                            this._notifyX11UnderWayland = null;
-                            if (doNotShowAnymore) {
-                                Prefs.desktopSettings.set_boolean('check-x11wayland', false);
-                            }
-                        });
-                    }
-                }
-            } else {
-                // if the problem is fixed and appears again, DING should show the message
-                Prefs.desktopSettings.set_boolean('check-x11wayland', true);
-            }
         }
     }
 
@@ -905,6 +886,13 @@ export var DesktopManager = class {
     }
 
     findFiles(window, text) {
+        // Re-opening Ctrl+F while a search dialog is already up must close
+        // the previous one first: otherwise the old dialog and its signal
+        // handlers leak, and the old window's buttons would close the new
+        // window (they all operate on this._findFileWindow).
+        if (this._findFileWindow) {
+            this._closeFindFiles(false);
+        }
         this._findFileWindow = new Adw.Dialog({
             'title': _('Find Files on Desktop'),
         });
@@ -1597,9 +1585,6 @@ export var DesktopManager = class {
                 const header = _('Folder Creation Failed');
                 const text = _('Error while trying to create a Folder');
                 this.dbusManager.doNotify(header, text);
-                if (position || suggestedName) {
-                    return null;
-                }
                 return null;
             }
             if (opts.rename) {
