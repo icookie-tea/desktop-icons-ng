@@ -895,6 +895,13 @@ export var DesktopManager = class {
         }
         this._findFileWindow = new Adw.Dialog({
             'title': _('Find Files on Desktop'),
+            // Behave like the settings window (ordinary, non-modal window
+            // on the current workspace) instead of a modal dialog: a bare
+            // modal Adw.Dialog made GNOME Shell briefly spawn a new
+            // dynamic workspace; the trailing-space stick/raise hack fixed
+            // that but pinned the dialog to all workspaces, which is not
+            // the desired UX here.
+            'modal': false,
         });
         const container = new Gtk.Box({
             'orientation': Gtk.Orientation.VERTICAL,
@@ -957,10 +964,6 @@ export var DesktopManager = class {
         });
         this._findFileWindow.show();
         this._findFileWindow.present(window);
-        // Trailing-space protocol: sticks the dialog to all workspaces and
-        // raises it (T+D flags via _parseTitle), matching the error popup —
-        // a bare modal Adw.Dialog briefly spawns a new dynamic workspace.
-        DesktopIconsUtil.windowHidePagerTaskbarModal(this._findFileWindow, true);
         this._findFileTextArea.grab_focus();
         if (text) {
             this._findFileTextArea.set_text(text);
