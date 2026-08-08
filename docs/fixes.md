@@ -6,18 +6,23 @@
 
 **症状：** 打开 Ctrl+F 搜索对话框或压缩对话框时，GNOME Shell 顶栏短暂出现一个新的工作区（约 1 秒后消失）。设置面板（Adw.PreferencesWindow）和错误弹窗（Gtk.MessageDialog）无此现象。
 
-**根因：** 两者都是裸的 modal `Adw.Dialog`（继承 GtkWindow，NORMAL 类型、modal 默认 true）。对照：设置面板非 modal 无此问题；压缩对话框即使有 transient parent（桌面窗口，DESKTOP 类型 + sticky）仍复现——**触发因素是 modal 标志**（Wayland 下 xdg_toplevel.set_modal）。
+**根因：** 两者都是裸的 modal `Adw.Dialog`（继承 **GtkWidget**——不是 GtkWindow！modal 是设计固有且无公开关闭方式）。对照：设置面板非 modal 无此问题；压缩对话框即使有 transient parent 仍复现——**触发因素是 modal 标志**（Wayland 下 xdg_toplevel.set_modal）。
 
-**修复（两轮）：**
-- **第一轮（stick hack）：** `windowHidePagerTaskbarModal(dialog, true)` 尾空格协议 → `_parseTitle` 解析 T+D → 置顶 + stick 所有工作区。问题消失，但窗口被钉在所有工作区 + 置顶，不符合预期 UX（用户要求类似设置面板的普通窗口行为）。
-- **最终方案：** 移除尾空格 hack，`Adw.Dialog` 构造加 **`modal: false`**——与设置面板一致：普通非模态窗口、当前工作区、可正常 Alt+Tab/点按其他窗口。副作用：搜索框/压缩框打开时不再阻塞桌面交互（点击桌面图标会转移焦点）。
+**修复探索（最终结论：保留 Adw.Dialog，接受闪现）：**
 
-| 文件 | 变更 |
+| 方案 | 结果 |
 |------|------|
-| `app/desktop-manager.js` | `_findFileWindow` 构造加 `modal: false`；删 windowHidePagerTaskbarModal 调用 |
-| `app/auto-ar.js` | CompressDialog `_dialog` 构造加 `modal: false`；删调用与多余 import |
+| ① `windowHidePagerTaskbarModal` 尾空格 → T+D（置顶+stick 所有工作区） | 无闪现 ✓，但窗口被钉在所有工作区+置顶，UX 不符合预期，用户否决 |
+| ② 构造传 `modal: false` | `Adw.Dialog` 无 modal 属性 → `No property modal on AdwDialog` |
+| ③ `set_modal(false)` | Adw.Dialog 是 GtkWidget 非 GtkWindow → `set_modal is not a function` |
+| ④ 改 `Gtk.Window` + `set_decorated(false)` | 工作正常但丢失 Adw 观感，用户要求保持 Adw |
+| ⑤ 改 `Adw.Window` + `titlebar.pack_end` | Adw.Window 默认 titlebar 是内部 **AdwGizmo**（无 pack API）→ `topBar.pack_end is not a function` |
+| ⑥ `Adw.Window` + `set_titlebar(Adw.HeaderBar)` | **`gtk_window_set_titlebar() is not supported for AdwWindow`**（g_error 崩溃重启） |
+| ⑦ 回退 ①（裸 Adw.Dialog + 内部 Adw.HeaderBar） | **最终采用**——用户决定接受 ~1s 的新工作区闪现，保留 Adw 观感与 modal 行为 |
 
-**验证：** 打开 Ctrl+F / 压缩对话框：无新工作区闪现；窗口为普通窗口行为（当前工作区、非置顶、非 stick）。eslint / node --check / 单测全绿。
+**最终状态（commit `6f4156d`）：** 两个对话框回到裸 `Adw.Dialog`（与 `88ae7a9` 一致）：内部 `Adw.HeaderBar`（show-title + 无窗口按钮）+ OK/Cancel；压缩框保留正确的 `present(this._grid._window)` parent；Esc 由 Adw.Dialog 自带（`can_close`）；删除实验期的 Gdk import 与自定义 Esc controller。
+
+**验证：** eslint / node --check / 单测全绿。真机：Ctrl+F 与压缩对话框正常（可见 ~1s 新工作区闪现，可接受；如需消除可随时恢复方案①）。
 
 ### 压缩对话框崩溃（审计修复引入的回归：present 参数类型）
 
