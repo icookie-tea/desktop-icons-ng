@@ -664,10 +664,10 @@ const CompressDialog = class {
 
         this._fillComboBox();
         this._dialog.show();
-        // Present as a transient of the desktop window (Gtk.Window API,
-        // unlike Adw.Dialog.present which took the widget itself).
-        this._dialog.set_transient_for(this._grid._window);
-        this._dialog.present();
+        // Adw.Dialog.present(parent) takes the GtkWidget parent directly
+        // (Adw.Dialog is a GtkWidget, not a GtkWindow — no set_transient_for).
+        // DesktopGrid's window lives at ._window.
+        this._dialog.present(this._grid._window);
         this._updateStatus();
         this._extensionPopover.connect('show', () => {
             for (let index in this._compressOptions) {
