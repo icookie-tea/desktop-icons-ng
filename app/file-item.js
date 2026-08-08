@@ -120,7 +120,7 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
     }
 
     _getEmblem() {
-        if (this._isSymlink && (Prefs.showLinkEmblem || this._isBrokenSymlink)) {
+        if (this._isSymlink && (this._desktopManager.showLinkEmblem || this._isBrokenSymlink)) {
             if (this._isBrokenSymlink) {
                 return Gio.ThemedIcon.new('emblem-unreadable');
             } else {

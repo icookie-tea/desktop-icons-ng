@@ -1,5 +1,27 @@
 # 修复日志
 
+## 2026-08-08
+
+### 修复：软链接标志（show-link-emblem）开关无效
+
+**症状：** 设置面板开启「为软链接添加标志」（`show-link-emblem`，默认 true）后，桌面上的有效软链接仍不显示箭头标志；只有损坏软链接有 unreadable 标志。
+
+**根因：** `FileItem._getEmblem()`（`app/file-item.js`）读取 `Prefs.showLinkEmblem`，但 `app/preferences.js` **没有导出**该变量（全仓唯一一处引用，其余所有 `Prefs.*` 均能解析到真实导出）。ES module namespace 访问缺失属性返回 `undefined`（falsy），有效软链接永远走不进 `_getEmblem()` 的分支 → 返回 `null`，不画标志，与设置值无关。正确值维护在 `DesktopManager` 实例上（`desktop-manager.js:206` 构造时读 gsettings，`:263-266` 设置变更时更新并 `_updateDesktopSafe` 重建图标，该链路已就绪）。代码库约定也印证：同类设置 `showDropPlace`/`darkText` 的消费者均读 `this._desktopManager.*`，此处是唯一例外。
+
+**修复：**
+
+| 文件 | 变更 |
+|------|------|
+| `app/file-item.js` | `_getEmblem()` 改用 `this._desktopManager.showLinkEmblem`（一行） |
+| `tests/test-link-emblem.js` | 新增回归测试（修复前场景 A 失败）：开启+有效软链接 → `emblem-symbolic-link`；关闭 → null；损坏软链接 → 始终 `emblem-unreadable` |
+| `tests/run.js` | 注册新测试组 |
+
+**验证：** TDD 先红后绿——测试先跑出 `valid symlink with show-link-emblem ON gets the link emblem — expected "emblem-symbolic-link", got null`，应用一行修复后通过；`scripts/check.sh` 全部通过（eslint / node --check / gjs 单测 / 结构检查）。构建由用户执行。
+
+**影响范围：** 桌面软链接图标标志——默认开启时有效软链接首次可见箭头标志；运行时切换开关经现有 `show-link-emblem` 分支实时生效；损坏软链接行为不变。无新安装文件 → meson.build 不变。
+
+---
+
 ## 2026-08-05
 
 ### 强调色改为直接解析用户 gtk.css（跟随 Chromaleon 等用户级覆盖）

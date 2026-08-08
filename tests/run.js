@@ -11,6 +11,7 @@ import * as TestGridLayout from './test-grid-layout.js';
 import * as TestSortManager from './test-sort-manager.js';
 import * as TestDropFilename from './test-drop-filename.js';
 import * as TestClickCoordinates from './test-click-coordinates.js';
+import * as TestLinkEmblem from './test-link-emblem.js';
 
 const tests = [
     TestFileChangesQueue,
@@ -19,6 +20,7 @@ const tests = [
     TestSortManager,
     TestDropFilename,
     TestClickCoordinates,
+    TestLinkEmblem,
 ];
 
 async function main() {
