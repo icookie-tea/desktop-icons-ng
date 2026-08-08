@@ -204,14 +204,43 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
         this._currentFileItem = fileItem;
         if (this._lastMenu !== null) {
             this._lastMenu.menuPopover.unparent();
+            this._lastMenu = null;
         }
         let menu = this._createMenu(fileItem);
-        let menuPopover = Gtk.PopoverMenu.new_from_model_full(menu, Gtk.PopoverMenuFlags.NESTED);
+        // Nautilus pattern (nautilus-files-view.c pop_up_selection_context_menu):
+        // plain (non-NESTED) Gtk.PopoverMenu. NESTED keeps submenus inside
+        // the same popover and breaks the grab once a submenu closes, leaving
+        // the menu unable to auto-hide on outside clicks — the same bug was
+        // previously fixed for the desktop background menu (see fixes.md
+        // 2026-07-21); the icon menu kept the flag and only became visibly
+        // broken once the Scripts submenu was restored.
+        let menuPopover = Gtk.PopoverMenu.new_from_model(menu);
         menuPopover.add_css_class('fileitemmenu');
+        menuPopover.set_has_arrow(false);
+        menuPopover.set_halign(Gtk.Align.START);
+        // Point at the cursor with a zero-size rect (Nautilus uses
+        // {x, y, 0, 0}); the keyboard path passes null/true placeholders
+        // and falls back to the icon's top-left corner.
+        const rect = new Gdk.Rectangle();
+        rect.x = typeof x === 'number' ? x : 0;
+        rect.y = typeof y === 'number' ? y : 0;
+        rect.width = 0;
+        rect.height = 0;
+        menuPopover.set_pointing_to(rect);
         menuPopover.set_parent(fileItem.container);
         menuPopover.show();
         menuPopover.popup();
         this._lastMenu = { menuPopover, fileItem };
+        // Nautilus workaround: something doesn't grab the focus back when
+        // the popover closes; force it so keyboard navigation resumes.
+        menuPopover.connect('closed', () => {
+            const grid = fileItem._grid;
+            if (grid) {
+                grid._container.grab_focus();
+            } else {
+                fileItem.container.grab_focus();
+            }
+        });
     }
 
     _createMenu(fileItem) {

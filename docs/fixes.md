@@ -131,6 +131,24 @@
 
 **影响范围：** 桌面图标右键菜单新增 Scripts 子菜单（脚本功能恢复）；新建文件夹改名框恢复；Nautilus 文件操作进度框现在以桌面窗口为 parent；X11Wayland 提示弹窗移除（纯 Wayland 环境不再需要）。无新增安装文件（删除 notify-x11-under-wayland.js 已同步 meson）。
 
+### 图标右键菜单无法关闭（对标 Nautilus 修复，NESTED flag 残留）
+
+**症状：** 图标右键菜单打开 Scripts 子菜单后，关闭子菜单再点击外部，整个菜单无法关闭（此前图标菜单无子菜单项所以未暴露；P0-3 恢复 Scripts 子菜单后暴露）。
+
+**根因：** `file-item-menu.js` 的 `showMenu` 仍用 `Gtk.PopoverMenu.new_from_model_full(menu, Gtk.PopoverMenuFlags.NESTED)`——NESTED 让子菜单在主 popover 内嵌切换显示，子菜单关闭时 grab 未能恢复给父 popover，auto-hide 失效。这与 2026-07-21 桌面菜单修复的是同一根因：当时只修了桌面菜单（`new_from_model`），图标菜单漏修。
+
+**修复（对标 Nautilus `nautilus-files-view.c pop_up_selection_context_menu`）：**
+
+| 变更 | 说明 |
+|------|------|
+| `new_from_model_full(..., NESTED)` → `new_from_model(menu)` | 子菜单改为独立 popover 弹出，grab 管理恢复正常 |
+| 补 `set_has_arrow(false)` + `set_halign(Gtk.Align.START)` | 与桌面菜单/Nautilus 一致：无箭头、菜单在鼠标右侧 |
+| 补 `set_pointing_to({x, y, 0, 0})` | 指向鼠标位置（Nautilus 同款 0 尺寸 rect）；键盘路径（null/true 占位）回退到图标左上角 |
+| 补 `closed` → `grab_focus()` | Nautilus workaround：popover 关闭后强制夺回焦点，键盘导航恢复（聚焦图标所在 grid 容器） |
+| `_lastMenu` unparent 后置 null | 与桌面菜单一致 |
+
+**验证：** eslint / node --check / 单测全绿。真机回归：图标右键 → 打开 Scripts 子菜单 → 关闭 → 点击外部菜单关闭；多级子菜单（脚本子目录）同样验证。
+
 ---
 
 ## 2026-08-08
