@@ -1,5 +1,34 @@
 # 修复日志
 
+## 2026-08-10
+
+### Adw.Dialog 短暂触发新动态工作区（Ctrl+F 搜索框 + 压缩对话框）
+
+**症状：** 打开 Ctrl+F 搜索对话框或压缩对话框时，GNOME Shell 顶栏短暂出现一个新的工作区（约 1 秒后消失）。设置面板（Adw.PreferencesWindow）和错误弹窗（Gtk.MessageDialog）无此现象。
+
+**根因：** 两者都是裸的 modal `Adw.Dialog`（继承 GtkWindow，NORMAL 类型、modal 默认 true、未 stick）。对照：错误弹窗走 `windowHidePagerTaskbarModal` 尾空格协议 → `_parseTitle` 解析出 T（置顶）+ D（所有工作区）→ `make_above()` + `stick()`——窗口不属于任何特定工作区，不触发动态工作区行为；设置面板非 modal 也无此问题。另：压缩对话框的 transient parent（桌面窗口，DESKTOP 类型 + sticky）已存在仍复现，说明与 parent 无关，是 modal + 无 stick 的 Adw.Dialog 自身行为。
+
+**修复：** 两个对话框都补 `DesktopIconsUtil.windowHidePagerTaskbarModal(dialog, true)`（尾空格 → T+D stick + modal + grab_focus），与错误弹窗一致；auto-ar.js 补缺失的 `DesktopIconsUtil` import。副作用：搜索框/压缩框现在在所有工作区跟随桌面显示（切换工作区不丢失），且置顶。
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktop-manager.js` | `findFiles` 中 `_findFileWindow` 加 `windowHidePagerTaskbarModal(..., true)` |
+| `app/auto-ar.js` | CompressDialog 的 `_dialog` 加 `windowHidePagerTaskbarModal(..., true)`；补 import |
+
+**验证：** 打开 Ctrl+F / 压缩对话框，顶栏不再闪现新工作区；窗口在所有工作区可见。eslint / node --check / 单测全绿。
+
+### 压缩对话框崩溃（审计修复引入的回归：present 参数类型）
+
+**症状：** 图标右键 → 压缩 → `Gjs-CRITICAL: TypeError: Object … is not a subclass of GObject_Object`，CompressDialog 构造失败。
+
+**根因：** 2026-08-09 审计批次把 `this._dialog.present(this._grid.Window)` 按“属性名笔误”改为 `present(this._grid)`——但 `DesktopGrid` 是**纯 JS 类**（窗口在 `._window`，Gtk.ApplicationWindow），`Adw.Dialog.present()` 期望 GObject 参数 → GJS 抛 TypeError。原始代码的 `_grid.Window`（undefined → null）反而静默工作（无 transient parent）。
+
+**修复：** `app/auto-ar.js` → `present(this._grid._window)`（正确的 GtkWidget）。教训：审计建议“应为 this._grid”是错的，同类 `findFiles(grid.Window)`（desktop-manager.js）也传 undefined parent，已一并核查。
+
+**验证：** 右键压缩文件/文件夹 → 压缩对话框正常出现（不再抛错）；eslint / node --check / 单测全绿。
+
+---
+
 ## 2026-08-09
 
 ### 全面代码审计修复批次（audit-fixes，见 docs/code-audit.md）
@@ -123,15 +152,6 @@
 | `app/desktop-manager.js` | `findFiles` 入口守卫：已有查找窗口先关闭（防连按 Ctrl+F 双窗口/信号泄漏/关错窗口，P2-1）；`doNewFolder` catch 两相同分支合并 |
 | `app/file-item-menu.js` | `_getExtractable()` 首迭代 return → `.every()` 全量检查 |
 | `app/ask-rename-popup.js:63` | `clamp(fileItem.displayName, …)` 字符串恒 NaN → `.length` |
-### 压缩对话框崩溃（审计修复引入的回归：present 参数类型）
-
-**症状：** 图标右键 → 压缩 → `Gjs-CRITICAL: TypeError: Object … is not a subclass of GObject_Object`，CompressDialog 构造失败。
-
-**根因：** 2026-08-09 审计批次把 `this._dialog.present(this._grid.Window)` 按“属性名笔误”改为 `present(this._grid)`——但 `DesktopGrid` 是**纯 JS 类**（窗口在 `. _window`，Gtk.ApplicationWindow），`Adw.Dialog.present()` 期望 GObject 参数 → GJS 抛 TypeError。原始代码的 `_grid.Window`（undefined → null）反而静默工作（无 transient parent）。
-
-**修复：** `app/auto-ar.js:667` → `present(this._grid._window)`（正确的 GtkWidget）。教训：审计建议“应为 this._grid”是错的，同类 `findFiles(grid.Window)`（desktop-manager.js:785,828）也传 undefined parent，已在 2026-08-10 一并核查（Ctrl+F 搜索窗口相关，见上一条）。
-
-**验证：** 右键压缩文件/文件夹 → 压缩对话框正常出现（不再抛错）；eslint / node --check / 单测全绿。
 | `app/menu-helper.js`、`app/stack-item.js`、`app/file-operations.js` | 删三处死 gettext 定义（`const _ = Gettext.domain('ding').gettext` 零调用） |
 | `app/sort-manager.js` | 两处冗余条件分支简化（if/else 同 continue；恒真 `!_isSpecial`） |
 | `app/desktop-grid.js` | 构造函数删重复 `setGridStatus()`（resizeGrid 已做）；删死方法 `updateGridDescription`（字段由构造函数设置） |
