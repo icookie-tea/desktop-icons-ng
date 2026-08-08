@@ -2,6 +2,33 @@
 
 ## 2026-08-10
 
+### 登录图标过渡动画（对标 upstream：延迟窗口 show 到首轮图标放置后）
+
+**症状：** 登录后我们的桌面图标瞬间出现在对应位置；upstream DING（master 分支）的图标有"从屏幕中间底部飞到对应位置"的过渡。用户实测确认 gtk4-ding 也有类似效果（它的来源是 maximize→unmaximize hack，见下）。
+
+**调查过程（investigate/login-fade 分支，逐一排除）：**
+1. 代码对比：两边 shell 侧（emulateX11WindowType 逐字节一致）、窗口创建、stylesheet.css、启动时机全部无差异、无动画代码
+2. gtk4-ding 的过渡 = `maximize() → map → unmaximize()` hack（高分辨率防挂起），mutter unmaximize 动画的副作用
+3. 临时探测扩展（ding-map-probe，已删除）抓 window_manager 'map' 信号：**两边 map 状态完全一致**（type=NORMAL、texture=true、overview 已隐藏、t≈2.6s）——启动速度差异不成立
+4. 探测 v2 追踪 opacity/scale：**两边 MAP 动画都完整播放**（opacity 0→255、scale 0.01→1.0 平滑曲线）——动画本身无差异
+5. **结论：差异在动画期间窗口的内容**——GNOME Shell 的窗口 MAP 动画（windowManager.js `_mapWindow`：pivot(0.5,1.0) 底部中央 + scale 0.01 + opacity 0 → ease 250ms）两边都播放；但 **upstream 的窗口创建→map 间隔（~0.28s）恰好超过首轮枚举耗时，首帧已含图标**；**我们的间隔（~0.23s）差 50ms，首帧为空**，动画在空窗口上播放，图标在动画结束后才渲染 → "瞬间出现"。纯时序巧合。
+
+**修复（c4e9f62）：** 把"时序巧合"变成确定性行为——**桌面模式下窗口延迟到首轮图标放置完成后再 show**：
+
+| 文件 | 变更 |
+|------|------|
+| `app/desktop-grid.js` | 构造加 `deferShow` 参数；新增幂等 `showWindow()`；show 条件化 |
+| `app/grid-layout.js` | `createGridWindows` 桌面模式传 `deferShow=true`（独立模式立即显示） |
+| `app/desktop-manager.js` | `_drawDesktop` 图标放置完成后对每个 grid 调 `showWindow()` |
+
+效果：合成器首帧必然包含图标 → shell MAP 动画动画化真实图标（底部中央放大 + 淡入），与 upstream 一致。
+
+**验证：** 用户实测与 master 同款过渡；F5 刷新/图标放置/独立模式不受影响（showWindow 幂等，_drawDesktop 每次调用无害）。
+
+**附：** 之前尝试的 windowActor opacity 淡入方案（ff478da，已回退 e5b54d9）失败原因：mutter 在窗口 map 序列的后续阶段会把 actor opacity 同步回 255，隐式动画被替换为瞬时完成——与本次结论一致（shell MAP 动画才是正确的动画载体）。
+
+---
+
 ### Adw.Dialog 短暂触发新动态工作区（Ctrl+F 搜索框 + 压缩对话框）
 
 **症状：** 打开 Ctrl+F 搜索对话框或压缩对话框时，GNOME Shell 顶栏短暂出现一个新的工作区（约 1 秒后消失）。设置面板（Adw.PreferencesWindow）和错误弹窗（Gtk.MessageDialog）无此现象。

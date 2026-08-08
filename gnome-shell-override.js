@@ -21,7 +21,6 @@
 import Clutter from 'gi://Clutter'
 import Meta from 'gi://Meta'
 import GObject from 'gi://GObject'
-import GLib from 'gi://GLib'
 
 import {WorkspaceBackground} from 'resource:///org/gnome/shell/ui/workspace.js'
 import {InjectionManager} from
@@ -35,14 +34,6 @@ export class GnomeShellOverride {
     }
 
     enable() {
-        // TEMPORARY A/B TEST (branch investigate/login-fade): set
-        // DING_NO_OVERVIEW_FADE=1 to disable the overview clone-layer
-        // injection, to compare login-time icon appearance against the
-        // stock DING / gtk4-ding extensions (which reportedly show a
-        // scale/fade transition at login). Remove after the test.
-        if (GLib.getenv('DING_NO_OVERVIEW_FADE') !== null) {
-            return;
-        }
         this._injectionManager.overrideMethod(
             WorkspaceBackground.prototype, '_init',
             this._newBackgroundInit.bind(this));
