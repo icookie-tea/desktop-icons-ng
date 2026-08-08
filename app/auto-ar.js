@@ -38,6 +38,7 @@ import * as Enums from './enums.js';
 import * as FileUtils from './file-utils.js';
 import * as Prefs from './preferences.js';
 import * as Signals from './signals.js';
+import * as DesktopIconsUtil from './desktop-icons-util.js';
 
 import Gettext from 'gettext';
 
@@ -671,6 +672,11 @@ const CompressDialog = class {
         // undefined property → null parent, which silently worked but left
         // the dialog without a transient parent.)
         this._dialog.present(this._grid._window);
+        // Trailing-space protocol: makes _parseTitle stick the dialog to
+        // all workspaces + raise it (T+D flags), like the error popup —
+        // otherwise this modal Adw.Dialog briefly spawns a new dynamic
+        // workspace (observed on Ctrl+F and the compress dialog).
+        DesktopIconsUtil.windowHidePagerTaskbarModal(this._dialog, true);
         this._updateStatus();
         this._extensionPopover.connect('show', () => {
             for (let index in this._compressOptions) {

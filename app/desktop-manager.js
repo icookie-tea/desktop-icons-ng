@@ -957,6 +957,10 @@ export var DesktopManager = class {
         });
         this._findFileWindow.show();
         this._findFileWindow.present(window);
+        // Trailing-space protocol: sticks the dialog to all workspaces and
+        // raises it (T+D flags via _parseTitle), matching the error popup —
+        // a bare modal Adw.Dialog briefly spawns a new dynamic workspace.
+        DesktopIconsUtil.windowHidePagerTaskbarModal(this._findFileWindow, true);
         this._findFileTextArea.grab_focus();
         if (text) {
             this._findFileTextArea.set_text(text);
