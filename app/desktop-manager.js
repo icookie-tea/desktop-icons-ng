@@ -893,32 +893,27 @@ export var DesktopManager = class {
         if (this._findFileWindow) {
             this._closeFindFiles(false);
         }
-        this._findFileWindow = new Gtk.Window({
+        this._findFileWindow = new Adw.Window({
             'title': _('Find Files on Desktop'),
         });
-        // Behave like the settings window: an ordinary, non-modal window on
-        // the current workspace. Adw.Dialog is a GtkWidget (not a GtkWindow)
-        // and is modal by design with no way to turn it off — a bare modal
-        // Adw.Dialog made GNOME Shell briefly spawn a new dynamic workspace
-        // (the stick/raise trailing-space hack fixed that but pinned the
-        // dialog to all workspaces, which is not the desired UX).
-        // Undecorated: the in-dialog Adw.HeaderBar (Cancel/OK) provides the
-        // buttons and the drag surface.
-        this._findFileWindow.set_decorated(false);
+        // Adw.Window: ordinary non-modal window like the settings window
+        // (Adw.PreferencesWindow is its subclass). Adw.Dialog was the wrong
+        // choice — it is a GtkWidget, modal by design with no way to turn
+        // it off, and a bare modal Adw.Dialog made GNOME Shell briefly
+        // spawn a new dynamic workspace (the stick/raise trailing-space
+        // hack fixed that but pinned the dialog to all workspaces).
+        // The window's own Adw.HeaderBar (title + window buttons) hosts
+        // the OK/Cancel buttons.
         const container = new Gtk.Box({
             'orientation': Gtk.Orientation.VERTICAL,
         });
         this._findFileWindow.set_child(container);
-        const topBar = new Adw.HeaderBar({
-            'show-title': true,
-            'decoration-layout': '',
-        });
+        const topBar = this._findFileWindow.titlebar;
         this._findFileButton = Gtk.Button.new_with_label(_('OK'));
         this._findFileButton.sensitive = false;
         topBar.pack_end(this._findFileButton);
         const cancelButton = Gtk.Button.new_with_label(_('Cancel'));
         topBar.pack_start(cancelButton);
-        container.append(topBar);
 
         this._findFileTextArea = new Gtk.Entry({
             margin_start: 18,

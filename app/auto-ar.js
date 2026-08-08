@@ -561,37 +561,22 @@ const CompressDialog = class {
         }
         this._desktopManager = desktopManager;
         this._destinationFolder = destinationFolder;
-        this._dialog = new Gtk.Window({
+        this._dialog = new Adw.Window({
             title: _('Create archive'),
         });
-        // Ordinary non-modal window like the settings window (a bare modal
-        // Adw.Dialog made GNOME Shell briefly spawn a new dynamic workspace;
-        // the stick/raise trailing-space hack fixed that but pinned the
-        // dialog to all workspaces). Adw.Dialog is a GtkWidget (not a
-        // GtkWindow) and modal by design — use a plain Gtk.Window instead.
-        // Undecorated: the in-dialog Adw.HeaderBar (OK/Cancel) provides the
-        // buttons and the drag surface.
-        this._dialog.set_decorated(false);
-        // Esc closes the dialog (Gtk.Window has no default Escape handling,
-        // unlike Adw.Dialog's can_close).
-        const dialogKeyController = new Gtk.EventControllerKey();
-        this._dialog.add_controller(dialogKeyController);
-        dialogKeyController.connect('key-pressed', (controller, keyval, keycode, state) => {
-            if (keyval === Gdk.KEY_Escape) {
-                this._compressResponse('CANCEL');
-                return true;
-            }
-            return false;
-        });
+        // Adw.Window: ordinary non-modal window like the settings window.
+        // Adw.Dialog was the wrong choice — it is a GtkWidget, modal by
+        // design with no way to turn it off, and a bare modal Adw.Dialog
+        // made GNOME Shell briefly spawn a new dynamic workspace (the
+        // stick/raise trailing-space hack fixed that but pinned the dialog
+        // to all workspaces). The window's own Adw.HeaderBar (title +
+        // window buttons) hosts the OK/Cancel buttons.
         const containerOut = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
             width_request: 390,
         });
         this._dialog.set_child(containerOut);
-        const topBar = new Adw.HeaderBar({
-            'show-title': true,
-            'decoration-layout': '',
-        });
+        const topBar = this._dialog.titlebar;
         this._okButton = Gtk.Button.new_with_label(_('OK'));
         this._okButton.add_css_class('suggested-action');
         this._okButton.sensitive = false;
@@ -604,7 +589,16 @@ const CompressDialog = class {
             this._compressResponse("CANCEL");
         });
         topBar.pack_start(this._cancelButton);
-        containerOut.append(topBar);
+        // Esc closes the dialog (Adw.Window has no default Escape handling).
+        const dialogKeyController = new Gtk.EventControllerKey();
+        this._dialog.add_controller(dialogKeyController);
+        dialogKeyController.connect('key-pressed', (controller, keyval, keycode, state) => {
+            if (keyval === Gdk.KEY_Escape) {
+                this._compressResponse('CANCEL');
+                return true;
+            }
+            return false;
+        });
 
         const container = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
