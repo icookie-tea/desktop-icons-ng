@@ -65,6 +65,24 @@
 
 ## 2026-08-09
 
+### 软链接徽标对齐 Nautilus（右上角 + 16px 自然尺寸 + 半透明）
+
+**症状：** 桌面图标上的软链接标志与 Nautilus 不一致：位置在图标左上角（Nautilus 在右上角），尺寸为图标尺寸的 1/3（64px 图标 → ~21px，把 Adwaita 16px 源图 FORCE_SIZE 放大导致偏糊），且全不透明（Nautilus 的 emblem 盒子带 `dim-label` 样式类 → GTK 默认主题 `opacity: 0.55`）。
+
+**修复：** `app/desktop-icon-item.js` `_addEmblemsToIconIfNeeded()` 三处对齐：
+
+| 项 | 改前 | 改后 |
+|------|------|------|
+| 位置 | 图标左上角 (0,0) | 右上角 `(iconWidth - emblemWidth, 0)` |
+| 尺寸 | `icon_size / 3` + `FORCE_SIZE` | 固定 16px 自然尺寸（Nautilus GtkImage 默认），去掉 FORCE_SIZE |
+| 透明度 | 1.0 | `push_opacity(0.75)`（Nautilus 的 `dim-label` 为 0.55，我们稍提亮保证压在图标上仍清晰） |
+
+另加 `lookup_by_gicon` 返回 null 的防御（找不到 emblem 图标时直接返回原 paintable）。改动只在这一处，主题图标/缩略图/断链路径（`_createEmblemedIcon`、`_loadImageAsIcon`）全部经由它，自动生效。
+
+**验证：** `node --input-type=module --check` 语法通过；`push_opacity` 确认在 GTK 4.22 typelib 中存在（GJS 调用验证 OK）；视觉效果待用户实测（构建由用户手动执行）。
+
+---
+
 ### 全面代码审计修复批次（audit-fixes，见 docs/code-audit.md）
 
 对全库做了三轮并行全文审计（核心/交互/Shell 侧），产出 docs/code-audit.md 分级清单（P0×4 / P1×8 / P2×9 / P3×29 / 文档一致性 9 项）。本批实施 P0 全部 + P1 五项 + P2/P3 精选；剩余项（P1-8 deprecated API、P2-2 绘制每帧分配、P2-8 Overview 动态补建等）见审计报告，后续按需实施。环境假设：GNOME ≥ 50 纯 Wayland（用户确认），X11 相关代码视为死代码。

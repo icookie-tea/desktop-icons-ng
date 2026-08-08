@@ -708,15 +708,38 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
         let emblem = this._getEmblem();
 
         if (emblem) {
+            // Align with Nautilus' emblem rendering (nautilus-grid-cell.c
+            // update_emblems + nautilus-grid-cell.blp):
+            // - emblems are rendered at their natural theme size (Adwaita's
+            //   emblem icons are 16x16), without FORCE_SIZE upscaling
+            // - emblems are dimmed: Nautilus puts them in a box with the
+            //   'dim-label' style class, which the GTK default theme maps to
+            //   opacity 0.55. We use a slightly stronger 0.75 so the emblem
+            //   stays clearly visible over the icon.
+            // - the emblem sits at the icon's top-right corner (Nautilus
+            //   allocates its emblems box at the right edge of the cell)
+            const EMBLEM_SIZE = 16;
+            const EMBLEM_OPACITY = 0.75;
             const scale = this._icon.get_scale_factor();
-            let finalSize = Math.floor(Prefs.get_icon_size() / 3) * scale;
             let theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
-            let emblemIcon = theme.lookup_by_gicon(emblem, finalSize / scale, scale, Gtk.TextDirection.NONE, Gtk.IconLookupFlags.FORCE_SIZE);
+            let emblemIcon = theme.lookup_by_gicon(emblem, EMBLEM_SIZE, scale, Gtk.TextDirection.NONE, 0);
+            if (!emblemIcon)
+                return iconPaintable;
+
             let emblemSnapshot = Gtk.Snapshot.new();
             let iconPaintableSnapshot = Gtk.Snapshot.new();
             emblemIcon.snapshot(emblemSnapshot, emblemIcon.get_intrinsic_width(), emblemIcon.get_intrinsic_height());
-            iconPaintable.snapshot(iconPaintableSnapshot, iconPaintable.get_intrinsic_width(), iconPaintable.get_intrinsic_height());
+            const iconWidth = iconPaintable.get_intrinsic_width();
+            const iconHeight = iconPaintable.get_intrinsic_height();
+            const emblemWidth = emblemIcon.get_intrinsic_width();
+
+            iconPaintable.snapshot(iconPaintableSnapshot, iconWidth, iconHeight);
+            iconPaintableSnapshot.push_opacity(EMBLEM_OPACITY);
+            let pos = new Graphene.Point();
+            pos.init(iconWidth - emblemWidth, 0);
+            iconPaintableSnapshot.translate(pos);
             iconPaintableSnapshot.append_node(emblemSnapshot.to_node());
+            iconPaintableSnapshot.pop();
             return iconPaintableSnapshot.to_paintable(null);
         } else {
             return iconPaintable;
