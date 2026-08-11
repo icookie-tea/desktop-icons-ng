@@ -85,11 +85,13 @@ export var DesktopMonitor = class {
         this._dm._fileChangesQueue.push({ file, otherFile, eventType });
     }
     async processIncrementalEvents(events) {
+        DebugLog.debugLog(`[monitor] incremental batch=${events.length} t=${Math.floor(GLib.get_monotonic_time() / 1000)}`);
         if (this._dm._processingIncremental || this._dm._readingDesktopFiles) {
             this._dm._desktopFilesChanged = true;
             return;
         }
         if (events.length > this._dm._fileChangesQueue.maxIncremental) {
+            DebugLog.debugLog(`[monitor] batch overflow (${events.length} > ${this._dm._fileChangesQueue.maxIncremental}) -> full refresh`);
             this.scheduleFullRefresh();
             return;
         }
@@ -111,10 +113,20 @@ export var DesktopMonitor = class {
                     case Gio.FileMonitorEvent.MOVED_OUT:
                         success = this.handleMovedOut(event.file, event.otherFile);
                         break;
+                    case Gio.FileMonitorEvent.RENAMED:
+                        /* Same-directory renames arrive as a single RENAMED
+                         * event (inotify collapses the MOVED_FROM/TO pair).
+                         * NOTE: on GLib inotify (2.88.3, Fedora 44, verified
+                         * empirically) the changed-signal args are INVERTED
+                         * vs the docs: file=OLD path, otherFile=NEW path.
+                         * handleFileRenamed expects (newFile, oldFile). */
+                        success = this.handleFileRenamed(event.otherFile, event.file);
+                        break;
                     case Gio.FileMonitorEvent.PRE_UNMOUNT:
                         this.scheduleFullRefresh();
                         return;
                     default:
+                        DebugLog.debugLog(`[monitor] unhandled event ${event.eventType} -> full refresh`);
                         this.scheduleFullRefresh();
                         return;
                 }
@@ -132,6 +144,7 @@ export var DesktopMonitor = class {
     }
     handleFileDeleted(file) {
         const path = file.get_path();
+        DebugLog.debugLog(`[monitor] DELETED ${path} t=${Math.floor(GLib.get_monotonic_time() / 1000)}`);
         const index = this._dm._fileList.findIndex(f => f.path === path);
         if (index === -1) {
             return false;
@@ -174,6 +187,7 @@ export var DesktopMonitor = class {
         return true;
     }
     handleMovedOut(file, otherFile) {
+        DebugLog.debugLog(`[monitor] MOVED_OUT old=${file.get_path()} new=${otherFile ? otherFile.get_path() : 'null'} t=${Math.floor(GLib.get_monotonic_time() / 1000)}`);
         if (!otherFile) {
             return this.handleFileDeleted(file);
         }
@@ -189,6 +203,7 @@ export var DesktopMonitor = class {
         this._dm._moveTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, Constants.MOVE_PENDING_TIMEOUT_MS, () => {
             try {
                 if (oldPath in this._dm._pendingMoves) {
+                    DebugLog.debugLog(`[monitor] MOVED_OUT timeout fired old=${oldPath} t=${Math.floor(GLib.get_monotonic_time() / 1000)}`);
                     delete this._dm._pendingMoves[oldPath];
                     this.handleFileDeleted(file);
                 }
@@ -205,7 +220,9 @@ export var DesktopMonitor = class {
         }
         const newPath = file.get_path();
         const oldPath = otherFile.get_path();
-        if (oldPath in this._dm._pendingMoves && this._dm._pendingMoves[oldPath] === newPath) {
+        const matched = oldPath in this._dm._pendingMoves && this._dm._pendingMoves[oldPath] === newPath;
+        DebugLog.debugLog(`[monitor] MOVED_IN new=${newPath} old=${oldPath} matched=${matched} t=${Math.floor(GLib.get_monotonic_time() / 1000)}`);
+        if (matched) {
             delete this._dm._pendingMoves[oldPath];
             return await this.handleFileRenamed(file, otherFile);
         }
@@ -213,6 +230,7 @@ export var DesktopMonitor = class {
     }
     handleFileRenamed(newFile, oldFile) {
         const oldPath = oldFile.get_path();
+        DebugLog.debugLog(`[monitor] RENAME incremental old=${oldPath} new=${newFile.get_path()} t=${Math.floor(GLib.get_monotonic_time() / 1000)}`);
         const item = this._dm._fileList.find(f => f.path === oldPath);
         if (!item) {
             print(`Rename failed: old file ${oldPath} not found in desktop list`);

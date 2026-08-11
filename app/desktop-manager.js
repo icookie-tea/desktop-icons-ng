@@ -1277,9 +1277,11 @@ export var DesktopManager = class {
             }
             this._clearAllFilesFromGrids();
             this._fileList = reused;
+            DebugLog.debugLog(`[draw] reuse ${reused.length}/${fileList.length} t=${Math.floor(GLib.get_monotonic_time() / 1000)}`);
         } else {
             this._removeAllFilesFromGrids();
             this._fileList = fileList;
+            DebugLog.debugLog(`[draw] rebuild ${fileList.length} t=${Math.floor(GLib.get_monotonic_time() / 1000)}`);
         }
         // Select the files that were selected before the repaint
         if (this._selectedFiles) {
@@ -1472,6 +1474,7 @@ export var DesktopManager = class {
      * This is the single error-handling path for all _updateDesktop() callers.
      */
     _updateDesktopSafe(reason) {
+        DebugLog.debugLog(`[update] FULL REFRESH reason=${reason} t=${Math.floor(GLib.get_monotonic_time() / 1000)}`);
         this._updateDesktop().catch(e => {
             print(`Exception while updating Desktop (${reason}): ${e.message}\n${e.stack}`);
         });

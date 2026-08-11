@@ -2,6 +2,20 @@
 
 ## 2026-08-10
 
+### 重命名文件/文件夹触发全量刷新而非增量更新
+
+**症状：** 默认自由布局下，重命名桌面上的文件或文件夹（F2 改名框或 Nautilus）会触发整桌全量刷新，所有图标销毁重建（闪动）。
+
+**根因（DING_DEBUG 诊断日志确认，分两层）：**
+1. GLib 对**同目录内重命名**不产生 MOVED_OUT/MOVED_IN 事件对，而是把 inotify 的 IN_MOVED_FROM/TO 合并为单个 `G_FILE_MONITOR_EVENT_RENAMED`，即使监视器带 `WATCH_MOVES` 也一样。`processIncrementalEvents` 的 switch **没有 RENAMED 分支** → 落入 `default:` → `scheduleFullRefresh()` → `[draw] rebuild N` 全部重建。日志证据：`[monitor] incremental batch=1` → `[monitor] unhandled event 8 -> full refresh` → `[update] FULL REFRESH reason=directory monitor`。此前基于 MOVED_OUT/MOVED_IN 事件对的增量 rename 路径（`handleFileRenamed`）从未被同目录重命名命中。
+2. 补上 RENAMED 分支后实测发现：**GLib inotify 的 RENAMED 事件参数顺序与文档相反**（glib2 2.88.3 / Fedora 44 实测，两次重命名前后状态比对确认）——`file`=**旧**路径、`other_file`=**新**路径（文档称 other_file 是旧名）。按文档顺序传参会用新路径找旧 item → `Rename failed: ... not found in desktop list` → 仍走全量刷新。
+
+**修复：** `app/desktop-monitor.js` `processIncrementalEvents` 补 `Gio.FileMonitorEvent.RENAMED` 分支 → `handleFileRenamed(event.otherFile, event.file)`（按实测顺序交换：file=旧、otherFile=新，与 `handleFileRenamed(newFile, oldFile)` 签名匹配）。RENAMED 单事件自带新旧两个路径，无需 pending 合并窗口，比 MOVED_OUT/MOVED_IN 配对路径更稳。
+
+**附带：** 新增 11 处 DING_DEBUG 诊断日志（`[monitor]` 事件流 / `[update] FULL REFRESH reason` / `[draw] reuse|rebuild`，均带单调时钟 ms 时间戳），后续事件路由问题可直接定位。
+
+**验证：** 修复后重命名预期日志链：`[monitor] incremental batch=1` → `[monitor] RENAME incremental old=... new=...`，无 `FULL REFRESH` / `[draw] rebuild`。`node --check` + `scripts/check.sh` 全绿（8 测试模块 + 结构检查）。注：keep-arranged/keep-stacked 开启时仍走全量刷新（刻意设计，布局全局）。
+
 ### 登录图标过渡动画（对标 upstream：延迟窗口 show 到首轮图标放置后）
 
 **症状：** 登录后我们的桌面图标瞬间出现在对应位置；upstream DING（master 分支）的图标有"从屏幕中间底部飞到对应位置"的过渡。用户实测确认 gtk4-ding 也有类似效果（它的来源是 maximize→unmaximize hack，见下）。
