@@ -2,6 +2,23 @@
 
 ## 2026-08-10
 
+### 增量更新增强：内容/属性变化单图标刷新 + 事件路由补全（对比 Nautilus 审查后实施）
+
+**背景：** 与 Nautilus（nautilus-monitor.c / nautilus-file-changes-queue.c）对比审查后，确认 DING 的事件路由有真实缺口与死代码。
+
+**变更：**
+
+| 项 | 文件 | 内容 |
+|---|---|---|
+| P1 | `app/desktop-monitor.js` | `CHANGES_DONE_HINT`/`ATTRIBUTE_CHANGED`（子文件）不再丢弃，新增 `handleFileChanged`：按 URI 定位 item → `updatedMetadata()`（rebuild 图标，缩略图经 modifiedTime 缓存自动失效重生成）。`CHANGED`（逐块写入）保持丢弃。对齐 Nautilus：`CHANGES_DONE_HINT` 触发单文件刷新 |
+| P2 | `app/constants.js` | `MAX_INCREMENTAL_EVENTS` 2→8（paste/解压 burst 减少分批次数；队列恒 flush ≤ 上限，overflow 防御分支保留） |
+| A' | `app/desktop-monitor.js` | `MOVED_CREATED`/`MOVED_DELETED`（枚举值 11/12）改数字常量路由：**GIR 未暴露这两个成员（GJS 实测为 undefined）**，原有 `case Gio.FileMonitorEvent.MOVED_CREATED:` 是 `case undefined:` 死代码，真实 11/12 事件会落入 default → 全量刷新。现在 11→handleFileCreated、12→handleFileDeleted（防御，实测 inotify 发 MOVED_OUT(null) 而非 12） |
+| B | `app/file-item.js` | 删 `onAttributeChanged()` 死代码（全仓无调用点；P1 的 `handleFileChanged → updatedMetadata` 已覆盖且不再限定 .desktop） |
+| C | `tests/test-desktop-monitor.js`（新增）+ `tests/run.js` | DesktopMonitor 事件路由单测 25 断言（mock _dm）：过滤规则、RENAMED 参数约定（file=旧/otherFile=新）、CHANGES_DONE_HINT 跟踪/未跟踪、MOVED_DELETED/MOVED_OUT(null) 增量删除、未知路径/超限/未知事件全量兜底 |
+| E | `docs/manual-test-checklist.md` | 新增 3 组回归项：重命名增量、内容变化缩略图刷新、拖入子文件夹增量删除 |
+
+**验证：** `node --check` + `scripts/check.sh` 全绿（9 测试模块，DesktopMonitor 新增）。待真机回归：外部改图缩略图刷新、chmod 后图标刷新、拖入子文件夹无闪动（见 checklist #10-12）。
+
 ### 重命名文件/文件夹触发全量刷新而非增量更新
 
 **症状：** 默认自由布局下，重命名桌面上的文件或文件夹（F2 改名框或 Nautilus）会触发整桌全量刷新，所有图标销毁重建（闪动）。

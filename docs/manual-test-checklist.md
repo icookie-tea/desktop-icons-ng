@@ -94,6 +94,22 @@ journalctl --user -b | grep "overview animation setup failed"
 - [ ] 设置面板开关项（强调色/选中颜色开关、图标大小）实时生效
 - [ ] 双屏（如有）：图标落位、主屏切换、多屏拖拽
 
+### 10. 重命名增量更新（不再全量刷新）
+- [ ] F2 重命名一个文件和一个文件夹；再用 Nautilus 重命名一个文件
+- **预期**：图标标签原位更新、无闪动（修复前整桌图标销毁重建）；位置保持不变
+- 日志验证（DING_DEBUG=1）：`[monitor] RENAME incremental old=... new=...`，**无** `FULL REFRESH reason=directory monitor` / `[draw] rebuild`
+
+### 11. 内容/属性变化单图标刷新（CHANGES_DONE_HINT，P1）
+- [ ] 用编辑器修改桌面上的图片后保存（或 `cp` 覆盖），观察缩略图
+- **预期**：该图标缩略图 1~2 秒内自动更新（modifiedTime 失效重生成），**其余图标无闪动**
+- [ ] `chmod +x ~/Desktop/某文件` 后观察图标/可执行标识变化
+- 日志（DING_DEBUG=1）：`[monitor] content/attr change ... -> refresh metadata`，无全量刷新
+
+### 12. 拖入子文件夹/移出桌面增量删除
+- [ ] 把桌面图标拖进桌面上的文件夹；再移出一个文件到非桌面目录
+- **预期**：仅该图标消失，无全桌闪动
+- 日志（DING_DEBUG=1）：`[monitor] MOVED_OUT old=... new=null` → `[monitor] DELETED ...`
+
 ---
 
 ## 二、已知无害警告（无需处理）

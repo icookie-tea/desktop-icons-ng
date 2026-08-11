@@ -20,7 +20,7 @@
 /* Timeouts and batch sizes (milliseconds unless noted). */
 export var MONITOR_RATE_LIMIT_MS = 1000;        // GFileMonitor rate limit
 export var FILE_CHANGES_DEBOUNCE_MS = 200;      // FileChangesQueue debounce window
-export var MAX_INCREMENTAL_EVENTS = 2;          // FileChangesQueue immediate-flush batch size
+export var MAX_INCREMENTAL_EVENTS = 8;          // FileChangesQueue immediate-flush batch size (bursts of pastes/extracts are handled in batches of this size; the queue only ever flushes ≤ this many events, the overflow guard in processIncrementalEvents stays as a defense)
 export var KEYPRESS_SEARCH_TIMEOUT_MS = 1500;   // keyboard name-search reset timer
 export var REFRESH_RETRY_DELAY_MS = 500;        // wait between full-refresh retries
 export var DESKTOP_UPDATE_THROTTLE_US = 1000000; // force redraw if refresh took > 1s

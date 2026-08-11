@@ -620,15 +620,6 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
      * Class Methods *
      ***********************/
 
-    onAttributeChanged() {
-        if (this._destroyed) {
-            return;
-        }
-        if (this._isDesktopFile) {
-            this._refreshMetadataAsync(true);
-        }
-    }
-
     updatedMetadata() {
         this._refreshMetadataAsync(true);
     }

@@ -6,6 +6,7 @@
 import System from 'system';
 
 import * as TestFileChangesQueue from './test-file-changes-queue.js';
+import * as TestDesktopMonitor from './test-desktop-monitor.js';
 import * as TestPendingDrop from './test-pending-drop.js';
 import * as TestGridLayout from './test-grid-layout.js';
 import * as TestSortManager from './test-sort-manager.js';
@@ -16,6 +17,7 @@ import * as TestScriptsMenu from './test-scripts-menu.js';
 
 const tests = [
     TestFileChangesQueue,
+    TestDesktopMonitor,
     TestPendingDrop,
     TestGridLayout,
     TestSortManager,

@@ -24,6 +24,14 @@ import * as Enums from './enums.js';
 import * as FileItem from './file-item.js';
 import * as FileUtils from './file-utils.js';
 
+/* GFileMonitorEvent.MOVED_CREATED/MOVED_DELETED (values 11/12) are not
+ * exposed by the Gio GIR on this GLib (verified: GJS resolves both to
+ * undefined), yet GLib can still emit them. Route by numeric value so
+ * these events get proper incremental handling instead of the
+ * full-refresh fallback. */
+const FILE_MONITOR_EVENT_MOVED_CREATED = 11;
+const FILE_MONITOR_EVENT_MOVED_DELETED = 12;
+
 /* Desktop directory monitoring: routes GFileMonitor events through the
  * FileChangesQueue, applies incremental create/delete/move/rename updates
  * to the desktop file list, and seeds pending drop coordinates for newly
@@ -34,8 +42,10 @@ export var DesktopMonitor = class {
     }
 
     updateDesktopIfChanged(file, otherFile, eventType) {
-        if (eventType == Gio.FileMonitorEvent.CHANGED ||
-            eventType == Gio.FileMonitorEvent.CHANGES_DONE_HINT) {
+        if (eventType == Gio.FileMonitorEvent.CHANGED) {
+            // Per-chunk writes (downloads, log appends): too noisy, ignore.
+            // CHANGES_DONE_HINT ("write finished") is the single-file
+            // refresh trigger instead, matching Nautilus' handling.
             return;
         }
         if (!this._dm._showHidden && (file.get_basename()[0] == '.')) {
@@ -62,7 +72,7 @@ export var DesktopMonitor = class {
                     }
                 }
                 break;
-            case Gio.FileMonitorEvent.MOVED_CREATED:
+            case FILE_MONITOR_EVENT_MOVED_CREATED:
                 try {
                     let info = new Gio.FileInfo();
                     info.set_attribute_string('metadata::nautilus-icon-position', '');
@@ -76,8 +86,11 @@ export var DesktopMonitor = class {
                     if (this.updateWritableByOthers()) {
                         this._dm._updateDesktopSafe('directory monitor attribute change');
                     }
+                    return;
                 }
-                return;
+                // Child-file attribute change: falls through to the
+                // incremental queue (single-icon metadata refresh).
+                break;
             case Gio.FileMonitorEvent.UNMOUNTED:
                 this.scheduleFullRefresh();
                 return;
@@ -104,8 +117,12 @@ export var DesktopMonitor = class {
                         success = this.handleFileDeleted(event.file);
                         break;
                     case Gio.FileMonitorEvent.CREATED:
-                    case Gio.FileMonitorEvent.MOVED_CREATED:
+                    case FILE_MONITOR_EVENT_MOVED_CREATED:
                         success = await this.handleFileCreated(event.file);
+                        break;
+                    case Gio.FileMonitorEvent.CHANGES_DONE_HINT:
+                    case Gio.FileMonitorEvent.ATTRIBUTE_CHANGED:
+                        success = this.handleFileChanged(event.file);
                         break;
                     case Gio.FileMonitorEvent.MOVED_IN:
                         success = await this.handleMovedIn(event.file, event.otherFile);
@@ -121,6 +138,14 @@ export var DesktopMonitor = class {
                          * vs the docs: file=OLD path, otherFile=NEW path.
                          * handleFileRenamed expects (newFile, oldFile). */
                         success = this.handleFileRenamed(event.otherFile, event.file);
+                        break;
+                    case FILE_MONITOR_EVENT_MOVED_DELETED:
+                        /* Moved out to a location we don't watch (e.g. into a
+                         * subfolder). Not observed on inotify — a MOVED_OUT
+                         * with otherFile=null arrives instead — but kept for
+                         * backend/version parity; deletion is the right
+                         * outcome either way. */
+                        success = this.handleFileDeleted(event.file);
                         break;
                     case Gio.FileMonitorEvent.PRE_UNMOUNT:
                         this.scheduleFullRefresh();
@@ -227,6 +252,24 @@ export var DesktopMonitor = class {
             return await this.handleFileRenamed(file, otherFile);
         }
         return await this.handleFileCreated(file);
+    }
+    /* Content/attribute change on a tracked file: refresh that single
+     * icon's metadata in place. rebuild=true re-runs _updateIcon, which
+     * also re-validates the thumbnail through its modified-time cache
+     * (external edits to images update the desktop thumbnail). Mirrors
+     * Nautilus, which refreshes individual files on
+     * CHANGES_DONE_HINT / ATTRIBUTE_CHANGED. */
+    handleFileChanged(file) {
+        const item = this._dm.getFileItemFromURI(file.get_uri());
+        if (!item) {
+            // Not tracked (hidden, CREATE still pending, or removed): a
+            // pending CREATE event or the next enumeration covers it.
+            DebugLog.debugLog(`[monitor] content/attr change ${file.get_path()} not tracked, skipping`);
+            return true;
+        }
+        DebugLog.debugLog(`[monitor] content/attr change ${file.get_path()} -> refresh metadata`);
+        item.updatedMetadata();
+        return true;
     }
     handleFileRenamed(newFile, oldFile) {
         const oldPath = oldFile.get_path();
