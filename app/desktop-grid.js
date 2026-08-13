@@ -166,8 +166,13 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
         this._marginBottom = Math.floor(this._marginBottom / this._size_divisor);
         this._marginLeft = Math.floor(this._marginLeft / this._size_divisor);
         this._marginRight = Math.floor(this._marginRight / this._size_divisor);
-        this._maxColumns = Math.floor(this._width / (Prefs.get_desired_width() + 4 * elementSpacing));
-        this._maxRows = Math.floor(this._height / (Prefs.get_desired_height() + 4 * elementSpacing));
+        // Defence in depth: a zero/negative column or row count would make
+        // every getDistance() return -1 ("grid full") and NaN out the
+        // element size below; the layout layer (GridLayout) already rejects
+        // invalid monitor descriptions, this guard keeps the grid usable
+        // if any other path feeds a degenerate size.
+        this._maxColumns = Math.max(1, Math.floor(this._width / (Prefs.get_desired_width() + 4 * elementSpacing)));
+        this._maxRows = Math.max(1, Math.floor(this._height / (Prefs.get_desired_height() + 4 * elementSpacing)));
         this._elementWidth = Math.floor(this._width / this._maxColumns);
         this._elementHeight = Math.floor(this._height / this._maxRows);
     }

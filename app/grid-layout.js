@@ -17,6 +17,7 @@
  */
 import * as DBusUtils from './dbus-utils.js';
 import * as DesktopGrid from './desktop-grid.js';
+import * as DebugLog from './log.js';
 
 /* Monitor geometry management: subscribes to the extension's D-Bus
  * desktopGeometry action, diffs monitor areas, recreates the per-monitor
@@ -40,6 +41,19 @@ export var GridLayout = class {
     }
 
     updateGridWindows(newdesktoplist) {
+        /* Reject invalid monitor descriptions (zero/negative width, height or
+         * scale). They are transient artifacts of the compositor's
+         * monitors-changed / workarea recalculation and must not be applied:
+         * a zero-sized grid makes every getDistance() return -1 ("full"), so
+         * _addFilesToDesktop drops every icon and the desktop appears empty
+         * with no way to recover short of restarting the process. Keep the
+         * last valid layout instead. */
+        for (const area of newdesktoplist) {
+            if (!(area.width > 0) || !(area.height > 0) || !(area.scaleFactor > 0)) {
+                DebugLog.debugLog(`[grid] updateGridWindows REJECTED invalid monitor ${area.monitorIndex}: ${area.width}x${area.height} scale=${area.scaleFactor}`);
+                return;
+            }
+        }
         let newPrimaryIndex = -1;
         if ((newdesktoplist.length > 0) && ('primaryMonitor' in newdesktoplist[0])) {
             newPrimaryIndex = newdesktoplist[0].primaryMonitor;

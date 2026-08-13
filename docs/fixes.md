@@ -1,5 +1,35 @@
 # 修复日志
 
+## 2026-08-13
+
+### 图标全部消失：异常显示器 geometry 导致 grid 零尺寸假满（real-world 事故 + 可复现实验）
+
+**症状：** 用户解压 412MB 压缩包后，桌面图标全部消失。journal 反复打印 `DING: Not enough space to add icons`（17:54:52/17:55:22/17:55:27/17:55:46 共 4 次），重启 DING 进程后恢复。
+
+**根因（已通过 DBus 实验 100% 复现与验证）：**
+
+1. `DesktopGrid.getDistance()` 的"满"判定是 `_occupiedCount >= _maxColumns * _maxRows`；而 `setGridStatus()` 对每个格子调用 `_setGridUse(x,y,false)` 时 `wasInUse=undefined`，计数实际为 `-N + 已放图标数`。**只要 grid 尺寸（宽或高）≤ 0，`0 >= 0` 恒成立 → 所有坐标永远返回 -1 → 每个图标都"放不下"。**
+2. 尺寸来自 DBus `desktopGeometry` action（扩展在 monitors-changed / workareas-changed / updated-usable-area / scale-factor 变化时重发）。**合成器某次重算瞬间产生了零/负尺寸的 monitor 描述（实验证实 width=0 或 height=0 或 scale=0 即可触发），DING 无条件重建 grid → 全灭且无自愈**（后续每次刷新都失败，直到进程重启）。
+3. 实验：通过 `org.gtk.Actions.SetState` 向 `/com/rastersoft/dingextension/control` 发送 `width=0` 的 geometry → journal 出现与事故逐字一致的 `dist=-1` + `Not enough space to add icons`，图标全灭；发回正常 geometry → 全部恢复。
+
+**变更：**
+
+| 项 | 文件 | 内容 |
+|---|---|---|
+| 1 | `app/grid-layout.js` | `updateGridWindows()` 入口校验：任一 monitor 的 `width <= 0` / `height <= 0` / `scaleFactor <= 0` → 拒绝整批更新（保留旧布局），只打 `[grid] updateGridWindows REJECTED ...` debug 日志。正常 geometry 更新路径不受影响 |
+| 2 | `app/desktop-grid.js` | 纵深防御：`_maxColumns/_maxRows = Math.max(1, floor(...))`，防止其他路径喂入退化尺寸时除零/NaN 连锁（`_elementWidth = width/0`） |
+
+**验证：**
+
+- 发送 `width=0`、`height=0`、`scale=0` 三种异常 geometry → 全部 REJECTED，图标保持 26 个，无 `Not enough space`
+- 发送有效变化 geometry（marginTop 32→100）→ 正常重建（`[grid] desktop#0 rect=(0,100) win=(2048x1052)`），图标正常重排
+- 回归：正常 geometry diff 相同 → 不触发刷新（原有 fast-path 不变）
+- 事故现场：重启 DING 后无任何报错，图标完整恢复
+
+**遗留：** 17:54 的异常 geometry 由哪个信号/瞬间产生未能从历史日志锁定（当时未开 DING_DEBUG）。修复后即使再次发生，DING 会拒绝并保持旧布局；建议后续如再遇图标消失，先查 `[grid] updateGridWindows REJECTED` 日志（需 DING_DEBUG=1）。
+
+**另记录独立小 bug（未修）：** 17:17 手机 MTP 挂载时 `GFileInfo created without standard::is-hidden/is-backup/is-symlink` CRITICAL ×3 —— MTP 文件系统不提供这些属性，`_doReadAsync`/`handleFileCreated` 的 query_info 需对挂载卷容错（仅警告，不影响功能）。
+
 ## 2026-08-10
 
 ### 增量更新增强：内容/属性变化单图标刷新 + 事件路由补全（对比 Nautilus 审查后实施）
