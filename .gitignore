@@ -16,3 +16,6 @@
 node_modules/
 __pycache__/
 schemas/gschemas.compiled
+
+.agents/
+skills-lock.json
