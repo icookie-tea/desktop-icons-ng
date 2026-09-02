@@ -58,6 +58,10 @@ export var DesktopManager = class {
         this._selectedFiles = null;
         this._clickCaptured = false;
         this._popupCounter = 0;
+        // Volume/mount refresh state (see docs/volume-mount-issues.md)
+        this._mountRetryCounts = new Map();
+        this._mountRetryTimeoutId = 0;
+        this._mountsQueryCancellable = new Gio.Cancellable();
 
         this._initThemeAndManagers();
         // DesktopMenu queries the clipboard state via updateClipboard() in its
@@ -203,10 +207,28 @@ export var DesktopManager = class {
             this._updateDesktopSafe('gtk icon theme changed');
         });
         this._volumeMonitor = Gio.VolumeMonitor.get();
-        this._trackSignal(this._volumeMonitor, 'mount-added', () => {
+        this._trackSignal(this._volumeMonitor, 'mount-added', (obj, mount) => {
             this._updateDesktopSafe('mount added');
+            // Second pass: the gvfs/udisks daemon may still be bringing the
+            // mount point up when the first refresh runs, in which case the
+            // icon is silently dropped (V-6)
+            try {
+                this._scheduleMountRefreshRetry(mount.get_default_location().get_uri());
+            } catch (e) {
+                // the mount is already gone; nothing to retry
+            }
         });
-        this._trackSignal(this._volumeMonitor, 'mount-removed', () => {
+        this._trackSignal(this._volumeMonitor, 'mount-changed', () => {
+            // A mount's properties (label, can-unmount, ...) can change in
+            // place; the icon name and the menu must follow (V-7)
+            this._updateDesktopSafe('mount changed');
+        });
+        this._trackSignal(this._volumeMonitor, 'mount-removed', (obj, mount) => {
+            try {
+                this._mountRetryCounts.delete(mount.get_default_location().get_uri());
+            } catch (e) {
+                // stale mount object
+            }
             // Delay the refresh: at removal time the mount's files may still
             // be queryable (FUSE teardown race), and a short wait coalesces
             // the removal burst.
@@ -332,6 +354,14 @@ export var DesktopManager = class {
             GLib.source_remove(this._mountRemovedTimeoutId);
             this._mountRemovedTimeoutId = 0;
         }
+        if (this._mountRetryTimeoutId) {
+            GLib.source_remove(this._mountRetryTimeoutId);
+            this._mountRetryTimeoutId = 0;
+        }
+        if (this._mountsQueryCancellable) {
+            this._mountsQueryCancellable.cancel();
+            this._mountsQueryCancellable = null;
+        }
         if (this._themeManager) {
             this._themeManager.disconnect();
         }
@@ -363,6 +393,9 @@ export var DesktopManager = class {
                 this._forcedExit = true;
                 if (this._desktopEnumerateCancellable) {
                     this._desktopEnumerateCancellable.cancel();
+                }
+                if (this._mountsQueryCancellable) {
+                    this._mountsQueryCancellable.cancel();
                 }
                 if (this._hold_active) {
                     this.mainApp.release();
@@ -1096,6 +1129,28 @@ export var DesktopManager = class {
 
     /* True when both lists hold exactly the same files (same URIs, same
      * count), so icons can be refreshed in place instead of rebuilt. */
+    _refreshReusedFileItem(old, newItem) {
+        // The GMount behind the same URI may be a *new* object (an
+        // unmount/remount inside the refresh window): keeping the stale one
+        // breaks eject/unmount and the visible name (V-2)
+        if (old._custom !== newItem._custom) {
+            old._custom = newItem._custom;
+        }
+        if (typeof old._updateMetadataFromFileInfo === 'function') {
+            old._updateMetadataFromFileInfo(newItem._fileInfo);
+            // assign the coordinate fields directly: the setters
+            // would write the stale values back to disk
+            old._savedCoordinates = old._readCoordinatesFromAttribute(
+                newItem._fileInfo, 'metadata::nautilus-icon-position');
+            old._dropCoordinates = old._readCoordinatesFromAttribute(
+                newItem._fileInfo, 'metadata::nautilus-drop-position');
+            old._applyDarkTextClass();
+            old._updateIcon().catch(e => {
+                print(`Exception while refreshing a reused icon: ${e.message}\n${e.stack}`);
+            });
+        }
+    }
+
     _canReuseFileItems(newList) {
         if (this._fileList.length !== newList.length) {
             return false;
@@ -1212,18 +1267,13 @@ export var DesktopManager = class {
                             this._monitor.applyDropCoordinates(fileItem);
                         }
                         fileEnum.close(null);
-                        for (let [newFolder, extras, volume] of DesktopIconsUtil.getMounts(this._volumeMonitor)) {
-                            try {
-                                fileList.push(new FileItem.FileItem(this,
-                                    newFolder,
-                                    newFolder.query_info(Enums.DEFAULT_ATTRIBUTES, Gio.FileQueryInfoFlags.NONE, null),
-                                    extras,
-                                    volume));
-                            } catch (e) {
-                                print(`Failed with ${e} while adding volume ${newFolder}`);
-                            }
-                        }
-                        resolve(fileList);
+                        // Mount info is queried asynchronously: a dead network
+                        // mount must not freeze the main loop with a
+                        // synchronous query_info (V-3)
+                        this._readMountsAsync(DesktopIconsUtil.getMounts(this._volumeMonitor),
+                            fileList,
+                            this._mountsQueryCancellable,
+                            () => resolve(fileList));
                         return;
                     } catch (e) {
                         print(`Exception while reading desktop folder: ${e.message}\n${e.stack}`);
@@ -1231,6 +1281,83 @@ export var DesktopManager = class {
                     }
                 }
             );
+        });
+    }
+
+    _readMountsAsync(mounts, fileList, cancellable, done) {
+        let index = 0;
+        const queryNext = () => {
+            if (cancellable.is_cancelled() || this._forcedExit) {
+                done();
+                return;
+            }
+            if (index >= mounts.length) {
+                done();
+                return;
+            }
+            const [file, extras, volume] = mounts[index];
+            index += 1;
+            file.query_info_async(Enums.DEFAULT_ATTRIBUTES,
+                Gio.FileQueryInfoFlags.NONE,
+                GLib.PRIORITY_DEFAULT,
+                cancellable,
+                (source, result) => {
+                    try {
+                        const info = source.query_info_finish(result);
+                        try {
+                            fileList.push(this._createMountFileItem(file, info, extras, volume));
+                            this._mountRetryCounts.delete(file.get_uri());
+                        } catch (e) {
+                            print(`Failed with ${e} while adding volume ${file}`);
+                            this._scheduleMountRefreshRetry(file.get_uri());
+                        }
+                    } catch (e) {
+                        if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
+                            print(`Failed to query volume ${file.get_uri()}: ${e.message}`);
+                            this._scheduleMountRefreshRetry(file.get_uri());
+                        }
+                    }
+                    queryNext();
+                });
+        };
+        queryNext();
+    }
+
+    _createMountFileItem(file, info, extras, volume) {
+        return new FileItem.FileItem(this, file, info, extras, volume);
+    }
+
+    _scheduleMountRefreshRetry(uri, delayMs = Constants.MOUNT_RETRY_DELAY_MS) {
+        // Schedule a delayed full refresh, but only while the mount still
+        // exists (transient failures: gvfs/udisks not ready yet, network
+        // blip). Consecutive failures are capped so a permanently dead
+        // mount cannot turn into a refresh loop (V-6).
+        let stillMounted = false;
+        try {
+            for (const m of this._volumeMonitor.get_mounts()) {
+                if (m.get_default_location().get_uri() === uri) {
+                    stillMounted = true;
+                    break;
+                }
+            }
+        } catch (e) {
+            return;
+        }
+        if (!stillMounted) {
+            return;
+        }
+        const count = (this._mountRetryCounts.get(uri) ?? 0) + 1;
+        if (count > Constants.MOUNT_QUERY_MAX_RETRIES) {
+            return;
+        }
+        this._mountRetryCounts.set(uri, count);
+        if (this._mountRetryTimeoutId) {
+            GLib.source_remove(this._mountRetryTimeoutId);
+        }
+        this._mountRetryTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delayMs, () => {
+            this._mountRetryTimeoutId = 0;
+            this._updateDesktopSafe('mount query retry');
+            return GLib.SOURCE_REMOVE;
         });
     }
 
@@ -1259,19 +1386,7 @@ export var DesktopManager = class {
             const reused = [];
             for (const newItem of fileList) {
                 const old = oldByUri.get(newItem.uri);
-                if (typeof old._updateMetadataFromFileInfo === 'function') {
-                    old._updateMetadataFromFileInfo(newItem._fileInfo);
-                    // assign the coordinate fields directly: the setters
-                    // would write the stale values back to disk
-                    old._savedCoordinates = old._readCoordinatesFromAttribute(
-                        newItem._fileInfo, 'metadata::nautilus-icon-position');
-                    old._dropCoordinates = old._readCoordinatesFromAttribute(
-                        newItem._fileInfo, 'metadata::nautilus-drop-position');
-                    old._applyDarkTextClass();
-                    old._updateIcon().catch(e => {
-                        print(`Exception while refreshing a reused icon: ${e.message}\n${e.stack}`);
-                    });
-                }
+                this._refreshReusedFileItem(old, newItem);
                 newItem._onDestroy();
                 reused.push(old);
             }

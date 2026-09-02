@@ -89,7 +89,9 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
 
         this._addNewAction('rename-file', null, (action, parameter) => {
             const file = this._desktopManager.getFileItemFromURI(parameter.get_string()[0]);
-            this._desktopManager.doRename(file, false);
+            if (file !== null) {
+                this._desktopManager.doRename(file, false);
+            }
         }, 's');
 
         this._actionTrash = this._addNewAction('trash-file', ["Delete"], this._desktopManager.doTrash.bind(this._desktopManager));
@@ -98,7 +100,9 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
 
         this._addNewAction('toggle-allow-launching', null, (action, parameter) => {
             const file = this._desktopManager.getFileItemFromURI(parameter.get_string()[0]);
-            file.onAllowDisallowLaunchingClicked();
+            if (file !== null) {
+                file.onAllowDisallowLaunchingClicked();
+            }
         }, 's');
 
         this._addNewAction('empty-trash', null, (action) => {
@@ -107,12 +111,16 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
 
         this._addNewAction('eject-drive', null, (action, parameter) => {
             const file = this._desktopManager.getFileItemFromURI(parameter.get_string()[0]);
-            file.eject();
+            if (file !== null) {
+                file.eject();
+            }
         }, 's');
 
         this._addNewAction('umount-drive', null, (action, parameter) => {
             const file = this._desktopManager.getFileItemFromURI(parameter.get_string()[0]);
-            file.unmount();
+            if (file !== null) {
+                file.unmount();
+            }
         }, 's');
 
         this._addNewAction('extract-here-autoar', null, (action) => {
@@ -134,12 +142,16 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
 
         this._addNewAction('compress-file', null, (action, parameter) => {
             const fileObj = this._desktopManager.getFileItemFromURI(parameter.get_string()[0]);
-            this._doCompressFilesFromSelection(fileObj.grid);
+            if (fileObj !== null) {
+                this._doCompressFilesFromSelection(fileObj.grid);
+            }
         }, 's');
 
         this._addNewAction('new-folder-from-selection', null, (action, parameter) => {
             const file = this._desktopManager.getFileItemFromURI(parameter.get_string()[0]);
-            this._doNewFolderFromSelection(file);
+            if (file !== null) {
+                this._doNewFolderFromSelection(file);
+            }
         }, 's');
 
         this._addNewAction('show-properties', null, this._onPropertiesClicked.bind(this));
@@ -148,7 +160,9 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
 
         this._addNewAction('open-in-terminal', null, (action, parameter) => {
             const file = this._desktopManager.getFileItemFromURI(parameter.get_string()[0]);
-            DesktopIconsUtil.launchTerminal(file.path, null);
+            if (file !== null) {
+                DesktopIconsUtil.launchTerminal(file.path, null);
+            }
         }, 's');
     }
 

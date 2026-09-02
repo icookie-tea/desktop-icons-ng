@@ -26,4 +26,6 @@ export var REFRESH_RETRY_DELAY_MS = 500;        // wait between full-refresh ret
 export var DESKTOP_UPDATE_THROTTLE_US = 1000000; // force redraw if refresh took > 1s
 export var MOVE_PENDING_TIMEOUT_MS = 150;       // MOVED_OUT -> MOVED_IN merge window
 export var MOUNT_REMOVED_DELAY_MS = 500;        // delay before refreshing after mount-removed
+export var MOUNT_RETRY_DELAY_MS = 1500;         // delay before a mount-query retry refresh
+export var MOUNT_QUERY_MAX_RETRIES = 3;         // consecutive failures before giving up on a mount
 export var THUMBNAIL_TIMEOUT_MS = 5000;         // thumbnail generation timeout

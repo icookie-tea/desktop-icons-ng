@@ -1,5 +1,24 @@
 # 修复日志
 
+## 2026-09-02
+
+### 外部/网络驱动器健壮性修复（V-1 ~ V-7，详见 docs/volume-mount-issues.md）
+
+**背景：** 对 VolumeMonitor/mount 生命周期做系统性审查，发现 9 个问题（V-1 ~ V-9，代码 + 本机 gjs 实验验证）。本次修复其中 6 个（V-1 ~ V-7），全部有单元测试覆盖（`tests/test-volume-mount.js`，29 断言）。
+
+**变更：**
+
+1. **V-2 刷新快路径持有 stale GMount（P1）：** `_drawDesktop` 的 URI 集合不变快路径不更新旧 FileItem 的 `_custom`（GMount）。触发条件：500ms 卸载防抖窗口内快速重插同一盘（同挂载点）→ 图标持有死 mount，菜单"弹出/卸载"失效、显示名可能过期，且**之后 F5 永远走快路径无法自愈**。抽出 `_refreshReusedFileItem()`：复用时同步 `old._custom = newItem._custom`（`app/desktop-manager.js`）。
+2. **V-1 eject/unmount 失败无反馈（P1）：** `*_with_operation_finish` 失败（卷忙/无权限/死 mount）时直接 throw，无 catch → 静默失败，只有 stderr 堆栈。重构为 `_doMountOperation()`：失败走 `_logAndPopupError` 弹 `ShowErrorPopup`（与 open 等操作的失败处理一致）；图标已销毁时只 log 不弹窗（`app/file-item.js`）。
+3. **V-5 菜单动作缺 null 守卫（P3）：** `getFileItemFromURI` 找不到时返回 `null`（菜单打开期间卷被卸载等），7 个按 URI 取 item 的 GAction 回调直接解引用 → TypeError。统一加 `if (file !== null)` 守卫（沿用 `launch-with-discrete-gpu` 既有模式）（`app/file-item-menu.js`）。
+4. **V-3 网络挂载同步 query_info（P2）：** mount 的 `query_info(DEFAULT_ATTRIBUTES)` 在主循环回调内同步执行，`access::*` 对死掉的 SMB 服务器会阻塞 gvfs 网络超时（数十秒），整个桌面图标进程冻结。新增 `_readMountsAsync()`：逐个 `query_info_async` 查询，慢挂载只延迟自己的图标，不卡主循环（非阻塞行为由单测钉住）；FileItem 构造抽出 `_createMountFileItem()` 小接缝供测试替换。
+5. **V-6 mount 瞬时失败无重试（P3）：** `mount-added` 时 gvfs/udisks 守护进程未就绪 → 图标静默缺失直到下一次无关刷新。新增 `_scheduleMountRefreshRetry()`：mount-added 追加一次延迟二次刷新；查询失败且 mount 仍存在时安排重试；连续失败上限 3 次（`MOUNT_QUERY_MAX_RETRIES`），成功或 mount-removed 清零，防刷新循环（新常量 `MOUNT_RETRY_DELAY_MS`/`MOUNT_QUERY_MAX_RETRIES`，`app/constants.js`）。
+6. **V-7 未监听 mount-changed（P3）：** 盘的 label / can-unmount 等属性原地变化时图标名与菜单不更新。补 `mount-changed → _updateDesktopSafe` 监听。
+
+**测试：** 新增 `tests/test-volume-mount.js`（29 断言）：V-1 异步失败/同步 throw/已销毁/成功/无 mount 五路径；V-2 stale mount 换新 + 非驱动器项 no-op；V-3 成功/失败/非阻塞（主循环心跳）/取消；V-6 重试触发/mount 消失不重试/上限与合并。`gjs --module tests/run.js` 全绿（123 断言）。
+
+**未修复（待决策/低优先级）：** V-4 未挂载卷不显示（待产品决策）、V-8 桌面目录不存在时全部图标消失、V-9 无 drive/volume 的本地挂载归类为网络（待运行时验证）。
+
 ## 2026-08-13
 
 ### 图标全部消失：异常显示器 geometry 导致 grid 零尺寸假满（real-world 事故 + 可复现实验）

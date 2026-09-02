@@ -630,18 +630,37 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
     }
 
     eject() {
-        if (this._custom) {
-            this._custom.eject_with_operation(Gio.MountUnmountFlags.NONE, null, null, (obj, res) => {
-                obj.eject_with_operation_finish(res);
-            });
-        }
+        this._doMountOperation('eject_with_operation', 'eject_with_operation_finish', _('Eject Failed'));
     }
 
     unmount() {
-        if (this._custom) {
-            this._custom.unmount_with_operation(Gio.MountUnmountFlags.NONE, null, null, (obj, res) => {
-                obj.unmount_with_operation_finish(res);
+        this._doMountOperation('unmount_with_operation', 'unmount_with_operation_finish', _('Unmount Failed'));
+    }
+
+    _doMountOperation(opName, finishName, failureTitle) {
+        if (!this._custom) {
+            return;
+        }
+        const uri = this.uri;
+        const onError = (e) => {
+            if (this._destroyed) {
+                // the icon is already gone (e.g. the unmount itself triggered
+                // a refresh): logging is enough, don't pop up over a stale icon
+                log(`${failureTitle} for ${uri}: ${e.message}`);
+                return;
+            }
+            this._logAndPopupError(failureTitle, e.message, `${failureTitle} for ${uri}: ${e.message}`);
+        };
+        try {
+            this._custom[opName](Gio.MountUnmountFlags.NONE, null, null, (obj, res) => {
+                try {
+                    obj[finishName](res);
+                } catch (e) {
+                    onError(e);
+                }
             });
+        } catch (e) {
+            onError(e);
         }
     }
 
