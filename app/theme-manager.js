@@ -181,8 +181,16 @@ export var ThemeManager = class {
             }
         }
 
-        // Strip comments so @define-color inside /* ... */ is ignored, then
-        // take the last definition (later rules win at the same priority).
+        return ThemeManager.parseAccentOverride(contents);
+    }
+
+    /*
+     * Pure core of _readUserAccentOverride(): given the CSS contents of
+     * gtk.css and its @import chain (in resolution order), return the last
+     * parseable `@define-color accent_bg_color` as a Gdk.RGBA, or null.
+     * Comments are stripped first so commented-out definitions are ignored.
+     */
+    static parseAccentOverride(contents) {
         const defineRe = /@define-color\s+accent_bg_color\s+([^;]+);/g;
         let result = null;
         for (const content of contents) {

@@ -24,7 +24,7 @@ export var SortManager = class {
         this._dm = desktopManager;
     }
 
-    _sortByName(fileList) {
+    static _sortByName(fileList) {
         function byName(a, b) {
             // options must be the 3rd argument — in the 2nd (locales) slot
             // engines silently ignore them (see docs/fixes.md).
@@ -33,7 +33,7 @@ export var SortManager = class {
         fileList.sort(byName);
     }
 
-    _sortByKindByName(fileList) {
+    static _sortByKindByName(fileList) {
         function byKindByName(a, b) {
             return a.attributeContentType.localeCompare(b.attributeContentType) ||
                 a._label.get_text().localeCompare(b._label.get_text(), undefined, { sensitivity: 'accent', numeric: true });
@@ -42,7 +42,7 @@ export var SortManager = class {
     }
 
     _sortAllFilesFromGridsByName(order) {
-        this._sortByName(this._dm._fileList);
+        SortManager._sortByName(this._dm._fileList);
         if (order == Enums.SortOrder.DESCENDINGNAME) {
             this._dm._fileList.reverse();
         }
@@ -52,7 +52,7 @@ export var SortManager = class {
     /* Comparator for "Arrange Icons" (position order). Corner inversion
      * flips the x/y directions: top-left grows from the smallest coords,
      * bottom-right from the largest, etc. Extracted for testability. */
-    _positionComparator(cornerInversion) {
+    static _positionComparator(cornerInversion) {
         const xMul = cornerInversion[0] ? -1 : 1;
         const yMul = cornerInversion[1] ? -1 : 1;
         return (a, b) => {
@@ -71,7 +71,7 @@ export var SortManager = class {
             return;
         }
         this._dm._fileList.forEach(f => f.removeFromGrid(false));
-        this._dm._fileList.sort(this._positionComparator(cornerInversion ?? Prefs.get_start_corner()));
+        this._dm._fileList.sort(SortManager._positionComparator(cornerInversion ?? Prefs.get_start_corner()));
         this._reassignFilesToDesktop();
     }
 
@@ -113,10 +113,10 @@ export var SortManager = class {
             otherFiles.push(fileItem);
             continue;
         }
-        this._sortByName(specialFiles);
-        this._sortByName(directoryFiles);
-        this._sortByName(validDesktopFiles);
-        this._sortByKindByName(otherFiles);
+        SortManager._sortByName(specialFiles);
+        SortManager._sortByName(directoryFiles);
+        SortManager._sortByName(validDesktopFiles);
+        SortManager._sortByKindByName(otherFiles);
         newFileList.push(...specialFiles);
         newFileList.push(...validDesktopFiles);
         newFileList.push(...directoryFiles);
@@ -267,6 +267,33 @@ export var SortManager = class {
     }
 
     _sortAllFilesFromGridsByKindStacked(restack) {
+        // Pure core extracted as SortManager.sortFileListByKindStacked() for
+        // unit testing (Prefs/stack-item injection).
+        this._dm._fileList = SortManager.sortFileListByKindStacked(
+            this._dm._fileList,
+            Prefs.getUnstackList(),
+            Prefs.getSortOrder(),
+            (type) => this._makeStackTopMarkerFolder(type));
+        if (this._dm._allFileList) {
+            this._dm._allFileList = this._dm._fileList;
+        }
+    }
+
+    /*
+     * Pure core of the stacked ("keep stacked") layout: partitions
+     * fileList into special / desktop-files / directories / stacked files,
+     * sorts each group per sortOrder, creates stack-top markers for
+     * non-unique content types and re-inserts unstacked types right after
+     * their stack-top entry. Returns the new file list; does not touch
+     * desktopManager state.
+     *
+     * @param fileList items (mutated: isStackTop/stackUnique/updateIcon())
+     * @param unstackList content types the user unstacked
+     * @param sortOrder Enums.SortOrder value
+     * @param makeStackMarker (type) => item; the returned item must expose
+     *        isStackMarker + attributeContentType + fileSize/modifiedTime
+     */
+    static sortFileListByKindStacked(fileList, unstackList, sortOrder, makeStackMarker) {
         function firstStackedByType() {
             // First stacked file of each content type (old loop semantics:
             // 'break' on the first match). Must be built after the
@@ -299,13 +326,10 @@ export var SortManager = class {
         let stackedFiles = [];
         let newFileList = [];
         let stackTopMarkerFolderList = [];
-        const unstackSet = new Set(Prefs.getUnstackList());
-        if (this._dm._allFileList && restack) {
-            this._dm._fileList = this._dm._allFileList;
-        }
-        this._sortByName(this._dm._fileList);
+        const unstackSet = new Set(unstackList);
+        SortManager._sortByName(fileList);
         const seenTypes = new Set();
-        for (let fileItem of this._dm._fileList) {
+        for (let fileItem of fileList) {
             if (fileItem.isSpecial) {
                 specialFiles.push(fileItem);
                 continue;
@@ -335,7 +359,7 @@ export var SortManager = class {
         }
         for (let item of otherFiles) {
             if (!item.stackUnique) {
-                this._makeStackTopMarkerFolder(item.attributeContentType, stackTopMarkerFolderList);
+                stackTopMarkerFolderList.push(makeStackMarker(item.attributeContentType));
                 item.isStackTop = false;
                 stackedFiles.push(item);
             }
@@ -345,11 +369,11 @@ export var SortManager = class {
             item.updateIcon();
         }
         otherFiles = [];
-        this._sortByName(specialFiles);
-        this._sortByName(directoryFiles);
-        this._sortByName(validDesktopFiles);
-        this._sortByKindByName(stackedFiles);
-        this._sortByKindByName(stackTopMarkerFolderList);
+        SortManager._sortByName(specialFiles);
+        SortManager._sortByName(directoryFiles);
+        SortManager._sortByName(validDesktopFiles);
+        SortManager._sortByKindByName(stackedFiles);
+        SortManager._sortByKindByName(stackTopMarkerFolderList);
         otherFiles.push(...specialFiles);
         otherFiles.push(...validDesktopFiles);
         otherFiles.push(...directoryFiles);
@@ -361,14 +385,14 @@ export var SortManager = class {
         function byTime(a, b) {
             return a._modifiedTime - b._modifiedTime;
         }
-        switch (Prefs.getSortOrder()) {
+        switch (sortOrder) {
             case Enums.SortOrder.NAME:
-                this._sortByName(otherFiles);
+                SortManager._sortByName(otherFiles);
                 break;
             case Enums.SortOrder.DESCENDINGNAME:
-                this._sortByName(otherFiles);
+                SortManager._sortByName(otherFiles);
                 otherFiles.reverse();
-                this._sortByName(stackedFiles);
+                SortManager._sortByName(stackedFiles);
                 stackedFiles.reverse();
                 break;
             case Enums.SortOrder.MODIFIEDTIME:
@@ -407,9 +431,6 @@ export var SortManager = class {
                 newFileList.push(...unstacked);
             }
         }
-        if (this._dm._allFileList) {
-            this._dm._allFileList = this._dm._fileList;
-        }
-        this._dm._fileList = newFileList;
+        return newFileList;
     }
 };

@@ -112,7 +112,7 @@ export default [
     },
     {
         // ESM files (GNOME Shell side + migrated GTK app)
-        files: ['extension.js', 'prefs.js', 'visible-area.js',
+        files: ['extension.js', 'prefs.js', 'title-protocol.js', 'visible-area.js',
             'emulate-x11-window-type.js', 'gnome-shell-override.js',
             'app/*.js',
             'tests/*.js'],

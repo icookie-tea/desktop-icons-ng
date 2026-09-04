@@ -18,6 +18,7 @@ install_data([
     'gnome-shell-override.js',
     'metadata.json',
     'prefs.js',
+    'title-protocol.js',
     'visible-area.js'
   ],
   install_dir: extensions_dir

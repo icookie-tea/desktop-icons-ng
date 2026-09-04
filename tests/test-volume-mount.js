@@ -191,6 +191,14 @@ function makeIoError() {
     throw new Error('test setup failed to produce a GError');
 }
 
+// Real GIO calls back with a CANCELLED error when the cancellable is
+// cancelled mid-flight; the mock must model that (not swallow the callback)
+// or _readMountsAsync's done() path on cancel goes untested.
+const CANCELLED_QUARK = GLib.quark_from_string('g-io-error-quark');
+function makeCancelledError() {
+    return new GLib.Error(CANCELLED_QUARK, Gio.IOErrorEnum.CANCELLED, 'cancelled');
+}
+
 function fakeMountFile(uri, { fail = false, delayMs = 5 } = {}) {
     const real = Gio.File.new_for_uri(uri);
     return {
@@ -199,6 +207,11 @@ function fakeMountFile(uri, { fail = false, delayMs = 5 } = {}) {
         query_info_async(attrs, flags, prio, cancellable, cb) {
             GLib.timeout_add(GLib.PRIORITY_DEFAULT, delayMs, () => {
                 if (cancellable.is_cancelled()) {
+                    cb({
+                        query_info_finish: () => {
+                            throw makeCancelledError();
+                        },
+                    }, null);
                     return GLib.SOURCE_REMOVE;
                 }
                 if (fail) {
@@ -270,7 +283,8 @@ async function runReadMountsTests() {
         assert(ticks >= 1, 'V-3 main loop stays responsive while query is in flight');
         assert(done && fileList.length === 1, 'V-3 slow mount still resolves');
     }
-    // cancelled: nothing pushed, done() still called
+    // cancelled mid-flight: nothing pushed, and done() is still called
+    // (queryNext re-checks is_cancelled after the CANCELLED callback).
     {
         const cancellable = new Gio.Cancellable();
         const file = fakeMountFile('file:///tmp', { delayMs: 50 });
@@ -282,6 +296,7 @@ async function runReadMountsTests() {
         cancellable.cancel();
         await flushLoop(120);
         assertEqual(fileList.length, 0, 'V-3 cancelled read adds no item');
+        assertEqual(done, true, 'V-3 cancelled read still calls done callback');
     }
 }
 

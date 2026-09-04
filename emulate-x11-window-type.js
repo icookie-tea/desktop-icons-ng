@@ -18,6 +18,7 @@
 'use strict';
 import GLib from 'gi://GLib'
 import Meta from 'gi://Meta'
+import { parseTitle } from './title-protocol.js'
 
 class ManageWindow {
     /* This class is added to each managed window, and it's used to
@@ -97,53 +98,19 @@ class ManageWindow {
         const showInAllDesktops = this._showInAllDesktops;
         this._showInAllDesktops = false;
         this._fixed = false;
-        let title = this._window.get_title();
+        const title = this._window.get_title();
         if (title != null) {
-            if ((title.length > 0) && (title[title.length - 1] == ' ')) {
-                if ((title.length > 1) && (title[title.length - 2] == ' ')) {
-                    title = '@!HTD';
-                } else {
-                    title = '@!H';
-                }
-            }
-            const pos = title.search('@!');
-            if (pos != -1) {
-                const pos2 = title.search(';', pos);
-                let coords;
-                if (pos2 != -1) {
-                    coords = title.substring(pos + 2, pos2).trim().split(',');
-                } else {
-                    coords = title.substring(pos + 2).trim().split(',');
-                }
-                try {
-                    this._x = parseInt(coords[0]);
-                    this._y = parseInt(coords[1]);
-                } catch (e) {
-                    console.log(`Exception ${e.message}.\n${e.stack}`);
-                }
-                try {
-                    const extraChars = title.substring(pos + 2).trim().toUpperCase();
-                    for (let char of extraChars) {
-                        switch (char) {
-                        case 'T':
-                            this._keepAtTop = true;
-                            break;
-                        case 'D':
-                            this._showInAllDesktops = true;
-                            break;
-                        }
-                    }
-                } catch (e) {
-                    console.log(`Exception ${e.message}.\n${e.stack}`);
-                }
-            }
-            // This string must match the one at desktopManager.js
-            if (title.startsWith("Desktop Icons ")) {
-                this._keepAtTop = false;
+            // Pure protocol decoding lives in title-protocol.js (unit
+            // tested); this method keeps the window side effects.
+            const parsed = parseTitle(title);
+            this._x = parsed.x;
+            this._y = parsed.y;
+            this._keepAtTop = parsed.keepAtTop;
+            this._showInAllDesktops = parsed.showInAllDesktops;
+            if (parsed.isDesktop) {
                 this._fixed = true;
                 try {
-                    const desktopIndex = parseInt(title.substring(14).trim());
-                    const desktopData = this._X11Emulator.getMonitorData(desktopIndex - 1);
+                    const desktopData = this._X11Emulator.getMonitorData(parsed.desktopIndex - 1);
                     this._x = desktopData.x + desktopData.windowMarginLeft;
                     this._y = desktopData.y + desktopData.windowMarginTop;
                 } catch (e) {
