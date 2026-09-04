@@ -2,6 +2,31 @@
 
 > 2026-07 及更早的条目已归档至 [`docs/archive/fixes-2026-07.md`](archive/fixes-2026-07.md)。
 
+## 2026-09-05
+
+### 可维护性：窗口标题协议抽出 `title-protocol.js`（纯函数可单测）
+
+**背景：** `emulate-x11-window-type.js` 顶层 `import Meta from 'gi://Meta'`，在 headless gjs（无 GNOME Shell 运行时）下无法导入，导致 `ManageWindow._parseTitle()` 的标题协议解析逻辑（`@!x,y;flags`、尾随空格别名、`Desktop Icons <n>`）一直没有测试覆盖。
+
+**变更（行为等价）：** 纯解析逻辑抽到无依赖的新根模块 `title-protocol.js`（`parseTitle(title)` → `{x, y, keepAtTop, showInAllDesktops, isDesktop, desktopIndex}`）；`_parseTitle()` 保留窗口副作用（set_type/keep_above/移动），改为调用 `parseTitle`。同步更新根 `meson.build` install_data 与 `eslint.config.js` ESM 清单。新增 `tests/test-title-protocol.js`（32 断言）钉住：坐标/分号边界、T/D 标志扫描范围、H 不生效、尾随空格别名（x/y 为 parseInt('H')=NaN 的原始行为）、`Desktop Icons <n>` 抑制 keepAtTop。
+
+### 可维护性：SortManager/ThemeManager 纯函数抽取 + 补测试
+
+**变更（行为等价）：**
+- `sort-manager.js`：堆叠排序主体抽为静态纯函数 `SortManager.sortFileListByKindStacked(fileList, unstackList, sortOrder, makeStackMarker)`；`_sortByName`/`_sortByKindByName`/`_positionComparator` 改静态。原实例方法委托到静态版本。
+- `theme-manager.js`：accent 色解析主体抽为静态纯函数 `ThemeManager.parseAccentOverride(contents)`（接受 `[{contents}]` 数组，返回 `Gdk.RGBA|null`）。
+
+**新增测试：**
+- `test-sort-manager.js` 补 24 断言：非唯一类型都建 marker（每类型一个）、unstacked 成员重新插入到其 marker 之后且按当前排序、stacked 成员隐藏在 marker 后、SIZE 排序下 marker 尺寸/时间取自堆中首个成员。
+- 新增 `tests/test-theme-accent.js`（24 断言）：注释剥离、同优先级后定义胜、后定义的非法值不覆盖先前的合法值、其他 @define-color 名忽略、rgba() 整数形式。
+
+**发现（潜在限制，测试钉住现状，未改行为）：** `Gdk.RGBA.parse` 只接受 0–255 整数 RGB 分量——十进制形式（如 `rgba(0, 0.5, 1, 0.8)`）会被静默误解析为近黑色且 parse() 返回 true（覆盖先前合法定义）；空格分隔 CSS 形式直接 parse=false（该定义被跳过）。Chromaleon 等主题的 accent 通常是十六进制，实际影响小；若未来支持十进制 rgba 需先修解析。
+
+### 文档更新
+
+- `docs/architecture-analysis.md`：模块树/启动时序对齐当前实现（gnome-shell-override 在 `enable()` 创建；/proc 匹配为 `includes(ding.js 路径)`；desktopGeometry 不再有 debug 刷屏，DING_DEBUG 门控）；新增 11.5 单测矩阵；模块数 35→38、测试文件 8→13。
+- 顺手修了 `test-volume-mount.js` 两处：mock 之前 cancel 时吞掉回调（与真 GIO 行为不符——GIO 会回调 CANCELLED 错误），改为回调 CANCELLED 并补断言 `done()` 在 cancel 后仍被调用；删掉一处未使用的 `done` 变量（eslint no-unused-vars）。测试总数 13 组 / 202 断言，`gjs --module tests/run.js` 全绿。
+
 ## 2026-09-04
 
 ### 可维护性重构：VolumeMonitor/mount 逻辑拆分至 `app/mount-manager.js`

@@ -15,6 +15,8 @@ import * as TestClickCoordinates from './test-click-coordinates.js';
 import * as TestLinkEmblem from './test-link-emblem.js';
 import * as TestScriptsMenu from './test-scripts-menu.js';
 import * as TestDriveMenu from './test-drive-menu.js';
+import * as TestThemeAccent from './test-theme-accent.js';
+import * as TestTitleProtocol from './test-title-protocol.js';
 import * as TestVolumeMount from './test-volume-mount.js';
 
 const tests = [
@@ -28,6 +30,8 @@ const tests = [
     TestLinkEmblem,
     TestScriptsMenu,
     TestDriveMenu,
+    TestThemeAccent,
+    TestTitleProtocol,
     TestVolumeMount,
 ];
 

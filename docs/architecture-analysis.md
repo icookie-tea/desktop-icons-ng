@@ -18,6 +18,7 @@ icookie 分支在此基础上进行了大量重构和功能增强，包括模块
 │  extension.js ──── DING 类                                      │
 │  ├── emulate-x11-window-type.js ── Wayland 窗口管理                 │
 │  ├── visible-area.js ──── 可用区域计算                            │
+│  ├── title-protocol.js ─── 窗口标题协议纯解析（可单测）              │
 │  └── gnome-shell-override.js ── Overview 桌面图标动画注入          │
 ├──────────── D-Bus (com.rastersoft.dingextension) ────────────────┤
 ┌─────────────────────────────────────────────────────────────────┐
@@ -59,11 +60,10 @@ icookie 分支在此基础上进行了大量重构和功能增强，包括模块
 GNOME Shell 启用扩展
   └─→ extension.js: DING.constructor()
        ├─→ doKillAllOldDesktopProcesses()   // 杀死残留进程
-       ├─→ new GnomeShellOverride()         // icookie 新增：概览动画注入器
-       └─→ 初始化 data 对象
+       └─→ 初始化 data 对象（x11Manager/visibleArea/gnomeShellOverride 置 null）
 ```
 
-`constructor()` 中会扫描 `/proc` 查找旧的 `ding.js` 进程并 kill 掉，防止 GNOME Shell 重启后出现多个桌面管理进程。icookie 分支在此处还创建了 `gnome-shell-override` 实例用于注入概览动画逻辑。
+`constructor()` 中会扫描 `/proc` 查找旧的 `ding.js` 进程并 kill 掉，防止 GNOME Shell 重启后出现多个桌面管理进程（ESM 迁移后进程 cmdline 为 `gjs --module <path>/ding.js ...`，匹配用 `includes(ding.js 路径)` 而非前缀）。概览动画注入器（`gnome-shell-override`）不在构造时创建，而是在 `enable()` 中创建并立即 `enable()`（见阶段 2）。
 
 ### 阶段 2：扩展启用
 
@@ -71,6 +71,8 @@ GNOME Shell 启用扩展
 enable()
   ├─→ new EmulateX11WindowType()            // 窗口类型模拟管理器
   ├─→ new VisibleArea()                     // 可用区域计算器
+  ├─→ new GnomeShellOverride().enable()     // icookie 新增：概览动画注入
+  │   └─→ InjectionManager.overrideMethod(WorkspaceBackground, '_init')
   └─→ 判断 Shell 是否启动完成：
        ├─→ 未启动 → 连接 'startup-complete' 信号等待
        └─→ 已启动 → 直接调用 innerEnable()
@@ -83,10 +85,6 @@ innerEnable()
   ├─→ x11Manager.enable()
   │   └─→ 连接 window_manager 'map' / 'destroy' 信号
   │       （注：旧版曾连接 Main.overview 'hiding' 信号，已随 fc84044 移除）
-  │
-  ├─→ gnomeShellOverride.enable()           // icookie 新增
-  │   └─→ InjectionManager.overrideMethod(WorkspaceBackground, '_init')
-  │       注入 Clutter.Clone + DesktopLayout 实现概览动画
   │
   ├─→ 监听显示器/工作区变化信号
   │   ├─→ 'monitors-changed'
@@ -446,8 +444,10 @@ FileOperations
 
 ```
 D-Bus name: com.rastersoft.dingextension
-  ├─→ Action: desktopGeometry   → 传递显示器几何数据 (icookie: 大量 debug 日志)
+  ├─→ Action: desktopGeometry   → 传递显示器几何数据
   └─→ Action: disableTimer      → 禁用启动超时
+
+> 日志：DING_DEBUG 环境变量门控（`debugLog()`），未设置时静默，避免 journal 刷屏。
 ```
 
 ### 6.2 子进程 → 外部服务
@@ -590,17 +590,34 @@ Shell 热重载：
 
 ## 十一、icookie 分支新增特性与修复摘要
 
-### 11.1 模块化重构（4 个模块提取）
+### 11.1 模块化重构（模块提取）
 - `ThemeManager` — accent color / dark mode 管理
 - `FileOperations` — 文件操作封装
-- `SortManager` — 排序/堆叠逻辑
+- `SortManager` — 排序/堆叠逻辑（堆叠排序核心已抽为静态纯函数 `sortFileListByKindStacked`）
 - `PaintContainer` — 自定义绘制容器
+- `MountManager`（app/mount-manager.js）— mount 生命周期，见 5.2.1
+- `title-protocol.js` — 窗口标题协议（@!x,y;flags / Desktop Icons <n>）纯解析，自 emulate-x11-window-type.js 抽出以支持无 Meta 环境单测
 
 ### 11.2 Overview 动画
 gnome-shell-override.js 注入 WorkspaceBackground，实现进入/退出概览时桌面图标的淡入淡出效果
 
 ### 11.3 增量更新
 FileChangesQueue 替代旧的单体防抖机制，支持事件合并和出错 fallback
+
+### 11.5 单元测试（gjs --module，无 GTK 依赖）
+`tests/run.js` 跑 13 个测试组（纯逻辑 + GJS 模块，headless）：
+
+| 测试组 | 覆盖 |
+|---|---|
+| test-grid-layout / test-sort-manager | 网格坐标、排序/堆叠（含 O(n) 堆叠恢复） |
+| test-click-coordinates / test-drop / test-link-emblem | 点击命中、拖放文件名/条目匹配、链接徽章 |
+| test-scripts-menu / test-drive-menu | 脚本菜单构建、驱动器菜单 Eject/Unmount 判定（对齐 Nautilus） |
+| test-file-changes-queue / test-desktop-monitor | 事件合并队列、显示器监听 |
+| test-volume-mount | mount 判定纯函数 + 信号 mock 端到端 |
+| test-theme-accent | accent 色 @define-color 解析（注释剥离/后定义胜/非法值跳过） |
+| test-title-protocol | 窗口标题协议（@!x,y;flags、尾随空格别名、Desktop Icons <n>） |
+
+运行：`gjs --module tests/run.js`（`scripts/check.sh` 会顺带跑）。约束：GJS ESM 命名空间只读（不能 monkeypatch 导入模块）、headless 无 GSettings schema / Meta GI——所以可测点都抽成了不依赖 Shell 的纯函数/静态方法。
 
 ### 11.4 DnD 修复（8+ commits）
 - per-instance `_isBeingDragged` 替代全局 `dragItem` 检查
@@ -640,7 +657,7 @@ multi-select → StackTopMarkerFolder + count badge overlay（e633ac1）
 - 拆分：`desktop-monitor.js`/`grid-layout.js`/`dbus-remote-operations.js`；信号生命周期（`_trackSignal`/`destroy()`）
 
 ### 11.11 ESM 迁移（阶段 4，2026-07）
-- `app/` 35 个模块 + 8 个测试文件迁移到 ESM；`gjs --module` 启动（shebang `#!/usr/bin/env -S gjs --module` 支持直接执行）
+- `app/` 38 个模块 + 13 个测试文件迁移到 ESM；`gjs --module` 启动（shebang `#!/usr/bin/env -S gjs --module` 支持直接执行）
 - `app/signals.js` 自实现（GJS 1.88 ESM 无法导入内置 `signals`）；`GnomeDesktop`/`GnomeAutoar` 动态 import + TLA 保留容错
 - `desktop-icons-integration.js` 保持 legacy（第三方扩展在 Shell 内用 `imports.*` 加载）
 - 踩坑记录：命名空间冻结（`this.x=` 写模块变量失败）、裸 `class` 不导出（须 `var X = class`）、gettext 必须 `Gettext.domain('ding').gettext`、`ngettext` 同域
