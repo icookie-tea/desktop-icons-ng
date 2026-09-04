@@ -151,7 +151,7 @@ GVFS-WARNING **: meta_journal_iterate: found wrong sized entry, possible journal
 | 中 | `app/file-operations.js` 重名去重 | `fileExistsOnDesktop` / `getDesktopUniqueFileName` | 低-中 |
 | 中 | `app/desktop-monitor.js` 事件路由 | `_processIncrementalEvents` DELETED/CREATED/MOVED_IN/MOVED_OUT/超限回退 | 中-高 |
 
-### B. 剩余审计项（docs/code-audit.md 未实施）
+### B. 剩余审计项（docs/archive/code-audit.md 未实施）
 | 项 | 内容 | 风险 | 备注 |
 |----|------|------|------|
 | P2-8 | Overview 克隆层只在 `WorkspaceBackground._init` 时捕获窗口——DING 崩溃重启后新窗口不补进动画层 | 中 | 需 Shell 侧 `window_manager 'map'` 动态补建 |

@@ -165,13 +165,13 @@
 
 | # | 位置 | 问题 |
 |---|------|------|
-| D-1 | `docs/fixes.md` + `docs/maintainability-refactor.md` | 声称 "131 断言"，实测 **58**（harness `passed` 计数器跨模块累积，各模块打印的是累积值；文档数字照抄了最后一个模块的值）。SortManager 现 35、generateDropFilename 43 |
+| D-1 | `docs/fixes.md` + `docs/archive/maintainability-refactor.md` | 声称 "131 断言"，实测 **58**（harness `passed` 计数器跨模块累积，各模块打印的是累积值；文档数字照抄了最后一个模块的值）。SortManager 现 35、generateDropFilename 43 |
 | D-2 | `docs/architecture-analysis.md` 概述 | "Shell 侧文件仍为 legacy（imports.*）" 过时：extension.js/prefs.js 已是 ESM，仅 visible-area.js:18 保留 `imports.signals` |
 | D-3 | `docs/architecture-analysis.md` 阶段 3 | "x11Manager.enable() … 连接 Main.overview 'hiding' 信号" 已随 fc84044 移除 |
 | D-4 | `docs/architecture-analysis.md` 4.4/6.1 | "大量 console.log debug 日志" 已收敛为 DING_DEBUG 门控（仅剩 extension.js 两处，见 P3） |
 | D-5 | `docs/architecture-analysis.md` 阶段 4 | 启动 argv 描述不准确：实际 argv 为 `[ding.js路径, '-E', '-P', app路径]`，`gjs --module` 来自 shebang；且未察觉 `--module` 使 killAll 失效（P0-4） |
 | D-6 | `docs/architecture-analysis.md` 阶段 3 图 | "innerEnable() → gnomeShellOverride.enable()" 实际在 `enable()`（extension.js:79-82） |
-| D-7 | `docs/maintainability-refactor.md` "未落地优化参考" | 4 项中 3 项已落地/决定不做：对象复用（desktop-manager.js:1271-1291）、mount-removed 延迟（constants.js:28 MOUNT_REMOVED_DELAY_MS=500）、并行枚举（fixes.md 明确"评估后不做"）；**仅剩 1 项未落地：绘制同步（iconPlaced，全库无此符号）** |
+| D-7 | `docs/archive/maintainability-refactor.md` "未落地优化参考" | 4 项中 3 项已落地/决定不做：对象复用（desktop-manager.js:1271-1291）、mount-removed 延迟（constants.js:28 MOUNT_REMOVED_DELAY_MS=500）、并行枚举（fixes.md 明确"评估后不做"）；**仅剩 1 项未落地：绘制同步（iconPlaced，全库无此符号）** |
 | D-8 | `docs/fixes.md` | "右键粘贴改 doPaste(true)"（2026-08-04 条目）已被显式 revert：desktop-menu.js:137 现为 `doPaste(false)`（缓存驱动，行为自洽）；"FileOperations 3 处 `_()` 调用"描述随重构过时 |
 | D-9 | `eslint.config.js:6` | 注释 "app/*.js files are legacy `imports.gi` scripts" 过时（app/ 已是 ESM） |
 
