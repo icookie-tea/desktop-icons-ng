@@ -2,6 +2,22 @@
 
 > 2026-07 及更早的条目已归档至 [`docs/archive/fixes-2026-07.md`](archive/fixes-2026-07.md)。
 
+## 2026-09-04
+
+### 可维护性重构：VolumeMonitor/mount 逻辑拆分至 `app/mount-manager.js`
+
+**背景：** `desktop-manager.js` 仍是事实上的 god class（~1700 行 / 87 方法），混了桌面枚举、增量事件、mount 卷管理、find-files、新建/重命名编排。其中 mount 逻辑已自成闭环（独立常量、独立状态机、独立测试），是最低风险的拆分目标。
+
+**变更（行为等价，无功能变化）：**
+
+1. **新模块 `app/mount-manager.js`（`MountManager` 类）**：承载 VolumeMonitor 三个信号（mount-added/changed/removed）的监听与刷新调度、`_readMountsAsync()` 异步 mount 信息查询（V-3）、`_createMountFileItem()` 工厂接缝、`_scheduleMountRefreshRetry()` 重试调度（V-6）、相关状态（`_mountRetryCounts`/两个 timeout id/`_mountsQueryCancellable`）。
+2. **依赖注入**：`MountManager(parent, onRefresh)` — `parent` 为 DesktopManager（FileItem 构造宿主 + `_forcedExit` 状态），`onRefresh` 为 `DesktopManager._updateDesktopSafe` 回调。刷新方向单向（MountManager → DesktopManager），无循环引用。
+3. **`desktop-manager.js` 瘦身**：移除 mount 状态字段、三个信号处理器、三个 mount 方法；`destroy()`/SIGTERM 路径改调 `_mountManager.destroy()`/`cancelQuery()`；刷新流程改调 `_mountManager._readMountsAsync(_mountManager.getMounts(), ...)`。
+4. **测试**：`tests/test-volume-mount.js` 的 V-3/V-6 用例改测 `MountManager`（stub 改 `Object.create(MountManager.prototype)` + `_parent` 桩）；V-2 快路径用例留在 DesktopManager（该逻辑未移动）。全部 123 断言通过。
+5. **清单/文档**：`app/meson.build` 新增安装项；`docs/architecture-analysis.md` 模块树/表新增条目；`docs/volume-mount-issues.md` 代码位置引用更新。
+
+**验证：** `scripts/check.sh` 全绿（eslint 无新增违规 / node --check / 12 组 gjs 单测 / meson 清单与磁盘一致）。**需用户构建后真机回归**：插拔 U 盘/网络驱动器图标出现与消失、拔插瞬间右键弹出/卸载菜单。
+
 ## 2026-09-02
 
 ### 外部/网络驱动器健壮性修复（V-1 ~ V-7，详见 docs/volume-mount-issues.md）

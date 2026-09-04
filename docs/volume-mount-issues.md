@@ -2,7 +2,7 @@
 
 > 审查日期：2026-08-22（以 git log 为准）
 > 范围：VolumeMonitor 接入、mount 生命周期、eject/unmount、网络卷刷新
-> 涉及文件：`app/desktop-manager.js`、`app/desktop-icons-util.js`、`app/file-item.js`、`app/file-item-menu.js`、`app/enums.js`
+> 涉及文件：`app/mount-manager.js`（2026-09-04 自 desktop-manager 拆出，承载 VolumeMonitor 信号、异步 mount 查询与重试调度）、`app/desktop-manager.js`（刷新快路径）、`app/desktop-icons-util.js`、`app/file-item.js`、`app/file-item-menu.js`、`app/enums.js`
 > 验证方式：代码审读 + 本机 gjs 运行时实验（实验脚本与原始输出见文末附录）
 >
 > **修复状态（2026-09-02，分支 `fix/volume-mount-robustness`）：** V-1 ~ V-7 已修复（单元测试 `tests/test-volume-mount.js`，详见 `docs/fixes.md` 2026-09-02 条目）；V-8 / V-9 未修复（低优先级/待验证）。
@@ -11,9 +11,9 @@
 
 | 环节 | 位置 |
 |---|---|
-| VolumeMonitor 信号（仅 `mount-added` / `mount-removed`） | `app/desktop-manager.js:205-224` |
+| VolumeMonitor 信号（`mount-added` / `mount-changed` / `mount-removed`） | `app/mount-manager.js` `_connectSignals()` |
 | mount 列表获取与"本地/网络"分类 | `app/desktop-icons-util.js:234-259` `getMounts()` |
-| 全量刷新中为每个 mount 建 FileItem（同步 `query_info`） | `app/desktop-manager.js:1215-1221` |
+| 全量刷新中为每个 mount 建 FileItem（异步 `query_info`） | `app/mount-manager.js` `_readMountsAsync()` |
 | 刷新快路径（URI 集合不变时复用旧 FileItem） | `app/desktop-manager.js:1257-1277` |
 | FileItem 持有 GMount（`_custom` 唯一赋值点） | `app/file-item.js:43` |
 | 驱动器显示名 / 图标取自 GMount | `app/file-item.js:249-250`、`app/desktop-icon-item.js:652` |
@@ -63,7 +63,7 @@ eject() {
 
 **触发序列（竞态窗口 ≈ `MOUNT_REMOVED_DELAY_MS` 500ms + 一次刷新时长）：**
 1. U 盘 A 挂载在 `/run/media/user/X`（`_fileList` 含该 icon）；
-2. 拔出 → `mount-removed` → 刷新被延迟 500ms（`app/desktop-manager.js:209-223`）；
+2. 拔出 → `mount-removed` → 刷新被延迟 500ms（`app/mount-manager.js` mount-removed 处理器）；
 3. 500ms 内插回同一 U 盘（或同标签盘）→ `mount-added` 立即触发刷新，此时旧 `_fileList` **仍含旧条目**；
 4. 新列表 URI 集合与旧列表相同 → 走快路径复用 → 旧 FileItem 保留 stale mount A；
 5. **此后每次刷新（包括 F5）URI 集合都不变 → 永远走快路径 → stale 状态无法自愈**，只有出现第二个不同 URI 的 mount 或重启进程才恢复。
@@ -85,7 +85,7 @@ eject() {
 
 ### V-3 【机制确认·P2·已修复】网络挂载的同步 `query_info` 在主循环执行，死服务器场景会冻结整个桌面图标进程
 
-**代码：** `app/desktop-manager.js:1216-1218`（位于 `enumerate_children_finish` 回调内，即主循环）：
+**代码：** 原 `app/desktop-manager.js`（现 `app/mount-manager.js` `_readMountsAsync()`）的同步 `query_info`（位于 `enumerate_children_finish` 回调内，即主循环）：
 
 ```js
 newFolder.query_info(Enums.DEFAULT_ATTRIBUTES, Gio.FileQueryInfoFlags.NONE, null)
@@ -137,7 +137,7 @@ this._addNewAction('eject-drive', null, (action, parameter) => {
 
 ### V-6 【已确认·P3·已修复】mount 图标创建瞬时失败后无重试
 
-**代码：** `app/desktop-manager.js:1215-1221`，mount 的 `query_info` / FileItem 构造失败仅 `print` 后跳过。
+**代码：** 原 `app/desktop-manager.js`（现 `app/mount-manager.js` `_readMountsAsync()`），mount 的 `query_info` / FileItem 构造失败仅 `print` 后跳过。
 
 **场景：** `mount-added` 触发刷新时 gvfs/udisks 守护进程尚未就绪（冷启动、挂载点目录尚未创建），该卷图标缺失，直到下一次**不相关**的刷新事件（F5、设置变化、其他 mount 事件）才可能恢复。
 
@@ -147,7 +147,7 @@ this._addNewAction('eject-drive', null, (action, parameter) => {
 
 ### V-7 【已确认·P3·已修复】未监听 `mount-changed`
 
-只接了 `mount-added` / `mount-removed`（`app/desktop-manager.js:205-224`）。实际影响有限——udisks 改盘符标签通常伴随挂载点路径变化（新 URI → 全量重建 → 名字自然更新）；gvfs 卷的属性变化（如 `can-unmount` 翻转）不会即时反映到菜单，直到下次任意刷新。顺手补一个 `mount-changed → _updateDesktopSafe` 即可，成本极低。
+只接了 `mount-added` / `mount-removed`（现 `app/mount-manager.js` `_connectSignals()`）。实际影响有限——udisks 改盘符标签通常伴随挂载点路径变化（新 URI → 全量重建 → 名字自然更新）；gvfs 卷的属性变化（如 `can-unmount` 翻转）不会即时反映到菜单，直到下次任意刷新。顺手补一个 `mount-changed → _updateDesktopSafe` 即可，成本极低。
 
 ---
 

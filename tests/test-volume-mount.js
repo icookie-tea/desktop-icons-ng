@@ -6,10 +6,10 @@
  * V-2: the refresh fast path must swap in the *new* GMount when the
  *      same URI is served by a different mount object (unmount/remount
  *      race), via DesktopManager._refreshReusedFileItem().
- * V-3: DesktopManager._readMountsAsync() must query mount info
+ * V-3: MountManager._readMountsAsync() must query mount info
  *      asynchronously so a dead network mount cannot freeze the main
  *      loop.
- * V-6: DesktopManager._scheduleMountRefreshRetry() retries a refresh
+ * V-6: MountManager._scheduleMountRefreshRetry() retries a refresh
  *      while the mount still exists, and gives up (cap) / aborts when
  *      the mount is gone.
  */
@@ -17,6 +17,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import { FileItem } from '../app/file-item.js';
 import { DesktopManager } from '../app/desktop-manager.js';
+import { MountManager } from '../app/mount-manager.js';
 import * as Enums from '../app/enums.js';
 import { assert, assertEqual, summary, flushLoop } from './harness.js';
 
@@ -117,15 +118,16 @@ async function runEjectTests() {
 }
 
 function makeManagerStub(mountUris = []) {
-    const mgr = Object.create(DesktopManager.prototype);
-    mgr._forcedExit = false;
+    const mgr = Object.create(MountManager.prototype);
+    // DesktopManager side: FileItem factory host + forced-exit flag
+    mgr._parent = { _forcedExit: false };
     mgr._mountRetryCounts = new Map();
     mgr._mountRetryTimeoutId = 0;
     mgr.showDropPlace = false;
     mgr.updates = [];
-    mgr._updateDesktopSafe = (reason) => mgr.updates.push(reason);
+    mgr._onRefresh = (reason) => mgr.updates.push(reason);
     // No GTK display in unit tests: override the FileItem factory seam
-    // (production code path is the 1-line DesktopManager._createMountFileItem)
+    // (production code path is the 1-line MountManager._createMountFileItem)
     mgr.mountItems = [];
     mgr._createMountFileItem = (file, info, extras, volume) => {
         const item = { file, info, extras, volume };
@@ -141,9 +143,10 @@ function makeManagerStub(mountUris = []) {
 }
 
 function testReuseSyncsCustom() {
-    // V-2: same URI, different GMount → the reused item must adopt it
+    // V-2 lives on DesktopManager (the refresh fast path), not MountManager.
+    const dm = Object.create(DesktopManager.prototype);
+    // same URI, different GMount → the reused item must adopt it
     {
-        const mgr = makeManagerStub();
         const calls = [];
         const old = {
             _custom: 'STALE_MOUNT',
@@ -156,7 +159,7 @@ function testReuseSyncsCustom() {
             _updateIcon: () => Promise.resolve(),
         };
         const newItem = { _custom: 'FRESH_MOUNT', _fileInfo: 'NEW_INFO' };
-        mgr._refreshReusedFileItem(old, newItem);
+        dm._refreshReusedFileItem(old, newItem);
         assertEqual(old._custom, 'FRESH_MOUNT',
             'V-2 reuse path swaps in the new GMount');
         assert(calls.some(c => c[0] === 'meta' && c[1] === 'NEW_INFO'),
@@ -164,7 +167,6 @@ function testReuseSyncsCustom() {
     }
     // non-drive items keep _custom === null
     {
-        const mgr = makeManagerStub();
         const old = {
             _custom: null,
             _updateMetadataFromFileInfo: () => {},
@@ -172,7 +174,7 @@ function testReuseSyncsCustom() {
             _applyDarkTextClass: () => {},
             _updateIcon: () => Promise.resolve(),
         };
-        mgr._refreshReusedFileItem(old, { _custom: null, _fileInfo: 'X' });
+        dm._refreshReusedFileItem(old, { _custom: null, _fileInfo: 'X' });
         assertEqual(old._custom, null, 'V-2 non-drive items stay null');
     }
 }

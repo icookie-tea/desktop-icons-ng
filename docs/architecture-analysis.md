@@ -26,6 +26,7 @@ icookie 分支在此基础上进行了大量重构和功能增强，包括模块
 │  ├── desktop-manager.js ──── 桌面管理器（核心，大幅重构）           │
 │  │   ├── desktop-monitor.js ── 显示器/工作区/缩放监控（拆分）        │
 │  │   ├── grid-layout.js ────── 网格布局与窗口管理（拆分）           │
+│  │   ├── mount-manager.js ──── VolumeMonitor/mount 生命周期（拆分）│
 │  │   ├── theme-manager.js  ── accent color / 暗色模式             │
 │  │   ├── file-operations.js ── 文件操作封装                       │
 │  │   ├── sort-manager.js   ── 排序/堆叠逻辑                       │
@@ -234,6 +235,7 @@ icookie 新增实例变量：
 
 | 模块 | 职责 | 行数变化 |
 |---|---|---|
+| `mount-manager.js` | VolumeMonitor 信号（mount-added/changed/removed）、异步 mount 信息查询（`_readMountsAsync`，V-3）、瞬时失败重试调度（`_scheduleMountRefreshRetry`，V-6） | 2026-09 自 desktop-manager 拆分（见 docs/volume-mount-issues.md） |
 | `desktop-monitor.js` | 显示器/工作区/缩放因子监控（`_initMonitor` 等，含信号生命周期管理） | desktop-manager 1850→1547 |
 | `grid-layout.js` | 网格布局、窗口创建/销毁、D-Bus 几何广告（`GridLayout` 类） | 新文件 111 行 |
 | `dbus-remote-operations.js` | 远程 D-Bus 文件操作（复制/移动/删除等 `_remoteCall` 模板化封装） | dbus-utils 780→542 |

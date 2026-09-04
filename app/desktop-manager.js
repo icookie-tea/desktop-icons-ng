@@ -36,6 +36,7 @@ import * as SignalManager from './signal-manager.js';
 import * as DesktopMenu from './desktop-menu.js';
 import * as DesktopMonitor from './desktop-monitor.js';
 import * as GridLayout from './grid-layout.js';
+import * as MountManager from './mount-manager.js';
 import * as FileChangesQueue from './file-changes-queue.js';
 import * as Constants from './constants.js';
 import * as DebugLog from './log.js';
@@ -58,12 +59,12 @@ export var DesktopManager = class {
         this._selectedFiles = null;
         this._clickCaptured = false;
         this._popupCounter = 0;
-        // Volume/mount refresh state (see docs/volume-mount-issues.md)
-        this._mountRetryCounts = new Map();
-        this._mountRetryTimeoutId = 0;
-        this._mountsQueryCancellable = new Gio.Cancellable();
 
         this._initThemeAndManagers();
+        // MountManager owns the VolumeMonitor signals and the async mount
+        // query (see docs/volume-mount-issues.md)
+        this._mountManager = new MountManager.MountManager(
+            this, reason => this._updateDesktopSafe(reason));
         // DesktopMenu queries the clipboard state via updateClipboard() in its
         // constructor, which needs _fileOps — create it first.
         this._desktopMenu = new DesktopMenu.DesktopMenu(this, mainApp, dbusManager);
@@ -206,43 +207,6 @@ export var DesktopManager = class {
         this._trackSignal(this._gtkIconTheme, 'changed', () => {
             this._updateDesktopSafe('gtk icon theme changed');
         });
-        this._volumeMonitor = Gio.VolumeMonitor.get();
-        this._trackSignal(this._volumeMonitor, 'mount-added', (obj, mount) => {
-            this._updateDesktopSafe('mount added');
-            // Second pass: the gvfs/udisks daemon may still be bringing the
-            // mount point up when the first refresh runs, in which case the
-            // icon is silently dropped (V-6)
-            try {
-                this._scheduleMountRefreshRetry(mount.get_default_location().get_uri());
-            } catch (e) {
-                // the mount is already gone; nothing to retry
-            }
-        });
-        this._trackSignal(this._volumeMonitor, 'mount-changed', () => {
-            // A mount's properties (label, can-unmount, ...) can change in
-            // place; the icon name and the menu must follow (V-7)
-            this._updateDesktopSafe('mount changed');
-        });
-        this._trackSignal(this._volumeMonitor, 'mount-removed', (obj, mount) => {
-            try {
-                this._mountRetryCounts.delete(mount.get_default_location().get_uri());
-            } catch (e) {
-                // stale mount object
-            }
-            // Delay the refresh: at removal time the mount's files may still
-            // be queryable (FUSE teardown race), and a short wait coalesces
-            // the removal burst.
-            if (this._mountRemovedTimeoutId) {
-                GLib.source_remove(this._mountRemovedTimeoutId);
-            }
-            this._mountRemovedTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT,
-                Constants.MOUNT_REMOVED_DELAY_MS,
-                () => {
-                    this._mountRemovedTimeoutId = 0;
-                    this._updateDesktopSafe('mount removed');
-                    return GLib.SOURCE_REMOVE;
-                });
-        });
     }
 
     _onDesktopSettingsChanged(key) {
@@ -350,17 +314,8 @@ export var DesktopManager = class {
             GLib.source_remove(this.keypressTimeoutID);
             this.keypressTimeoutID = null;
         }
-        if (this._mountRemovedTimeoutId) {
-            GLib.source_remove(this._mountRemovedTimeoutId);
-            this._mountRemovedTimeoutId = 0;
-        }
-        if (this._mountRetryTimeoutId) {
-            GLib.source_remove(this._mountRetryTimeoutId);
-            this._mountRetryTimeoutId = 0;
-        }
-        if (this._mountsQueryCancellable) {
-            this._mountsQueryCancellable.cancel();
-            this._mountsQueryCancellable = null;
+        if (this._mountManager) {
+            this._mountManager.destroy();
         }
         if (this._themeManager) {
             this._themeManager.disconnect();
@@ -394,8 +349,8 @@ export var DesktopManager = class {
                 if (this._desktopEnumerateCancellable) {
                     this._desktopEnumerateCancellable.cancel();
                 }
-                if (this._mountsQueryCancellable) {
-                    this._mountsQueryCancellable.cancel();
+                if (this._mountManager) {
+                    this._mountManager.cancelQuery();
                 }
                 if (this._hold_active) {
                     this.mainApp.release();
@@ -1270,9 +1225,9 @@ export var DesktopManager = class {
                         // Mount info is queried asynchronously: a dead network
                         // mount must not freeze the main loop with a
                         // synchronous query_info (V-3)
-                        this._readMountsAsync(DesktopIconsUtil.getMounts(this._volumeMonitor),
+                        this._mountManager._readMountsAsync(this._mountManager.getMounts(),
                             fileList,
-                            this._mountsQueryCancellable,
+                            this._mountManager.queryCancellable,
                             () => resolve(fileList));
                         return;
                     } catch (e) {
@@ -1281,83 +1236,6 @@ export var DesktopManager = class {
                     }
                 }
             );
-        });
-    }
-
-    _readMountsAsync(mounts, fileList, cancellable, done) {
-        let index = 0;
-        const queryNext = () => {
-            if (cancellable.is_cancelled() || this._forcedExit) {
-                done();
-                return;
-            }
-            if (index >= mounts.length) {
-                done();
-                return;
-            }
-            const [file, extras, volume] = mounts[index];
-            index += 1;
-            file.query_info_async(Enums.DEFAULT_ATTRIBUTES,
-                Gio.FileQueryInfoFlags.NONE,
-                GLib.PRIORITY_DEFAULT,
-                cancellable,
-                (source, result) => {
-                    try {
-                        const info = source.query_info_finish(result);
-                        try {
-                            fileList.push(this._createMountFileItem(file, info, extras, volume));
-                            this._mountRetryCounts.delete(file.get_uri());
-                        } catch (e) {
-                            print(`Failed with ${e} while adding volume ${file}`);
-                            this._scheduleMountRefreshRetry(file.get_uri());
-                        }
-                    } catch (e) {
-                        if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
-                            print(`Failed to query volume ${file.get_uri()}: ${e.message}`);
-                            this._scheduleMountRefreshRetry(file.get_uri());
-                        }
-                    }
-                    queryNext();
-                });
-        };
-        queryNext();
-    }
-
-    _createMountFileItem(file, info, extras, volume) {
-        return new FileItem.FileItem(this, file, info, extras, volume);
-    }
-
-    _scheduleMountRefreshRetry(uri, delayMs = Constants.MOUNT_RETRY_DELAY_MS) {
-        // Schedule a delayed full refresh, but only while the mount still
-        // exists (transient failures: gvfs/udisks not ready yet, network
-        // blip). Consecutive failures are capped so a permanently dead
-        // mount cannot turn into a refresh loop (V-6).
-        let stillMounted = false;
-        try {
-            for (const m of this._volumeMonitor.get_mounts()) {
-                if (m.get_default_location().get_uri() === uri) {
-                    stillMounted = true;
-                    break;
-                }
-            }
-        } catch (e) {
-            return;
-        }
-        if (!stillMounted) {
-            return;
-        }
-        const count = (this._mountRetryCounts.get(uri) ?? 0) + 1;
-        if (count > Constants.MOUNT_QUERY_MAX_RETRIES) {
-            return;
-        }
-        this._mountRetryCounts.set(uri, count);
-        if (this._mountRetryTimeoutId) {
-            GLib.source_remove(this._mountRetryTimeoutId);
-        }
-        this._mountRetryTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delayMs, () => {
-            this._mountRetryTimeoutId = 0;
-            this._updateDesktopSafe('mount query retry');
-            return GLib.SOURCE_REMOVE;
         });
     }
 

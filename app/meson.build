@@ -29,6 +29,7 @@ install_data([
     'file-utils.js',
     'log.js',
     'menu-helper.js',
+    'mount-manager.js',
     'preferences.js',
     'prefs-window.js',
     'promise-utils.js',
