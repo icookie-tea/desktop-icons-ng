@@ -165,9 +165,9 @@
 
 ---
 
-### 全面代码审计修复批次（audit-fixes，见 docs/archive/code-audit.md）
+### 全面代码审计修复批次（audit-fixes）
 
-对全库做了三轮并行全文审计（核心/交互/Shell 侧），产出 docs/archive/code-audit.md 分级清单（P0×4 / P1×8 / P2×9 / P3×29 / 文档一致性 9 项）。本批实施 P0 全部 + P1 五项 + P2/P3 精选；剩余项（P1-8 deprecated API、P2-2 绘制每帧分配、P2-8 Overview 动态补建等）见审计报告，后续按需实施。环境假设：GNOME ≥ 50 纯 Wayland（用户确认），X11 相关代码视为死代码。
+对全库做了三轮并行全文审计（核心/交互/Shell 侧），产出的分级清单（P0×4 / P1×8 / P2×9 / P3×29 / 文档一致性 9 项）已随修复推进删除（原 docs/archive/code-audit.md，部分条目已过时/有误，如 P1-8 的 deprecated API 判断经 mutter/gnome-shell 源码核实不成立）。本批实施 P0 全部 + P1 五项 + P2/P3 精选。环境假设：GNOME ≥ 50 纯 Wayland（用户确认），X11 相关代码视为死代码。
 
 #### P0-2/P1-4：Nautilus 文件操作 platform_data 恒为空 + Wayland surface handle 泄漏
 

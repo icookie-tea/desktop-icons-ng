@@ -13,7 +13,6 @@
 
 | 文档 | 说明 |
 |---|---|
-| [`archive/code-audit.md`](archive/code-audit.md) | 2026-08 全面代码审计报告（P0~P3 分级清单），修复进展以 `fixes.md` 为准 |
 | [`archive/maintainability-refactor.md`](archive/maintainability-refactor.md) | 2026-07~08 可维护性重构总结（分支 `refactor/maintainability`） |
 | [`archive/manual-test-checklist.md`](archive/manual-test-checklist.md) | audit-fixes 批次（提交 `f147f54`）手动回归清单 |
 | [`archive/fixes-2026-07.md`](archive/fixes-2026-07.md) | 修复日志 2026-07 条目归档 |
