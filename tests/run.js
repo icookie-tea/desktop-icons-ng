@@ -14,6 +14,7 @@ import * as TestDropFilename from './test-drop-filename.js';
 import * as TestClickCoordinates from './test-click-coordinates.js';
 import * as TestLinkEmblem from './test-link-emblem.js';
 import * as TestScriptsMenu from './test-scripts-menu.js';
+import * as TestDriveMenu from './test-drive-menu.js';
 import * as TestVolumeMount from './test-volume-mount.js';
 
 const tests = [
@@ -26,6 +27,7 @@ const tests = [
     TestClickCoordinates,
     TestLinkEmblem,
     TestScriptsMenu,
+    TestDriveMenu,
     TestVolumeMount,
 ];
 

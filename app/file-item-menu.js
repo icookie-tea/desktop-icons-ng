@@ -257,6 +257,30 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
         });
     }
 
+    /*
+     * Which drive actions to offer for the current selection, as
+     * [label, actionName] pairs in display order; empty when none apply.
+     *
+     * Aligns with Nautilus (nautilus-files-view.c file_should_show_foreach):
+     * do not show both Unmount and Eject — too confusing. Eject is a
+     * superset of Unmount for ejectable media (filesystem unmount + hardware
+     * safe-removal signal); Unmount remains the fallback for non-ejectable
+     * mounts (network shares, loop devices).
+     */
+    static driveMenuActions(fileItem, selectedItemsNum) {
+        if (!fileItem || !fileItem.isDrive || selectedItemsNum !== 1) {
+            return [];
+        }
+        const actions = [];
+        if (fileItem.canEject) {
+            actions.push([_('Eject'), 'eject-drive']);
+        }
+        if (fileItem.canUnmount && !fileItem.canEject) {
+            actions.push([_('Unmount'), 'umount-drive']);
+        }
+        return actions;
+    }
+
     _createMenu(fileItem) {
         if (!this._askedSupportedTypes) {
             this._getExtractionSupportedTypes();
@@ -398,25 +422,13 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
 
         // fileExtra == EXTERNAL_DRIVE
 
-        if (fileItem.isDrive && (selectedItemsNum == 1)) {
+        const driveActions = FileItemMenu.driveMenuActions(fileItem, selectedItemsNum);
+        if (driveActions.length) {
             section = this._newSection(menu);
-            if (fileItem.canEject) {
+            for (const [label, action] of driveActions) {
                 this._newMenuElement(
-                    _('Eject'),
-                    "eject-drive",
-                    section,
-                    GLib.Variant.new("s", fileItem.uri)
-                );
-            }
-            /* Align with Nautilus (nautilus-files-view.c file_should_show_foreach):
-             * do not show both Unmount and Eject — too confusing. Eject is a
-             * superset of Unmount for ejectable media; Unmount remains the
-             * fallback for non-ejectable mounts (network shares, loop devices).
-             */
-            if (fileItem.canUnmount && !fileItem.canEject) {
-                this._newMenuElement(
-                    _('Unmount'),
-                    "umount-drive",
+                    label,
+                    action,
                     section,
                     GLib.Variant.new("s", fileItem.uri)
                 );
