@@ -408,7 +408,12 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
                     GLib.Variant.new("s", fileItem.uri)
                 );
             }
-            if (fileItem.canUnmount) {
+            /* Align with Nautilus (nautilus-files-view.c file_should_show_foreach):
+             * do not show both Unmount and Eject — too confusing. Eject is a
+             * superset of Unmount for ejectable media; Unmount remains the
+             * fallback for non-ejectable mounts (network shares, loop devices).
+             */
+            if (fileItem.canUnmount && !fileItem.canEject) {
                 this._newMenuElement(
                     _('Unmount'),
                     "umount-drive",

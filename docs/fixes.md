@@ -18,6 +18,14 @@
 
 **验证：** `scripts/check.sh` 全绿（eslint 无新增违规 / node --check / 12 组 gjs 单测 / meson 清单与磁盘一致）。**需用户构建后真机回归**：插拔 U 盘/网络驱动器图标出现与消失、拔插瞬间右键弹出/卸载菜单。
 
+### 右键菜单对齐 Nautilus：可弹出介质不再同时显示「弹出」与「卸载」
+
+**背景：** DING 的驱动器菜单（`app/file-item-menu.js`）对 `canEject`/`canUnmount` 各自独立显示，U 盘两者皆真 → 菜单同时出现「弹出」和「卸载」。Nautilus（`nautilus-files-view.c` `file_should_show_foreach`）明确注释 *"Do not show both Unmount and Eject/Safe Removal; too confusing"*，采用互斥策略：能弹出只显示「弹出」（Eject 是 Unmount 的超集：卸载 + 硬件 safe-removal 信号），「卸载」仅作为不可弹出挂载（网络盘、loop 设备）的兜底。
+
+**变更：** `app/file-item-menu.js` 「卸载」菜单项显示条件改为 `canUnmount && !canEject`（Nautilus 的 `!show_stop` 分支 DING 未实现 stop 动作，不适用）。行为变化：U 盘/光驱右键菜单只剩「弹出」；SMB/NFS 等网络挂载仍显示「卸载」。
+
+**验证：** eslint 零违规、12 组 gjs 单测 123 断言通过。菜单显示逻辑无自动化覆盖（需 GTK 菜单 harness），需真机回归：U 盘菜单只有「弹出」、网络驱动器菜单只有「卸载」。
+
 ## 2026-09-02
 
 ### 外部/网络驱动器健壮性修复（V-1 ~ V-7，详见 docs/volume-mount-issues.md）
