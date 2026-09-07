@@ -4,6 +4,20 @@
 
 ## 2026-09-07
 
+### 性能回归：拖拽橡皮筋划选图标掉帧
+
+**症状：** 上一提交（选中框/键盘环改由 PaintContainer 描边、图标状态变化时无条件 `queue_draw()`）后，拖拽框选图标出现可感知的卡顿/掉帧。
+
+**根因：** 划选热路径新增了两类每帧开销：
+1. `desktop-icon-item.js` `_setSelectedStatus()` 在**每次** `setSelected()/unsetSelected()` 后无条件 `grid.queue_draw()`；而橡皮筋 motion 处理器（`desktop-manager.js onMotion()`）对**每个**与选区相交的图标**每个 motion 事件**都调 `setSelected()`，已选中项也不例外。快速划过密集桌面时一次 motion 事件触发 N+1 次整幅 PaintContainer 无效化（事件频率可高达数百 Hz），拖跨主循环。
+2. `PaintContainer.vfunc_snapshot()` 每帧创建 `Object.values(grid._fileItems)` 数组拷贝，且为每个已选图标各自新建 Graphene.Rect / Gsk.RoundedRect / Gsk.Stroke / Gsk.PathBuilder / Gsk.Path 并 `append_stroke`——100 个选中项约 500 次 boxed 分配 + 100 个渲染节点/帧，GC/分配器压力导致掉帧。
+
+**修复（外观与行为完全不变）：**
+1. `_setSelectedStatus()`：跟踪 CSS 类是否实际增删，仅在视觉真正变化时 `grid.queue_draw()`；已选中项的重复 `setSelected()` 不再触发无效化（样式检查本身已有 `has_css_class` 守卫）。
+2. `paint-container.js`：选中框描边按颜色批量合为**一条** Gsk 路径，每色一次 `append_stroke`（普通选中/键盘选中各一条）；拖拽定位网格预览同法批量；1px/2px `Gsk.Stroke` 在构造时缓存（`append_stroke` 会拷贝进渲染节点）；填充复用单个 Graphene.Rect / Gsk.RoundedRect（`push_rounded_clip`/`append_color` 均拷贝）；`Object.values()` 拷贝改为 `for...in` 直接遍历。首帧开销从 O(选中数)×5 分配降至 O(1)——橡胶带本身仍每帧一次 `_snapshotRoundedRect`。
+
+**验证：** `scripts/check.sh` 全绿（eslint / node --check / 13 组 202 断言 gjs 单测）。渲染热路径无单测覆盖，需真机拖拽回归对比确认流畅。
+
 ### 相邻行选中框边缘重叠：ICON_HEIGHT 未计入边框/padding
 
 **症状：** 上下相邻两行的图标同时选中时，选中框边缘部分重叠（standard 档约 2~4px），视觉上像一个连成的高框（截图 2026-09-07 09-42-53）。四个图标尺寸档全部存在。

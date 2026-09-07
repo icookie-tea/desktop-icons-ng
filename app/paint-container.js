@@ -35,6 +35,12 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
         this._width = 0;
         this._height = 0;
         this._colors = null;
+        // Immutable Gsk.Stroke objects shared by every outline in every
+        // frame. Per-cell `new Gsk.Stroke()` in snapshot() was a major
+        // allocation-churn source while the rubber band grew over a dense
+        // desktop; append_stroke copies the stroke into the render node.
+        this._stroke1 = new Gsk.Stroke(1);
+        this._stroke2 = new Gsk.Stroke(2);
     }
 
     _updateColors(dm) {
@@ -102,20 +108,44 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
            drag drop-grid preview, so both render pixel-identically. A CSS
            border used to look softer (anti-aliased across two pixel rows
            when the widget edge sits at a fractional position); see
-           docs/fixes.md 2026-09-07. The 35% fill stays in CSS. */
-        for (const [column, row, item] of Object.values(grid._fileItems)) {
+           docs/fixes.md 2026-09-07. The 35% fill stays in CSS.
+
+           Perf: all selected cells are batched into ONE Gsk path per
+           outline color and stroked once per frame; per-item paths used
+           to allocate a path/Stroke/render node for every selected icon
+           every frame (and Object.values() copied the whole _fileItems
+           map), starving the frame budget during rubber-band drags
+           (docs/fixes.md 2026-09-07). */
+        let normalBuilder = null;
+        let keyboardBuilder = null;
+        for (let uri in grid._fileItems) {
+            const entry = grid._fileItems[uri];
+            const item = entry[2];
             if (!item || !item.isSelected)
                 continue;
-            const x = Math.floor(grid._width * column / grid._maxColumns);
-            const y = Math.floor(grid._height * row / grid._maxRows);
-            this._snapshotRoundedRect(snapshot,
+            const x = Math.floor(grid._width * entry[0] / grid._maxColumns);
+            const y = Math.floor(grid._height * entry[1] / grid._maxRows);
+            let builder = item.isKeyboardSelected ? keyboardBuilder : normalBuilder;
+            if (builder === null) {
+                builder = new Gsk.PathBuilder();
+                if (item.isKeyboardSelected)
+                    keyboardBuilder = builder;
+                else
+                    normalBuilder = builder;
+            }
+            this._appendRoundedRectPath(builder,
                 x + elementSpacing, y + elementSpacing,
                 grid._elementWidth - 2 * elementSpacing,
                 grid._elementHeight - 2 * elementSpacing,
-                10, null,
-                item.isKeyboardSelected ? this._colors.borderKeyboard
-                                        : this._colors.borderDrop,
-                1);
+                10);
+        }
+        if (normalBuilder !== null) {
+            snapshot.append_stroke(normalBuilder.to_path(), this._stroke1,
+                this._colors.borderDrop);
+        }
+        if (keyboardBuilder !== null) {
+            snapshot.append_stroke(keyboardBuilder.to_path(), this._stroke1,
+                this._colors.borderKeyboard);
         }
 
         if (dm.rubberBand && dm.selectionRectangle) {
@@ -130,14 +160,47 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
         }
 
         if (dm.showDropPlace && this._selectedList !== null) {
+            /* Border strokes batched into one path + one stroke, fills
+               reuse a single Graphene.Rect / Gsk.RoundedRect across all
+               cells (push_rounded_clip and append_color copy). */
+            let borderBuilder = null;
+            const fillRect = new Graphene.Rect();
+            const roundedRect = new Gsk.RoundedRect();
             for (let [x, y] of this._selectedList) {
-                this._snapshotRoundedRect(snapshot,
-                    x + elementSpacing, y + elementSpacing,
-                    grid._elementWidth - 2 * elementSpacing,
-                    grid._elementHeight - 2 * elementSpacing,
-                    10, this._colors.fillDrop, this._colors.borderDrop, 1);
+                x += elementSpacing;
+                y += elementSpacing;
+                const width = grid._elementWidth - 2 * elementSpacing;
+                const height = grid._elementHeight - 2 * elementSpacing;
+                if (borderBuilder === null)
+                    borderBuilder = new Gsk.PathBuilder();
+                this._appendRoundedRectPath(borderBuilder, x, y, width, height, 10);
+                fillRect.init(x, y, width, height);
+                roundedRect.init_from_rect(fillRect, Math.min(10, width / 2, height / 2));
+                snapshot.push_rounded_clip(roundedRect);
+                snapshot.append_color(this._colors.fillDrop, fillRect);
+                snapshot.pop();
+            }
+            if (borderBuilder !== null) {
+                snapshot.append_stroke(borderBuilder.to_path(), this._stroke1,
+                    this._colors.borderDrop);
             }
         }
+    }
+
+    /** Appends one rounded-rect contour to a Gsk path (same geometry as
+     *  `_snapshotRoundedRect`'s border branch, batched for one stroke). */
+    _appendRoundedRectPath(builder, x, y, width, height, radius) {
+        radius = Math.min(radius, width / 2, height / 2);
+        builder.move_to(x + radius, y);
+        builder.line_to(x + width - radius, y);
+        builder.arc_to(x + width, y, x + width, y + radius);
+        builder.line_to(x + width, y + height - radius);
+        builder.arc_to(x + width, y + height, x + width - radius, y + height);
+        builder.line_to(x + radius, y + height);
+        builder.arc_to(x, y + height, x, y + height - radius);
+        builder.line_to(x, y + radius);
+        builder.arc_to(x, y, x + radius, y);
+        builder.close();
     }
 
     _snapshotRoundedRect(snapshot, x, y, width, height, radius, fillColor, borderColor, borderWidth) {
@@ -151,31 +214,21 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
         }
         radius = Math.min(radius, width / 2, height / 2);
 
-        const rect = new Graphene.Rect();
-        rect.init(x, y, width, height);
-
-        const roundedRect = new Gsk.RoundedRect();
-        roundedRect.init_from_rect(rect, radius);
-
         if (fillColor) {
+            const rect = new Graphene.Rect();
+            rect.init(x, y, width, height);
+            const roundedRect = new Gsk.RoundedRect();
+            roundedRect.init_from_rect(rect, radius);
             snapshot.push_rounded_clip(roundedRect);
             snapshot.append_color(fillColor, rect);
             snapshot.pop();
         }
 
         if (borderWidth) {
-            const stroke = new Gsk.Stroke(borderWidth);
             const builder = new Gsk.PathBuilder();
-            builder.move_to(x + radius, y);
-            builder.line_to(x + width - radius, y);
-            builder.arc_to(x + width, y, x + width, y + radius);
-            builder.line_to(x + width, y + height - radius);
-            builder.arc_to(x + width, y + height, x + width - radius, y + height);
-            builder.line_to(x + radius, y + height);
-            builder.arc_to(x, y + height, x, y + height - radius);
-            builder.line_to(x, y + radius);
-            builder.arc_to(x, y, x + radius, y);
-            builder.close();
+            this._appendRoundedRectPath(builder, x, y, width, height, radius);
+            const stroke = borderWidth === 1 ? this._stroke1
+                : borderWidth === 2 ? this._stroke2 : new Gsk.Stroke(borderWidth);
             snapshot.append_stroke(builder.to_path(), stroke, borderColor);
         }
     }

@@ -448,23 +448,28 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
 
     _setSelectedStatus() {
         let grab_focus = false;
+        let changed = false;
         if (this._isKeyboardSelected && this.container && !this.container.has_css_class('desktop-icons-selected-keyboard')) {
             this.container.add_css_class('desktop-icons-selected-keyboard');
+            changed = true;
             if (this._isKeyboardSelected) {
                 grab_focus = true;
             }
         }
         if (!this._isKeyboardSelected && this.container && this.container.has_css_class('desktop-icons-selected-keyboard')) {
             this.container.remove_css_class('desktop-icons-selected-keyboard');
+            changed = true;
         }
         if (this._isSelected && this.container && !this.container.has_css_class('desktop-icons-selected')) {
             this.container.add_css_class('desktop-icons-selected');
+            changed = true;
             if (this._isKeyboardSelected) {
                 grab_focus = true;
             }
         }
         if (!this._isSelected && this.container && this.container.has_css_class('desktop-icons-selected')) {
             this.container.remove_css_class('desktop-icons-selected');
+            changed = true;
         }
         if (grab_focus) {
             this.setAccessibleName(this._getVisibleName());
@@ -472,9 +477,14 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
         }
         // The selection/keyboard outlines are stroked by the grid's
         // PaintContainer (same Gsk path as the drag drop preview); the CSS
-        // classes above only carry the 35% fill. Refresh the overlay on
-        // every state change (docs/fixes.md 2026-09-07).
-        if (this._grid) {
+        // classes above only carry the 35% fill.
+        //
+        // Only invalidate the overlay when the visuals actually changed:
+        // the rubber-band motion handler calls setSelected() on every
+        // intersecting item for every motion event, and an unconditional
+        // queue_draw() here flooded the main loop with N+1 full-desktop
+        // invalidations per event (docs/fixes.md 2026-09-07).
+        if (changed && this._grid) {
             this._grid.queue_draw();
         }
     }
