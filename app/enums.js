@@ -17,7 +17,15 @@
  */
 export var ICON_SIZE = { 'tiny': 36, 'small': 48, 'standard': 64, 'large': 96 };
 export var ICON_WIDTH = { 'tiny': 70, 'small': 90, 'standard': 120, 'large': 130 };
-export var ICON_HEIGHT = { 'tiny': 80, 'small': 90, 'standard': 106, 'large': 138 };
+/* Row pitch constants: ICON_SIZE + 48 (upper bound: two label lines
+   ~40px + label margin 2px + .file-item border 1px*2 + padding 1px*2 =
+   +46; kept at +48 for margin). The +8 from
+   4*elementSpacing in the row-pitch calculation guarantees the natural
+   content height (<= icon size + 48) always fits the fixed selection box
+   (pitch - 4), so boxes never overlap or clip. The container is fixed to
+   the full cell size in desktop-icon-item.js setCoordinates(), matching
+   the drag drop-grid preview (docs/fixes.md 2026-09-07). */
+export var ICON_HEIGHT = { 'tiny': 84, 'small': 96, 'standard': 112, 'large': 144 };
 
 export var START_CORNER = {
     'top-left': [false, false],

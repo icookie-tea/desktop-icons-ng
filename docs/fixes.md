@@ -2,6 +2,66 @@
 
 > 2026-07 及更早的条目已归档至 [`docs/archive/fixes-2026-07.md`](archive/fixes-2026-07.md)。
 
+## 2026-09-07
+
+### 相邻行选中框边缘重叠：ICON_HEIGHT 未计入边框/padding
+
+**症状：** 上下相邻两行的图标同时选中时，选中框边缘部分重叠（standard 档约 2~4px），视觉上像一个连成的高框（截图 2026-09-07 09-42-53）。四个图标尺寸档全部存在。
+
+**根因：** 选中框即 `.file-item` 容器的 CSS 框，其实际自然高度 = 图标区（icon_size + `.icon-item` padding 4px×2）+ 两行固定标签（~36–40px + margin_bottom 2px）+ 边框 3px×2 + 内边距 1px×2（standard ≈ 118px）；而网格行距按 `enums.js` 的 `ICON_HEIGHT`（standard = 106）+ `4×elementSpacing` = 114px 起算，常量未计入边框/padding 这 ~20px 装饰，框高 > 行距即重叠。
+
+**修复：**
+1. `app/stylesheet.css`：`.file-item` border-width 3px → 2px；`.icon-item` padding 4px → 0（框高减 10px，选中背景更贴近图标）。键盘选中环复用同一 border-width，同步为 2px。
+2. `app/enums.js`：`ICON_HEIGHT` 各档上调为 `icon_size + 48`（按两行标签 ~40px 上限估）：tiny 80→84、small 90→96、standard 106→112、large 138→144。行距（ICON_HEIGHT + 8）从此恒 ≥ 框高 + 8px，默认字体下标签行高需 >24px（约 +25% 字号）才可能再溢出。
+3. 桌面行数几乎不变（行距每档仅 +6px）；水平方向宽度本已被 clamp 到单元宽度，无此问题，`ICON_WIDTH` 未动。
+
+### 选中框固定为网格单元尺寸（与拖拽定位网格一致）
+
+**反馈：** 上一修复后选中框高度虽不再重叠，但框高仍随内容自然高度变化（有些高有些低），且与行距之间的空隙偏大。用户确认目标外观：与拖拽时 PaintContainer 绘制的定位网格完全一致（同宽高、对齐单元、无缝平铺）。
+
+**修复：** `desktop-icon-item.js` 的 `setCoordinates()` 中 `container.set_size_request(width, 0)` → `set_size_request(width, height)`：容器固定为完整网格单元尺寸（`elementWidth/elementHeight - 2*elementSpacing`，与定位网格同一组数值）。效果：
+1. 同一图标尺寸档下所有选中框/悬停框宽高完全一致（高度不再随内容浮动）；
+2. 选中框与拖拽定位网格逐像素重合；
+3. 图标/标签位置不变（垂直 Box 中不 expand 的子 widget 从头依次排布，多出的空间留在标签下方）。
+
+安全余量：`ICON_HEIGHT = icon_size + 48` 保证行距 ≥ 框高 + 8px（自然内容高 ≤ icon_size + 48 < 框高），字体行高 ≤ 24px 时内容不会撑破框。
+
+### 单行标签位置偏低：GtkBox 富余空间把标签区压到框底
+
+**症状：** 框固定为单元尺寸后，单行名称的标签比双行名称的第一行低 ~6px，且与图标之间的间距偏大（截图 2026-09-07 09-58-27）。
+
+**根因（离屏 GTK 4.22 实验复现）：** 容器固定高度后内容（icon 64 + 标签区 ~36-42）小于内容区高度，产生 12-18px 富余。GtkBox 会把富余空间插在 icon 与标签区之间（标签区被压在框底，`vexpand` 也无法阻止）；且 `keep_aspect_ratio` 的 `Gtk.Picture` 按容器宽度测量时 natural 高度 = 容器宽度（118 而非 64），进一步打乱分配。结果标签区起始位置随标签自然高度（单行 36 / 双行 42）变化，单行文字看起来下移。
+
+**修复：** 让内容精确填满单元，不留富余空间（`desktop-icon-item.js`）：
+1. `setCoordinates()` 中 `this._icon.set_size_request(icon_size, icon_size)`——消除 Picture 的宽高比测量耦合，图标分配恒为 icon_size×icon_size；
+2. `setCoordinates()` 中给标签容器 `_labelContainer`（新增保存）设 `set_size_request(-1, height - 6 - icon_size)`（6 = .file-item 边框 2px×2 + 内边距 1px×2），使 icon + 标签区恰好等于内容区高度；
+3. `_loadImageAsIcon()` 移除 margin_top/margin_bottom 手动垂直居中——Picture 固定为 icon_size 方框后，`keep_aspect_ratio` 自动 letterbox 居中缩放的 paintable。
+
+效果：标签首行恒紧贴图标下方，单行/双行名称位置完全一致（离屏验证：两种情况 label 均在 icon 底部 y=64 起始，yalign=0 顶部对齐）。
+
+### 选中框补上高亮轮廓（对标拖拽定位网格）
+
+**需求：** 拖拽预览框有完整轮廓（PaintContainer 用 selectColor 全 alpha 描边），鼠标选中框之前只有 35% 背景填充、边框透明，视觉不一致。
+
+**修复：** `.desktop-icons-selected` 的 `border-color` 从透明改为 `alpha(@desktop_icons_bg_color, 1.0)`（即 selectColor，与预览框描边同色）。
+
+### 选中框边框与预览框统一为 1px
+
+**反馈：** 加上轮廓后，选中框比拖拽预览框更粗更亮——CSS border 是 2px，而 PaintContainer 的预览描边是 1px。
+
+**修复：** `.file-item` border-width 2px → 1px（选中态/键盘态同步）；`setCoordinates()` 的 decoration 常量 6 → 4（边框 1px×2 + 内边距 1px×2）；`enums.js` 公式注释同步（ICON_HEIGHT 常量值不变，余量反而更大）。离屏复验：icon 0..64、标签区 64..120，单行/双行一致，精确填充成立。
+
+### 选中框轮廓改由 PaintContainer 绘制（与预览框像素级一致）
+
+**反馈：** 统一 1px 后选中框轮廓仍比预览框暗/闷。像素测量（截图 2026-09-07 10-38-14）：预览框描边像素 = selectColor 全强度 (230,73,45) 单行锐利；CSS border 像素 ≈ 72% 混合 (202,76,53) + 一个过渡像素——CSS 1px 边框在亚像素位置会被反锯齿拆到两行稀释，渲染路径上与 Gsk 描边无法做到一致。
+
+**修复：** 选中框/键盘选中框的轮廓从 CSS 移到 PaintContainer，与拖拽预览框走完全相同的 `_snapshotRoundedRect` Gsk 描边路径（1px，selectColor 全 alpha；键盘态 accent 70%，新增 `borderKeyboard` 颜色）：
+1. `paint-container.js`：`vfunc_snapshot` 遍历 `grid._fileItems`，对 `isSelected` 的项描边（键盘态用 borderKeyboard）；`_snapshotRoundedRect` 的 fillColor 改为可选；
+2. `desktop-icon-item.js`：`_setSelectedStatus()` 末尾调 `this._grid.queue_draw()` 触发重绘；
+3. `stylesheet.css`：`.desktop-icons-selected` / `-keyboard` 只保留 35% 背景填充，不再设 border-color；`.file-item` 的 1px 透明 border 保留（纯结构占位，精确填充计算依赖）。
+
+z 序上 PaintContainer 在图标 widget 之下，描边落在透明的 border 区 + 填充外沿 0.5px，与拖拽预览框的遮挡关系完全相同，因此两者渲染像素级一致。
+
 ## 2026-09-05
 
 ### 可维护性：窗口标题协议抽出 `title-protocol.js`（纯函数可单测）

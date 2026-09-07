@@ -8,15 +8,24 @@
     color: black;
 }
 
+/* No padding here: it used to be 4px, but it inflated the .file-item
+   selection box height past the grid row pitch, so the selected boxes of
+   vertically adjacent rows overlapped at their edges (see docs/fixes.md
+   2026-09-07). */
 .icon-item {
-    padding: 4px;
+    padding: 0;
 }
 
 .file-item {
     padding: 1px;
     border-radius: 10px;
     border-style: solid;
-    border-width: 3px;
+    /* Structural only (always transparent): reserves the 1px frame that
+       setCoordinates()'s exact-fit sizing accounts for (decoration =
+       border 1px*2 + padding 1px*2). Visible selection/keyboard outlines
+       are stroked in PaintContainer, not with CSS borders (docs/fixes.md
+       2026-09-07). */
+    border-width: 1px;
     border-color: rgba(0, 0, 0, 0);
 }
 
@@ -54,15 +63,16 @@ window.testwindow {
 }
 
 .desktop-icons-selected {
-    /* libadwaita gridview child:selected = accent-bg 25%. Raised to 35% for
-       readability over wallpaper (Nautilus has a solid view background). */
+    /* Fill only. The 1px outline is stroked in PaintContainer (the same Gsk
+       path as the drag drop-grid preview) so both render pixel-identically;
+       a CSS border renders softer due to anti-aliasing (docs/fixes.md
+       2026-09-07). libadwaita gridview child:selected = accent-bg 25%,
+       raised to 35% for readability over wallpaper. */
     background-color: alpha(@desktop_icons_bg_color, 0.35);
-    border-color: alpha(@desktop_icons_bg_color, 0.0);
 }
 
 .desktop-icons-selected-keyboard:not(:backdrop) {
-    /* libadwaita focus ring = accent-color (derived shade) 50%; raised to 70%
-       since the ring is the main keyboard-selection indicator on wallpaper. */
+    /* Keyboard selection: same fill; the accent outline (70%) is stroked in
+       PaintContainer (borderKeyboard). */
     background-color: alpha(@desktop_icons_bg_color, 0.35);
-    border-color: alpha(@desktop_icons_accent_color, 0.7);
 }

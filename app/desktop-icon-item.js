@@ -175,6 +175,9 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
         labelContainer.append(twoLinesLabel);
         labelContainer.append(this._label);
         labelContainer.set_layout_manager(new Gtk.BinLayout());
+        // Kept for setCoordinates(): its height is pinned so icon + label
+        // area fill the fixed cell height exactly (docs/fixes.md 2026-09-07).
+        this._labelContainer = labelContainer;
 
         this._accessibleBox = new Gtk.Box({
             focusable: true,
@@ -259,7 +262,23 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
         this.width = width;
         this.height = height;
         this._grid = grid;
-        this.container.set_size_request(width, 0);
+        // Fix the container to the full grid cell (same size the drop-grid
+        // preview draws in PaintContainer): selection boxes then have a
+        // uniform height/width per icon-size level and align exactly with
+        // the drag positioning grid. (docs/fixes.md 2026-09-07)
+        this.container.set_size_request(width, height);
+        // Pin the inner layout to an exact fit. GtkBox (GTK 4.22) puts any
+        // leftover vertical space between the icon and the label (the label
+        // is bottom-anchored; vexpand does not prevent this), which made
+        // one-line labels sit lower than two-line ones. Forcing
+        // icon (icon_size) + label area (the rest) to sum exactly to the
+        // content height leaves no slack to distribute: the label's first
+        // line then always sits directly under the icon.
+        const iconSize = Prefs.get_icon_size();
+        this._icon.set_size_request(iconSize, iconSize);
+        const decoration = 4; // .file-item border 1px*2 + padding 1px*2
+        this._labelContainer.set_size_request(-1,
+            Math.max(1, height - decoration - iconSize));
         this._label.margin_start = margin;
         this._label.margin_end = margin;
         this._label.margin_bottom = margin;
@@ -450,6 +469,13 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
         if (grab_focus) {
             this.setAccessibleName(this._getVisibleName());
             this._accessibleBox.grab_focus();
+        }
+        // The selection/keyboard outlines are stroked by the grid's
+        // PaintContainer (same Gsk path as the drag drop preview); the CSS
+        // classes above only carry the 35% fill. Refresh the overlay on
+        // every state change (docs/fixes.md 2026-09-07).
+        if (this._grid) {
+            this._grid.queue_draw();
         }
     }
 
@@ -685,9 +711,11 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
             let icon = iconPaintableSnapshot.to_paintable(null);
             icon = this._addEmblemsToIconIfNeeded(icon);
             if (this._icon) {
-                const top_margin = (icon_size - height) / 2;
-                this._icon.margin_top = top_margin;
-                this._icon.margin_bottom = icon_size - top_margin - height;
+                // No manual vertical centering: setCoordinates() pins the
+                // Picture to icon_size x icon_size and keep_aspect_ratio
+                // letterboxes the scaled paintable inside it.
+                this._icon.margin_top = 0;
+                this._icon.margin_bottom = 0;
                 this._icon.set_paintable(icon);
                 this._icon.show();
             } else {

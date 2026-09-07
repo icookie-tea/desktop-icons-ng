@@ -61,6 +61,8 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
             borderRubber: new Gdk.RGBA({ red: ar, green: ag, blue: ab, alpha: 1.0 }),
             fillDrop: new Gdk.RGBA({ red, green, blue, alpha: 0.4 }),
             borderDrop: new Gdk.RGBA({ red, green, blue, alpha: 1.0 }),
+            // Keyboard selection ring (was CSS border-color accent 70%).
+            borderKeyboard: new Gdk.RGBA({ red: ar, green: ag, blue: ab, alpha: 0.7 }),
         };
     }
 
@@ -95,6 +97,26 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
         const grid = this._desktopGrid;
 
         this._updateColors(dm);
+
+        /* Selection outlines: stroked with the exact same Gsk path as the
+           drag drop-grid preview, so both render pixel-identically. A CSS
+           border used to look softer (anti-aliased across two pixel rows
+           when the widget edge sits at a fractional position); see
+           docs/fixes.md 2026-09-07. The 35% fill stays in CSS. */
+        for (const [column, row, item] of Object.values(grid._fileItems)) {
+            if (!item || !item.isSelected)
+                continue;
+            const x = Math.floor(grid._width * column / grid._maxColumns);
+            const y = Math.floor(grid._height * row / grid._maxRows);
+            this._snapshotRoundedRect(snapshot,
+                x + elementSpacing, y + elementSpacing,
+                grid._elementWidth - 2 * elementSpacing,
+                grid._elementHeight - 2 * elementSpacing,
+                10, null,
+                item.isKeyboardSelected ? this._colors.borderKeyboard
+                                        : this._colors.borderDrop,
+                1);
+        }
 
         if (dm.rubberBand && dm.selectionRectangle) {
             if (grid.gridGlobalRectangle.intersect(dm.selectionRectangle)[0]) {
@@ -135,9 +157,11 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
         const roundedRect = new Gsk.RoundedRect();
         roundedRect.init_from_rect(rect, radius);
 
-        snapshot.push_rounded_clip(roundedRect);
-        snapshot.append_color(fillColor, rect);
-        snapshot.pop();
+        if (fillColor) {
+            snapshot.push_rounded_clip(roundedRect);
+            snapshot.append_color(fillColor, rect);
+            snapshot.pop();
+        }
 
         if (borderWidth) {
             const stroke = new Gsk.Stroke(borderWidth);
