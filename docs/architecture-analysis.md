@@ -370,7 +370,7 @@ ThumbnailLoader
 icookie 修复：图片缩略图尺寸不超过 icon_size（防止容器撑宽）
 ```
 
-**ESM 迁移后：** `GnomeDesktop` 改为非阻塞动态 import（`import('gi://GnomeDesktop?version=4.0').then(...)`）——顶层 `await import()` 在 Gtk 窗口渲染后会卡死 promise job queue（见 fixes.md）。`ThumbnailLoader` 构造函数 `await` 该 import 完成后才创建缩略图工厂；`getThumbnail()` 先等待工厂就绪，`GnomeDesktop` 缺失时直接返回 null（不再报错）。
+**ESM 迁移后：** `GnomeDesktop` 改为非阻塞动态 import（`import('gi://GnomeDesktop?version=4.0').then(...)`）——顶层 `await import()` 在 Gtk 窗口渲染后会卡死 promise job queue（见 archive/fixes-2026-08.md 2026-08-02 条目）。`ThumbnailLoader` 构造函数 `await` 该 import 完成后才创建缩略图工厂；`getThumbnail()` 先等待工厂就绪，`GnomeDesktop` 缺失时直接返回 null（不再报错）。
 
 ### 5.7 ThemeManager (icookie 新增模块)
 
@@ -380,7 +380,7 @@ ThemeManager
   │   ├─→ Adw.StyleManager::notify(accent-color/rgba) → handler()   // 无条件连接
   │   └─→ GFileMonitor(~/.config/gtk-4.0/ 目录) → handler()（300ms 防抖）
   │       （用户 gtk.css / custom-accent.css 覆盖变更；icookie 最终方案：
-  │        不依赖 GTK 解析缓存，直接读文件，见 fixes.md 2026-08-05）
+  │        不依赖 GTK 解析缓存，直接读文件，见 archive/fixes-2026-08.md 2026-08-05 条目）
   │       icookie: handler 被包装在 GLib.idle_add 中（修复竞态）
   │
   ├─→ configureSelectionColor()

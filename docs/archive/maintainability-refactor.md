@@ -63,7 +63,7 @@
 - 单测覆盖：FileChangesQueue(13)/matchPendingDropEntry(23)/GridLayout(27)/SortManager(35)/generateDropFilename(43)/click-coordinates(53)/link-emblem(58)/ScriptsMenu(69——harness 的 `passed` 为跨模块累积值，各模块打印的是累计值，文档曾误读为 131)
 - 用户手动构建：`bash scripts/refresh_extension.sh` + 人工回归（原 docs/refactor-checklist.md 已归档，回归项：基础功能/拖放/右键菜单/增量更新与排序/多显示器与几何/概览动画/键盘与剪贴板）
 
-## 重构中修复的潜伏 bug（详见 docs/fixes.md）
+## 重构中修复的潜伏 bug（详见 archive/fixes-2026-08.md 2026-08-02 条目）
 
 - thumbnails.js 未定义 `reject`（文档声称已修实际未修）
 - `generateDropFilename` 正则 `\\x00-\\x1f` 双反斜杠（数字/字母被污染）
