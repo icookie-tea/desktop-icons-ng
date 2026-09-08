@@ -4,7 +4,7 @@
 
 | 脚本 | 用途 | 运行方式 |
 |------|------|---------|
-| `check.sh` | 开发检查：ESLint + 语法检查 + 单元测试 | `bash scripts/check.sh` |
+| `check.sh` | 开发检查：ESLint + 语法检查 + 单元测试 + 独立进程冒烟（需显示环境）+ 结构性守护（GJS 导出/裸 this/命名空间构造/状态归属） | `bash scripts/check.sh` |
 | `local_install.sh` | 本地（用户级）安装到 `~/.local` | `bash scripts/local_install.sh` |
 | `global_install.sh` | 系统级安装到 `/usr`（需要 sudo） | `bash scripts/global_install.sh` |
 | `ubuntu_install.sh` | Ubuntu 变体安装（以独立 UUID `desktop-icons-ng@icookie-tea.github.io` 安装，不与发行版内置 DING 冲突） | `bash scripts/ubuntu_install.sh` |
