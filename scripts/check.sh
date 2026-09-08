@@ -91,13 +91,8 @@ check_state_ownership 'dragItem|_dragList|_dragOriginX|_dragOriginY' 'app/dnd-ma
 check_state_ownership 'ignoreKeys|_lastSelected' 'app/keyboard-manager.js' || exit 1
 # The legacy 'imports' global is deprecated by GNOME Shell — everything is
 # ESM now (app/signals.js replaces imports.signals). Reject regressions.
-# desktop-icons-integration.js is excluded on purpose: it is a BSD-licensed
-# third-party extension integration API maintained upstream (see its header,
-# "DON'T SEND PATCHES ... TO THE EXTENSION MAINTAINER"); modernizing it to
-# ESM is an upstream task, not a local one.
 if grep -nE '(^|[^.A-Za-z_])imports\.(signals|gi|main|misc|ui)' extension.js prefs.js \
-        visible-area.js emulate-x11-window-type.js gnome-shell-override.js title-protocol.js \
-        $(ls app/*.js | grep -v desktop-icons-integration.js); then
+        visible-area.js emulate-x11-window-type.js gnome-shell-override.js title-protocol.js app/*.js; then
     echo "FAIL: legacy 'imports.' usage found (use ESM imports / app/signals.js)"
     exit 1
 fi

@@ -12,7 +12,6 @@ install_data([
     'dbus-remote-operations.js',
     'desktop-grid.js',
     'desktop-icon-item.js',
-    'desktop-icons-integration.js',
     'desktop-icons-util.js',
     'desktop-manager.js',
     'desktop-menu.js',
