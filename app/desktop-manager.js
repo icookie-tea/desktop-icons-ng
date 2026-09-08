@@ -21,7 +21,6 @@ import GLibUnix from 'gi://GLibUnix';
 import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
-import Adw from 'gi://Adw';
 
 import * as FileItem from './file-item.js';
 import * as DesktopIconsUtil from './desktop-icons-util.js';
@@ -32,7 +31,6 @@ import * as ShowErrorPopup from './show-error-popup.js';
 import * as Thumbnails from './thumbnails.js';
 import * as FileItemMenu from './file-item-menu.js';
 import * as AutoAr from './auto-ar.js';
-import * as SignalManager from './signal-manager.js';
 import * as DesktopMenu from './desktop-menu.js';
 import * as DesktopMonitor from './desktop-monitor.js';
 import * as GridLayout from './grid-layout.js';
@@ -44,6 +42,7 @@ import * as ThemeManager from './theme-manager.js';
 import * as FileOperations from './file-operations.js';
 import * as SortManager from './sort-manager.js';
 import * as SelectionManager from './selection-manager.js';
+import * as SearchDialog from './search-dialog.js';
 
 import Gettext from 'gettext';
 
@@ -74,6 +73,7 @@ export var DesktopManager = class {
         this._selectionManager = new SelectionManager(this);
         this._initFileMonitoring();
         this._initSettingsHandlers(mainApp);
+        this._searchDialog = new SearchDialog(this);
         this._initStyles(codePath);
         this._initGridAndMetadata();
         this._initKeyboardAndNautilusCheck();
@@ -309,10 +309,6 @@ export var DesktopManager = class {
             obj.disconnect(id);
         }
         this._signalIds = [];
-        if (this.keypressTimeoutID) {
-            GLib.source_remove(this.keypressTimeoutID);
-            this.keypressTimeoutID = null;
-        }
         if (this._mountManager) {
             this._mountManager.destroy();
         }
@@ -328,6 +324,9 @@ export var DesktopManager = class {
         }
         if (this._gridLayout) {
             this._gridLayout.destroy();
+        }
+        if (this._searchDialog) {
+            this._searchDialog.destroy();
         }
         if (this._fileChangesQueue) {
             this._fileChangesQueue.destroy();
@@ -737,13 +736,10 @@ export var DesktopManager = class {
             Prefs.gtkSettings.set_boolean('show-hidden', !this._showHidden);
             return true;
         } else if (isCtrl && ((keyval == Gdk.KEY_F) || (keyval == Gdk.KEY_f))) {
-            this.findFiles(grid.Window);
+            this._searchDialog.findFiles(grid.Window);
             return true;
         } else if (keyval == Gdk.KEY_Escape) {
-            this.unselectAll();
-            if (this.searchString) {
-                this.searchString = null;
-            }
+            this._searchDialog.escape();
             return true;
         } else if ((keyval == Gdk.KEY_Menu) || ((keyval == Gdk.KEY_F10) && isShift)) {
             if (selection) {
@@ -762,28 +758,7 @@ export var DesktopManager = class {
             if (this.ignoreKeys.includes(keyval)) {
                 return false;
             }
-            let key = String.fromCharCode(Gdk.keyval_to_unicode(keyval));
-            if (this.keypressTimeoutID && this.searchString) {
-                this.searchString = this.searchString.concat(key);
-            } else {
-                this.searchString = key;
-            }
-            if (this.searchString != '') {
-                let found = this.scanForFiles(this.searchString, false);
-                if (found) {
-                    if ((this.getNumberOfSelectedItems() >= 1) && !this.keypressTimeoutID) {
-                        let windowError = new ShowErrorPopup.ShowErrorPopup(
-                            _('Clear Current Selection before New Search'),
-                            null,
-                            true);
-                        windowError.timeoutClose(2000);
-                        return true;
-                    }
-                    this._refreshSearchTimeout();
-                    this.findFiles(grid.Window, this.searchString);
-                }
-            }
-            return true;
+            return this._searchDialog.typeKey(keyval, grid.Window);
         }
         return false;
     }
@@ -800,147 +775,8 @@ export var DesktopManager = class {
         this._selectionManager.unselectAll();
     }
 
-    _refreshSearchTimeout() {
-        if (this.keypressTimeoutID) {
-            GLib.source_remove(this.keypressTimeoutID);
-            this.keypressTimeoutID = null;
-        }
-        if (Prefs.a11YKeyboard) {
-            // if the user has enabled any keyboard assistive technology,
-            // disable the timeout to hide the search window
-            if (Prefs.a11YKeyboard.get_boolean('stickykeys-enable') ||
-                Prefs.a11YKeyboard.get_boolean('slowkeys-enable') ||
-                Prefs.a11YKeyboard.get_boolean('bouncekeys-enable') ||
-                Prefs.a11YKeyboard.get_boolean('mousekeys-enable')) {
-                    return;
-            }
-        }
-        if (Prefs.a11YApplications) {
-            // if the user has enabled the screen reader,
-            // disable the timeout to hide the search window
-            if (Prefs.a11YApplications.get_boolean('screen-reader-enabled')) {
-                return;
-            }
-        }
-
-        this.keypressTimeoutID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, Constants.KEYPRESS_SEARCH_TIMEOUT_MS, () => {
-            this.searchString = null;
-            this.keypressTimeoutID = null;
-            if (this._findFileWindow) {
-                this._closeFindFiles(false);
-            }
-            return false;
-        });
-    }
-
     showFileMenu(fileItem, x, y) {
         this._fileItemMenu.showMenu(fileItem, x, y);
-    }
-
-    findFiles(window, text) {
-        // Re-opening Ctrl+F while a search dialog is already up must close
-        // the previous one first: otherwise the old dialog and its signal
-        // handlers leak, and the old window's buttons would close the new
-        // window (they all operate on this._findFileWindow).
-        if (this._findFileWindow) {
-            this._closeFindFiles(false);
-        }
-        this._findFileWindow = new Adw.Dialog({
-            'title': _('Find Files on Desktop'),
-        });
-        const container = new Gtk.Box({
-            'orientation': Gtk.Orientation.VERTICAL,
-        });
-        this._findFileWindow.set_child(container);
-        const topBar = new Adw.HeaderBar({
-            'show-title': true,
-            'decoration-layout': '',
-        });
-        this._findFileButton = Gtk.Button.new_with_label(_('OK'));
-        this._findFileButton.sensitive = false;
-        topBar.pack_end(this._findFileButton);
-        const cancelButton = Gtk.Button.new_with_label(_('Cancel'));
-        topBar.pack_start(cancelButton);
-        container.append(topBar);
-
-        this._findFileTextArea = new Gtk.Entry({
-            margin_start: 18,
-            margin_end: 18,
-            margin_top: 18,
-            margin_bottom: 18,
-        });
-        container.append(this._findFileTextArea);
-
-        this._findFileSignalManager = new SignalManager.SignalManager();
-        this._findFileSignalManager.connectSignal(this._findFileTextArea, 'activate', () => {
-            if (this._findFileButton.sensitive) {
-                this._closeFindFiles(false);
-            }
-        });
-        this._findFileSignalManager.connectSignal(this._findFileButton, 'clicked', () => {
-            this._closeFindFiles(false);
-        });
-        this._findFileSignalManager.connectSignal(cancelButton, 'clicked', () => {
-            this._closeFindFiles(true);
-        });
-        let keyController = new Gtk.EventControllerKey();
-        this._findFileWindow.add_controller(keyController);
-        this._findFileSignalManager.connectSignal(keyController, 'key-pressed', (controller, keyval, keycode, state) => {
-            if (keyval == Gdk.KEY_Escape) {
-                this._closeFindFiles(true);
-                return true;
-            }
-            return false;
-        });
-        this._findFileSignalManager.connectSignal(this._findFileTextArea, 'changed', () => {
-            if (this.scanForFiles(this._findFileTextArea.text, true)) {
-                this._findFileButton.sensitive = true;
-                if (this._findFileTextArea.has_css_class('not-found')) {
-                    this._findFileTextArea.remove_css_class('not-found');
-                }
-            } else {
-                this._findFileButton.sensitive = false;
-                this._findFileTextArea.error_bell();
-                if (!this._findFileTextArea.has_css_class('not-found')) {
-                    this._findFileTextArea.add_css_class('not-found');
-                }
-            }
-            this._refreshSearchTimeout();
-        });
-        this._findFileWindow.show();
-        this._findFileWindow.present();
-        this._findFileTextArea.grab_focus();
-        if (text) {
-            this._findFileTextArea.set_text(text);
-            this._findFileTextArea.set_position(text.length);
-        } else {
-            this.scanForFiles(null);
-        }
-    }
-
-    _closeFindFiles(cancelled) {
-        if (cancelled) {
-            this.unselectAll();
-        }
-        this._findFileSignalManager.disconnectAllSignals();
-        this._findFileWindow.close();
-        this._findFileWindow = null;
-    }
-
-    scanForFiles(text, setselected) {
-        let found = [];
-        if (text && (text != '')) {
-            found = this._fileList.filter(f => f.fileName.toLowerCase().includes(text.toLowerCase()) || f._label.get_text().toLowerCase().includes(text.toLowerCase()));
-        }
-        if (found.length != 0) {
-            if (setselected) {
-                this.unselectAll();
-                found.forEach(f => f.setSelected());
-            }
-            return true;
-        } else {
-            return false;
-        }
     }
 
     selectAll() {

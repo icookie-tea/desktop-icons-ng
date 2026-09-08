@@ -20,6 +20,7 @@ import * as TestTitleProtocol from './test-title-protocol.js';
 import * as TestVolumeMount from './test-volume-mount.js';
 import * as TestIconLayout from './test-icon-layout.js';
 import * as TestSelection from './test-selection.js';
+import * as TestSearchDialog from './test-search-dialog.js';
 
 const tests = [
     TestFileChangesQueue,
@@ -37,6 +38,7 @@ const tests = [
     TestVolumeMount,
     TestIconLayout,
     TestSelection,
+    TestSearchDialog,
 ];
 
 async function main() {

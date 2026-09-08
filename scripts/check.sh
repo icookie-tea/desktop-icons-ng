@@ -33,7 +33,7 @@ if grep -qE '^class [A-Za-z]' app/*.js; then
 fi
 # Extracted sub-managers must never pass a bare 'this' as an argument (the
 # DesktopManager reference goes through this._dm).
-if grep -nE '\(this[,)]|\[this[,]' app/grid-layout.js app/desktop-monitor.js app/dbus-remote-operations.js app/selection-manager.js; then
+if grep -nE '\(this[,)]|\[this[,]' app/grid-layout.js app/desktop-monitor.js app/dbus-remote-operations.js app/selection-manager.js app/search-dialog.js; then
     echo "FAIL: bare 'this' passed as argument in extracted manager (should be this._dm)"
     exit 1
 fi
