@@ -21,6 +21,7 @@ install_data([
     'grid-layout.js',
     'paint-container.js',
     'dnd-clipboard-utils.js',
+    'dnd-manager.js',
     'enums.js',
     'file-changes-queue.js',
     'file-item.js',
