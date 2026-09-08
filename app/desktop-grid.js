@@ -36,7 +36,6 @@ export var elementSpacing = 2;
 export var DesktopGrid = class extends SignalManager.SignalManager {
     constructor(desktopManager, desktopName, desktopDescription, asDesktop, deferShow = false) {
         super();
-        this._signalIds = [];
         this._destroying = false;
         this._desktopManager = desktopManager;
         this._desktopName = desktopName;

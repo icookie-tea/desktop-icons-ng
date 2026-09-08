@@ -18,6 +18,7 @@
 import * as DBusUtils from './dbus-utils.js';
 import * as DesktopGrid from './desktop-grid.js';
 import * as Enums from './enums.js';
+import * as SignalManager from './signal-manager.js';
 import * as DebugLog from './log.js';
 
 /* Monitor geometry management: subscribes to the extension's D-Bus
@@ -27,18 +28,11 @@ import * as DebugLog from './log.js';
 export var GridLayout = class {
     constructor(desktopManager) {
         this._dm = desktopManager;
-        this._signalIds = [];
-    }
-
-    _trackSignal(obj, signal, cb) {
-        this._signalIds.push([obj, obj.connect(signal, cb)]);
+        this._signalManager = new SignalManager.SignalManager();
     }
 
     destroy() {
-        for (let [obj, id] of this._signalIds) {
-            obj.disconnect(id);
-        }
-        this._signalIds = [];
+        this._signalManager.disconnectAllSignals();
     }
 
     updateGridWindows(newdesktoplist) {
@@ -125,12 +119,12 @@ export var GridLayout = class {
         }
     }
     dbusAdvertiseUpdate() {
-        this._trackSignal(DBusUtils.extensionControl, 'action-state-changed', (actionGroup, actionName, data) => {
+        this._signalManager.connectSignal(DBusUtils.extensionControl, 'action-state-changed', (actionGroup, actionName, data) => {
             if (actionName == 'desktopGeometry') {
                 this.updateGridWindows(data.recursiveUnpack());
             }
         });
-        this._trackSignal(DBusUtils.extensionControl, 'action-added', (actionGroup, actionName) => {
+        this._signalManager.connectSignal(DBusUtils.extensionControl, 'action-added', (actionGroup, actionName) => {
             // this signal allows us to know when the action is available and we can read the initial value
             if (actionName == 'desktopGeometry') {
                 let data = DBusUtils.extensionControl.get_action_state('desktopGeometry');

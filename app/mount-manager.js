@@ -22,6 +22,7 @@ import * as Enums from './enums.js';
 import * as DesktopIconsUtil from './desktop-icons-util.js';
 import * as FileItem from './file-item.js';
 import * as Constants from './constants.js';
+import * as SignalManager from './signal-manager.js';
 
 /*
  * MountManager — VolumeMonitor 接入与 mount 生命周期管理
@@ -48,7 +49,7 @@ export var MountManager = class {
         this._mountRetryTimeoutId = 0;
         this._mountRemovedTimeoutId = 0;
         this._mountsQueryCancellable = new Gio.Cancellable();
-        this._signalIds = [];
+        this._signalManager = new SignalManager.SignalManager();
         this._connectSignals();
     }
 
@@ -68,12 +69,8 @@ export var MountManager = class {
         return DesktopIconsUtil.getMounts(this._volumeMonitor);
     }
 
-    _trackSignal(obj, signal, cb) {
-        this._signalIds.push([obj, obj.connect(signal, cb)]);
-    }
-
     _connectSignals() {
-        this._trackSignal(this._volumeMonitor, 'mount-added', (obj, mount) => {
+        this._signalManager.connectSignal(this._volumeMonitor, 'mount-added', (obj, mount) => {
             this._onRefresh('mount added');
             // Second pass: the gvfs/udisks daemon may still be bringing the
             // mount point up when the first refresh runs, in which case the
@@ -84,12 +81,12 @@ export var MountManager = class {
                 // the mount is already gone; nothing to retry
             }
         });
-        this._trackSignal(this._volumeMonitor, 'mount-changed', () => {
+        this._signalManager.connectSignal(this._volumeMonitor, 'mount-changed', () => {
             // A mount's properties (label, can-unmount, ...) can change in
             // place; the icon name and the menu must follow (V-7)
             this._onRefresh('mount changed');
         });
-        this._trackSignal(this._volumeMonitor, 'mount-removed', (obj, mount) => {
+        this._signalManager.connectSignal(this._volumeMonitor, 'mount-removed', (obj, mount) => {
             try {
                 this._mountRetryCounts.delete(mount.get_default_location().get_uri());
             } catch (e) {
@@ -210,10 +207,7 @@ export var MountManager = class {
     }
 
     destroy() {
-        for (let [obj, id] of this._signalIds) {
-            obj.disconnect(id);
-        }
-        this._signalIds = [];
+        this._signalManager.disconnectAllSignals();
         if (this._mountRemovedTimeoutId) {
             GLib.source_remove(this._mountRemovedTimeoutId);
             this._mountRemovedTimeoutId = 0;

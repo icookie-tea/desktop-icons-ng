@@ -41,6 +41,7 @@ import * as DebugLog from './log.js';
 import * as ThemeManager from './theme-manager.js';
 import * as FileOperations from './file-operations.js';
 import * as SortManager from './sort-manager.js';
+import * as SignalManager from './signal-manager.js';
 import * as SelectionManager from './selection-manager.js';
 import * as SearchDialog from './search-dialog.js';
 import * as KeyboardManager from './keyboard-manager.js';
@@ -138,12 +139,8 @@ export var DesktopManager = class {
         this._asDesktop = asDesktop;
         this._desktopList = desktopList;
         this._desktops = [];
-        this._signalIds = [];
+        this._signalManager = new SignalManager.SignalManager();
         this._gridLayout = new GridLayout.GridLayout(this);
-    }
-
-    _trackSignal(obj, signal, cb) {
-        this._signalIds.push([obj, obj.connect(signal, cb)]);
     }
     _initFileMonitoring() {
         this._monitor = new DesktopMonitor.DesktopMonitor(this);
@@ -154,7 +151,7 @@ export var DesktopManager = class {
         this._monitor.updateWritableByOthers();
         this._monitorDesktopDir = this._desktopDir.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, null);
         this._monitorDesktopDir.set_rate_limit(Constants.MONITOR_RATE_LIMIT_MS);
-        this._trackSignal(this._monitorDesktopDir, 'changed', (obj, file, otherFile, eventType) => this._monitor.updateDesktopIfChanged(file, otherFile, eventType));
+        this._signalManager.connectSignal(this._monitorDesktopDir, 'changed', (obj, file, otherFile, eventType) => this._monitor.updateDesktopIfChanged(file, otherFile, eventType));
 
         this._pendingMoves = {};
         this._processingIncremental = false;
@@ -172,7 +169,7 @@ export var DesktopManager = class {
         this._fileItemMenu = new FileItemMenu.FileItemMenu(this, mainApp);
         if (Prefs.schemaGnomeDarkSettings) {
             if (this._themeManager.checkApplyDarkModeSetting()) {
-                this._trackSignal(Prefs.schemaGnomeDarkSettings, 'changed', (obj, key) => {
+                this._signalManager.connectSignal(Prefs.schemaGnomeDarkSettings, 'changed', (obj, key) => {
                     if (key === 'color-scheme') {
                         this._themeManager.checkApplyDarkModeSetting();
                         // the derived shade variant (light/dark) changed
@@ -191,20 +188,20 @@ export var DesktopManager = class {
         this.showDropPlace = Prefs.desktopSettings.get_boolean('show-drop-place');
         this.showLinkEmblem = Prefs.desktopSettings.get_boolean('show-link-emblem');
         this.darkText = Prefs.desktopSettings.get_boolean('dark-text-in-labels');
-        this._trackSignal(Prefs.desktopSettings, 'changed', (obj, key) => this._onDesktopSettingsChanged(key));
-        this._trackSignal(Prefs.gtkSettings, 'changed', (obj, key) => {
+        this._signalManager.connectSignal(Prefs.desktopSettings, 'changed', (obj, key) => this._onDesktopSettingsChanged(key));
+        this._signalManager.connectSignal(Prefs.gtkSettings, 'changed', (obj, key) => {
             if (key == 'show-hidden') {
                 this._showHidden = Prefs.gtkSettings.get_boolean('show-hidden');
                 this._updateDesktopSafe('hidden setting changed');
             }
         });
-        this._trackSignal(Prefs.nautilusSettings, 'changed', (obj, key) => {
+        this._signalManager.connectSignal(Prefs.nautilusSettings, 'changed', (obj, key) => {
             if (key == 'show-image-thumbnails') {
                 this._updateDesktopSafe('nautilus settings changed');
             }
         });
         this._gtkIconTheme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
-        this._trackSignal(this._gtkIconTheme, 'changed', () => {
+        this._signalManager.connectSignal(this._gtkIconTheme, 'changed', () => {
             this._updateDesktopSafe('gtk icon theme changed');
         });
     }
@@ -302,10 +299,7 @@ export var DesktopManager = class {
     }
 
     destroy() {
-        for (let [obj, id] of this._signalIds) {
-            obj.disconnect(id);
-        }
-        this._signalIds = [];
+        this._signalManager.disconnectAllSignals();
         if (this._mountManager) {
             this._mountManager.destroy();
         }
