@@ -22,6 +22,7 @@ import * as TestIconLayout from './test-icon-layout.js';
 import * as TestSelection from './test-selection.js';
 import * as TestSearchDialog from './test-search-dialog.js';
 import * as TestPlacement from './test-placement.js';
+import * as TestStateOwnership from './test-state-ownership.js';
 
 const tests = [
     TestFileChangesQueue,
@@ -41,6 +42,7 @@ const tests = [
     TestSelection,
     TestSearchDialog,
     TestPlacement,
+    TestStateOwnership,
 ];
 
 async function main() {
