@@ -38,6 +38,28 @@ import Gettext from 'gettext';
 
 const _ = Gettext.domain('ding').gettext;
 
+/** Aspect-fit source pixels into a square icon box and center the result. */
+export function calculateThumbnailPlacement(sourceWidth, sourceHeight, boxSize) {
+    const scale = Math.min(boxSize / sourceWidth, boxSize / sourceHeight);
+    const width = Math.max(1, Math.floor(sourceWidth * scale));
+    const height = Math.max(1, Math.floor(sourceHeight * scale));
+    return {
+        width,
+        height,
+        x: Math.floor((boxSize - width) / 2),
+        y: Math.floor((boxSize - height) / 2),
+    };
+}
+
+/* Icon+label block vertical offset inside the selection box. The block is
+   top-aligned (icons of one-line and two-line names sit at the same row,
+   like before the 2026-09-08 centering attempt), shifted down by this much
+   so it does not hug the box top edge. The label area gets the remainder:
+   height - decoration(4) - icon_size - 6, which is 42 for every icon-size
+   level (pitch = icon_size + 48) — exactly 2 label lines (40) +
+   margin_bottom (2) at the default font. docs/fixes.md 2026-09-08. */
+const contentTopOffset = 6;
+
 export var desktopIconItem = class desktopIconItem extends SignalManager.SignalManager {
     constructor(desktopManager, fileExtra) {
         super();
@@ -113,6 +135,11 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
      ***********************/
 
     _createIconActor(role) {
+        /* Top-aligned vertical box: children fill from the top, and because
+           the label area is pinned to an exact height (setCoordinates), the
+           block height is identical for one-line and two-line names, so all
+           icons in a row line up and label positions are consistent.
+           (docs/fixes.md 2026-09-08) */
         this.container = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
             halign: Gtk.Align.CENTER,
@@ -127,18 +154,23 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
 
         this._icon = new Gtk.Picture({
             can_shrink: false,
-            keep_aspect_ratio: true,
+            // SCALE_DOWN (not keep_aspect_ratio): draws the paintable at its
+            // intrinsic size, scaled down only, centered. keep_aspect_ratio
+            // measures a for_size-coupled natural height (natural =
+            // for_size * h/w), so inside the natural-sized contentBox a
+            // portrait thumbnail (e.g. 44x64) made the Picture grow to
+            // ~64x94 and the label overlapped the icon (docs/fixes.md
+            // 2026-09-08).
+            content_fit: Gtk.ContentFit.SCALE_DOWN,
             halign: Gtk.Align.CENTER,
             valign: Gtk.Align.START,
             vexpand: false,
         });
 
-        /* Append two labels in the same box, and use a Gtk.BinLayout to paint one over the other.
-           One label will contain the icon name, and the other will contain just two blank lines.
-           This way, the icon container will have always the same size, no matter if the label has
-           one or two lines. I had to use this trick to ensure that the label text is always at the
-           top, and the highlight to have the same size for labels with one or two lines, at the same
-           time. */
+        /* The label area height is pinned in setCoordinates() (fixed block
+           height keeps one-line/two-line icons and labels aligned); the
+           label text is top-anchored, so it always sits directly under the
+           icon, and the reserved second line stays below short names. */
         const labelContainer = new Gtk.Box();
         this._label = new Gtk.Label({
             halign: Gtk.Align.CENTER,
@@ -164,19 +196,10 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
         DebugLog.debugLog(`[rename] label realize hook connected`);
         this.connectSignal(this._label, 'realize',
             () => this._doLabelSizeAllocated());
-        const twoLinesLabel = new Gtk.Label({
-            label: " \n ",
-            yalign: 0.0,
-            xalign: 0.5,
-            justify: Gtk.Justification.CENTER,
-            lines: 2,
-        });
-
-        labelContainer.append(twoLinesLabel);
         labelContainer.append(this._label);
         labelContainer.set_layout_manager(new Gtk.BinLayout());
-        // Kept for setCoordinates(): its height is pinned so icon + label
-        // area fill the fixed cell height exactly (docs/fixes.md 2026-09-07).
+        // Kept for setCoordinates(): the label area height is pinned so the
+        // icon+label block has a fixed height (docs/fixes.md 2026-09-08).
         this._labelContainer = labelContainer;
 
         this._accessibleBox = new Gtk.Box({
@@ -267,18 +290,19 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
         // uniform height/width per icon-size level and align exactly with
         // the drag positioning grid. (docs/fixes.md 2026-09-07)
         this.container.set_size_request(width, height);
-        // Pin the inner layout to an exact fit. GtkBox (GTK 4.22) puts any
-        // leftover vertical space between the icon and the label (the label
-        // is bottom-anchored; vexpand does not prevent this), which made
-        // one-line labels sit lower than two-line ones. Forcing
-        // icon (icon_size) + label area (the rest) to sum exactly to the
-        // content height leaves no slack to distribute: the label's first
-        // line then always sits directly under the icon.
+        // The Picture is pinned to icon_size x icon_size and
+        // content_fit=SCALE_DOWN renders the pre-scaled paintable at its
+        // intrinsic size, decoupled from the parent width (docs/fixes.md
+        // 2026-09-07/08). The block is top-aligned; contentTopOffset shifts
+        // icon+label down so they do not hug the box edge, and the label
+        // area takes the remaining height — a fixed block height per item,
+        // so icons in a row stay aligned.
         const iconSize = Prefs.get_icon_size();
         this._icon.set_size_request(iconSize, iconSize);
+        this._icon.margin_top = contentTopOffset;
         const decoration = 4; // .file-item border 1px*2 + padding 1px*2
         this._labelContainer.set_size_request(-1,
-            Math.max(1, height - decoration - iconSize));
+            Math.max(1, height - decoration - iconSize - contentTopOffset));
         this._label.margin_start = margin;
         this._label.margin_end = margin;
         this._label.margin_bottom = margin;
@@ -704,28 +728,28 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
 
             const iconTexture = Gdk.Texture.new_from_bytes(thumbnailData);
             const icon_size = Prefs.get_icon_size();
-            let width = Prefs.get_desired_width();
-            let height = icon_size;
-            const aspectRatio = iconTexture.width / iconTexture.height;
-            if ((width / height) > aspectRatio)
-                width = Math.floor(height * aspectRatio);
-            else
-                height = Math.floor(width / aspectRatio);
-            if (width > icon_size || height > icon_size) {
-                const scale = Math.min(icon_size / width, icon_size / height);
-                width = Math.floor(width * scale);
-                height = Math.floor(height * scale);
-            }
+            const placement = calculateThumbnailPlacement(
+                iconTexture.width, iconTexture.height, icon_size);
             let iconPaintableSnapshot = Gtk.Snapshot.new();
-            iconTexture.snapshot(iconPaintableSnapshot, width, height);
+            const canvasRect = new Graphene.Rect();
+            canvasRect.init(0, 0, icon_size, icon_size);
+            iconPaintableSnapshot.append_color(
+                new Gdk.RGBA({ red: 0, green: 0, blue: 0, alpha: 0 }),
+                canvasRect);
+            iconPaintableSnapshot.save();
+            iconPaintableSnapshot.translate(new Graphene.Point({
+                x: placement.x,
+                y: placement.y,
+            }));
+            iconTexture.snapshot(iconPaintableSnapshot,
+                placement.width, placement.height);
+            iconPaintableSnapshot.restore();
             let icon = iconPaintableSnapshot.to_paintable(null);
             icon = this._addEmblemsToIconIfNeeded(icon);
             if (this._icon) {
-                // No manual vertical centering: setCoordinates() pins the
-                // Picture to icon_size x icon_size and keep_aspect_ratio
-                // letterboxes the scaled paintable inside it.
-                this._icon.margin_top = 0;
-                this._icon.margin_bottom = 0;
+                // The loader only replaces the content of the fixed icon
+                // box. Its margins belong to setCoordinates(), so an async
+                // thumbnail refresh cannot move the box or the label.
                 this._icon.set_paintable(icon);
                 this._icon.show();
             } else {

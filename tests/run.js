@@ -18,6 +18,7 @@ import * as TestDriveMenu from './test-drive-menu.js';
 import * as TestThemeAccent from './test-theme-accent.js';
 import * as TestTitleProtocol from './test-title-protocol.js';
 import * as TestVolumeMount from './test-volume-mount.js';
+import * as TestIconLayout from './test-icon-layout.js';
 
 const tests = [
     TestFileChangesQueue,
@@ -33,6 +34,7 @@ const tests = [
     TestThemeAccent,
     TestTitleProtocol,
     TestVolumeMount,
+    TestIconLayout,
 ];
 
 async function main() {
