@@ -6,7 +6,7 @@ Desktop Icons NG (DING, `desktop-icons-ng@icookie-tea.github.io`) 是一个 GNOM
 
 icookie 分支在此基础上进行了大量重构和功能增强，包括模块化拆分、增量更新、概览动画、拖放修复、**ESM 迁移**、可维护性重构等。
 
-> **模块系统：** 自 2026-07 起，GTK4 子进程层（`app/`）已全部迁移到 **ESM**（`import ... from './xxx.js'` / `gi://`），用 `gjs --module app/ding.js` 启动；Shell 侧 `extension.js`/`prefs.js` 也已 ESM 化，仅 `desktop-icons-integration.js`（第三方扩展用 `imports.*` 加载）与 `visible-area.js:18`（`imports.signals` 兼容残留）保留 legacy 风格。脚本统一在 `scripts/` 目录。
+> **模块系统：** 自 2026-07 起，GTK4 子进程层（`app/`）已全部迁移到 **ESM**（`import ... from './xxx.js'` / `gi://`），用 `gjs --module app/ding.js` 启动；Shell 侧 `extension.js`/`prefs.js` 也已 ESM 化。自 2026-08 起仓库内**不再有任何 legacy `imports.*` 用法**：`visible-area.js` 改用 `app/signals.js`（并注入 primaryIndex getter，可脱离 Shell 单测），上游的 `desktop-icons-integration.js`（依赖已移除的 legacy API，且 UUID 不匹配本 fork）已删除；`scripts/check.sh` 有守护禁止回潮。脚本统一在 `scripts/` 目录。
 
 ---
 
@@ -142,7 +142,7 @@ Wayland 不允许客户端直接设置窗口类型为 DESKTOP，所以 DING 采�
 - 其他扩展声明的边距（通过 `DesktopIconsUsableArea` 接口）
 - 工作区边界
 
-其他扩展可以通过 `desktop-icons-integration.js` 中的 `DesktopIconsUsableAreaClass` 注册自己的边距需求。
+上游 DING 提供 `desktop-icons-integration.js`（`DesktopIconsUsableAreaClass`）供其他扩展注册边距需求；本 fork 已删除该文件——它依赖 GNOME Shell 50 已移除的 legacy `imports` API（加载即崩），其 `IDENTIFIER_UUID` 匹配的是上游 UUID 而非本 fork，且 DING 自身代码零引用。接收端（`VisibleArea.setMarginsForExtension`）保留，将来上游 ESM 化后可重新引入。
 
 ### 4.3 Overview 动画注入 (gnome-shell-override.js) — icookie 新增
 
@@ -238,7 +238,18 @@ icookie 新增实例变量：
 | `grid-layout.js` | 网格布局、窗口创建/销毁、D-Bus 几何广告（`GridLayout` 类） | 新文件 111 行 |
 | `dbus-remote-operations.js` | 远程 D-Bus 文件操作（复制/移动/删除等 `_remoteCall` 模板化封装） | dbus-utils 780→542 |
 
-构造函数从 269 行精简到 27 行；`_onDesktopSettingsChanged` 用 switch 分派；`_updateDesktopSafe()` 抽取 14 处重复 catch。信号全部通过 `_trackSignal`/`destroy()` 生命周期管理（修复 ProxyManager #34）。
+**2026-08 继续拆分（`refactor/dm-split` 分支，desktop-manager 1625→913 行）：**
+
+| 模块 | 职责 | 拥有的状态 |
+|---|---|---|
+| `selection-manager.js` | 橡皮筋框选、5 种选择动作、选择查询 | `rubberBand`/`selectionRectangle`/`x1..y2`/`_clickCaptured` |
+| `search-dialog.js` | Ctrl+F 查找对话框、type-to-search、自动隐藏 | `searchString`/`keypressTimeoutID`/`_findFileWindow` |
+| `keyboard-manager.js` | 方向键导航、快捷键、忽略键列表 | `ignoreKeys`/`_lastSelected` |
+| `dnd-manager.js` | 图标拖动、外部拖放（文件/纯文本） | `dragItem`/`_dragList`/`_dragOriginX/Y` |
+
+图标放置逻辑（`findDesktopFor`/`getFallbackPosition`/`addFilesToDesktop`）并入 `grid-layout.js`。DesktopManager 保留刷新管线（`_updateDesktop`/`_doReadAsync`/`_drawDesktop`）、设置处理与一行委托 shim，外部调用方零改动。状态归属由 `tests/test-state-ownership.js`（字段存在性）+ `check.sh` 的 `check_state_ownership`（禁止从旧路径读取）双重守护；`check.sh` 还有独立进程冒烟测试（启动 `ding.js` 8 秒，出现 JS ERROR 即失败）。信号跟踪全部统一到 `SignalManager`（原 4 份手写 `_signalIds`/`_trackSignal` 已删除，修复 ProxyManager #34）。
+
+构造函数从 269 行精简到 27 行；`_onDesktopSettingsChanged` 用 switch 分派；`_updateDesktopSafe()` 抽取 14 处重复 catch。
 
 ### 5.2.1 网格布局管理 (grid-layout.js) — 重构拆分
 
@@ -250,7 +261,7 @@ GridLayout
   │   └─→ 窗口标题 "Desktop Icons <n>"（与 emulate-x11-window-type.js 协议匹配）
   ├─→ updateGridWindows(data)      // D-Bus 几何变更时重建/调整窗口
   ├─→ dbusAdvertiseUpdate()        // 监听 extensionControl 的 action
-  └─→ 信号全部经 _trackSignal 注册，destroy() 统一断开
+  └─→ 信号经 SignalManager 注册，destroy() 统一断开
 ```
 
 ### 5.3 桌面文件读取流程
