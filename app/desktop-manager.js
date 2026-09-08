@@ -407,6 +407,11 @@ export var DesktopManager = class {
         return this._dndManager.getDragList();
     }
 
+    /* file-item.js still reads the dragged item through the manager */
+    get dragItem() {
+        return this._dndManager.dragItem;
+    }
+
     onDragLeave() {
         this._dndManager.onDragLeave();
     }

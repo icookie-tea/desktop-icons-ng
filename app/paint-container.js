@@ -148,10 +148,12 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
                 this._colors.borderKeyboard);
         }
 
-        if (dm.rubberBand && dm.selectionRectangle) {
-            if (grid.gridGlobalRectangle.intersect(dm.selectionRectangle)[0]) {
-                let [xInit, yInit] = grid.coordinatesGlobalToLocal(dm.x1, dm.y1);
-                let [xFin, yFin] = grid.coordinatesGlobalToLocal(dm.x2, dm.y2);
+        /* rubber band state lives on the SelectionManager */
+        const sel = dm._selectionManager;
+        if (sel.rubberBand && sel.selectionRectangle) {
+            if (grid.gridGlobalRectangle.intersect(sel.selectionRectangle)[0]) {
+                let [xInit, yInit] = grid.coordinatesGlobalToLocal(sel.x1, sel.y1);
+                let [xFin, yFin] = grid.coordinatesGlobalToLocal(sel.x2, sel.y2);
 
                 this._snapshotRoundedRect(snapshot,
                     xInit, yInit, xFin - xInit, yFin - yInit,
