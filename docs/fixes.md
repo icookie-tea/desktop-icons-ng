@@ -4,6 +4,22 @@
 
 ## 2026-09-08
 
+### 拖拽图标到文件夹后，原位置残留空选中框（点空白处才消失）
+
+**症状：** 把桌面图标拖进文件夹后，文件已移入文件夹，但原图标位置残留一个只有 1px 橙色轮廓、无填充、无内容的空圆角框；点击桌面空白处才消失。
+
+**根因：** `a7372bb` 把选中框轮廓从 CSS 改为 PaintContainer 从 `grid._fileItems` map 绘制（为与拖拽预览框像素级对齐）。该场景下的实际状态是“map/`_fileList` 条目仍残留（isSelected=true）但 item 的 container widget 已不在窗口里”——轮廓从 map 画所以存活，35% 填充在 CSS（随 widget 消失），故只剩鬼影框。旧 CSS 方式（如 `661428f`，真机验证无此症状）选中外观完全长在 widget 上，widget 没了外观必消失，同样的残留状态当时不可见。残留状态的确切触发路径尚未定位（待跟进）。
+
+**修复：**
+- `app/stylesheet.css`：`.desktop-icons-selected` 恢复 `border-color: @desktop_icons_bg_color`（1px 轮廓回到 CSS）；`.desktop-icons-selected-keyboard` 恢复 `border-color: alpha(@desktop_icons_accent_color, 0.7)`。`.file-item` 的 1px 结构性边框不变，几何与 `setCoordinates()` 的 decoration=4 计算保持一致。
+- `app/paint-container.js`：删除选中/键盘选中轮廓的批量描边路径（及不再使用的 `borderKeyboard` 颜色），overlay 只画橡皮筋与拖拽预览。
+- `app/desktop-icon-item.js` `_setSelectedStatus()`：移除 `changed` 跟踪与 `_grid.queue_draw()`（选中状态不再影响 overlay，widget 自身 style recalc 负责重绘）。
+- `app/desktop-grid.js` `removeItem()`：先删 `_fileItems` 条目再移除 widget——即使 GTK 调用异常，也不会留下能画出鬼影框的残留条目（双保险）。
+
+**代价：** CSS 1px 边框在亚像素位置上会比 Gsk 描边略软（抗锯齿跨两行像素），这是回退的已知视觉代价；换来选中外观与 widget 生命周期绑定，map 状态异常时不再出现鬼影。
+
+### 移除“按类型堆叠”（keep-stacked）功能
+
 ### 移除“按类型堆叠”（keep-stacked）功能
 
 **动机：** 该功能 bug 较多（同日已修两例：`_getCurrentKeyboardIcon` shim 丢失、marker 工厂回调契约不匹配），且实际使用频率低；整体移除以降低维护复杂度。

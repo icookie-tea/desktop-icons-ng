@@ -472,44 +472,33 @@ export var desktopIconItem = class desktopIconItem extends SignalManager.SignalM
 
     _setSelectedStatus() {
         let grab_focus = false;
-        let changed = false;
+        // Selection fill AND outline are CSS on this container
+        // (.desktop-icons-selected / -keyboard), so no overlay
+        // invalidation is needed here; the widget's own style recalc
+        // redraws it. (The outline briefly lived in the grid's
+        // PaintContainer, but that ghosted when a grid map entry outlived
+        // its widget — docs/fixes.md 2026-09-08.)
         if (this._isKeyboardSelected && this.container && !this.container.has_css_class('desktop-icons-selected-keyboard')) {
             this.container.add_css_class('desktop-icons-selected-keyboard');
-            changed = true;
             if (this._isKeyboardSelected) {
                 grab_focus = true;
             }
         }
         if (!this._isKeyboardSelected && this.container && this.container.has_css_class('desktop-icons-selected-keyboard')) {
             this.container.remove_css_class('desktop-icons-selected-keyboard');
-            changed = true;
         }
         if (this._isSelected && this.container && !this.container.has_css_class('desktop-icons-selected')) {
             this.container.add_css_class('desktop-icons-selected');
-            changed = true;
             if (this._isKeyboardSelected) {
                 grab_focus = true;
             }
         }
         if (!this._isSelected && this.container && this.container.has_css_class('desktop-icons-selected')) {
             this.container.remove_css_class('desktop-icons-selected');
-            changed = true;
         }
         if (grab_focus) {
             this.setAccessibleName(this._getVisibleName());
             this._accessibleBox.grab_focus();
-        }
-        // The selection/keyboard outlines are stroked by the grid's
-        // PaintContainer (same Gsk path as the drag drop preview); the CSS
-        // classes above only carry the 35% fill.
-        //
-        // Only invalidate the overlay when the visuals actually changed:
-        // the rubber-band motion handler calls setSelected() on every
-        // intersecting item for every motion event, and an unconditional
-        // queue_draw() here flooded the main loop with N+1 full-desktop
-        // invalidations per event (docs/fixes.md 2026-09-07).
-        if (changed && this._grid) {
-            this._grid.queue_draw();
         }
     }
 

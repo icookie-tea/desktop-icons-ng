@@ -425,8 +425,12 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
         if (fileItem.uri in this._fileItems) {
             let [column, row] = this._fileItems[fileItem.uri];
             this._setGridUse(column, row, false);
-            this._container.remove(fileItem.container);
+            // Drop the bookkeeping BEFORE the widget removal: if the GTK
+            // call below ever throws, no stale _fileItems entry survives
+            // (a stale entry with isSelected=true used to paint a ghost
+            // outline, docs/fixes.md 2026-09-08).
             delete this._fileItems[fileItem.uri];
+            this._container.remove(fileItem.container);
         }
     }
 

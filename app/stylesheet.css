@@ -63,16 +63,18 @@ window.testwindow {
 }
 
 .desktop-icons-selected {
-    /* Fill only. The 1px outline is stroked in PaintContainer (the same Gsk
-       path as the drag drop-grid preview) so both render pixel-identically;
-       a CSS border renders softer due to anti-aliasing (docs/fixes.md
-       2026-09-07). libadwaita gridview child:selected = accent-bg 25%,
-       raised to 35% for readability over wallpaper. */
+    /* Fill + 1px outline, both CSS on the item widget. The outline used to
+       be stroked in PaintContainer from grid._fileItems, which left a ghost
+       outline when a map entry outlived its widget (drag into folder,
+       docs/fixes.md 2026-09-08). libadwaita gridview child:selected =
+       accent-bg 25%, raised to 35% for readability over wallpaper. */
     background-color: alpha(@desktop_icons_bg_color, 0.35);
+    border-color: @desktop_icons_bg_color;
 }
 
 .desktop-icons-selected-keyboard:not(:backdrop) {
-    /* Keyboard selection: same fill; the accent outline (70%) is stroked in
-       PaintContainer (borderKeyboard). */
+    /* Keyboard selection: same fill + accent outline (70%). CSS again for
+       the same reason as .desktop-icons-selected (docs/fixes.md 2026-09-08). */
     background-color: alpha(@desktop_icons_bg_color, 0.35);
+    border-color: alpha(@desktop_icons_accent_color, 0.7);
 }

@@ -67,8 +67,6 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
             borderRubber: new Gdk.RGBA({ red: ar, green: ag, blue: ab, alpha: 1.0 }),
             fillDrop: new Gdk.RGBA({ red, green, blue, alpha: 0.4 }),
             borderDrop: new Gdk.RGBA({ red, green, blue, alpha: 1.0 }),
-            // Keyboard selection ring (was CSS border-color accent 70%).
-            borderKeyboard: new Gdk.RGBA({ red: ar, green: ag, blue: ab, alpha: 0.7 }),
         };
     }
 
@@ -104,49 +102,12 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
 
         this._updateColors(dm);
 
-        /* Selection outlines: stroked with the exact same Gsk path as the
-           drag drop-grid preview, so both render pixel-identically. A CSS
-           border used to look softer (anti-aliased across two pixel rows
-           when the widget edge sits at a fractional position); see
-           docs/fixes.md 2026-09-07. The 35% fill stays in CSS.
-
-           Perf: all selected cells are batched into ONE Gsk path per
-           outline color and stroked once per frame; per-item paths used
-           to allocate a path/Stroke/render node for every selected icon
-           every frame (and Object.values() copied the whole _fileItems
-           map), starving the frame budget during rubber-band drags
-           (docs/fixes.md 2026-09-07). */
-        let normalBuilder = null;
-        let keyboardBuilder = null;
-        for (let uri in grid._fileItems) {
-            const entry = grid._fileItems[uri];
-            const item = entry[2];
-            if (!item || !item.isSelected)
-                continue;
-            const x = Math.floor(grid._width * entry[0] / grid._maxColumns);
-            const y = Math.floor(grid._height * entry[1] / grid._maxRows);
-            let builder = item.isKeyboardSelected ? keyboardBuilder : normalBuilder;
-            if (builder === null) {
-                builder = new Gsk.PathBuilder();
-                if (item.isKeyboardSelected)
-                    keyboardBuilder = builder;
-                else
-                    normalBuilder = builder;
-            }
-            this._appendRoundedRectPath(builder,
-                x + elementSpacing, y + elementSpacing,
-                grid._elementWidth - 2 * elementSpacing,
-                grid._elementHeight - 2 * elementSpacing,
-                10);
-        }
-        if (normalBuilder !== null) {
-            snapshot.append_stroke(normalBuilder.to_path(), this._stroke1,
-                this._colors.borderDrop);
-        }
-        if (keyboardBuilder !== null) {
-            snapshot.append_stroke(keyboardBuilder.to_path(), this._stroke1,
-                this._colors.borderKeyboard);
-        }
+        /* Selection fill + outline are CSS on each item widget (the
+           .desktop-icons-selected classes), not drawn here: this overlay
+           used to stroke the outlines from grid._fileItems, and a stale
+           map entry outliving its widget left a ghost outline after
+           dragging a file into a folder (docs/fixes.md 2026-09-08).
+           This overlay only draws the rubber band and the drop preview. */
 
         /* rubber band state lives on the SelectionManager */
         const sel = dm._selectionManager;
