@@ -255,15 +255,16 @@ export var SortManager = class {
         this._dm.stackInitialCoordinates = null;
     }
 
-    _makeStackTopMarkerFolder(type, list) {
+    /* Marker factory for sortFileListByKindStacked(): the pure core pushes
+       the returned item itself (it no longer receives the list). */
+    _makeStackTopMarkerFolder(type) {
         let stackAttribute = type.split('/')[1];
-        let fileItem = new stackItem.stackItem(
+        return new stackItem.stackItem(
             this._dm,
             stackAttribute,
             type,
             Enums.FileType.STACK_TOP
         );
-        list.push(fileItem);
     }
 
     _sortAllFilesFromGridsByKindStacked(restack) {

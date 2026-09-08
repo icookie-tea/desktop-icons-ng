@@ -4,6 +4,16 @@
 
 ## 2026-09-08
 
+### 勾选“按类型堆叠”崩溃且图标消失：堆叠顶工厂回调契约不匹配（基线既有）
+
+**症状：** 在设置里勾选“按类型堆叠”（keep-stacked）后 DING 报 `JS ERROR: TypeError: can't access property "push", list is undefined`（`_makeStackTopMarkerFolder`），且桌面图标全部消失。
+
+**根因：** `036cd8d`（抽取纯函数供无头单测）把 `sortFileListByKindStacked` 的 marker 工厂契约从“往传入的 list 里 push”改成“**返回** item（纯函数自己 push）”，但真实胶水回调 `_makeStackTopMarkerFolder(type, list)` 没跟着改：调用方只传 `type`，`list` 为 `undefined` → `list.push` 崩溃。异常发生在“文件已从网格移除、尚未放回”的中间态，所以图标消失。单测未覆盖：纯函数测试注入的是形状正确的假工厂，真实回调从未被执行。基线既有 bug（非 dm-split 分支引入）。
+
+**修复：** `app/sort-manager.js` `_makeStackTopMarkerFolder(type)` 改为 `return new stackItem.stackItem(...)`，与新契约一致。
+
+**防回归：** `scripts/check.sh` 新增结构守护——`_makeStackTopMarkerFolder` 必须 `return new stackItem`（返回契约），push 式写法直接红。
+
 ### 1 行名称的图标在选中框中偏上：内容块改为单元格内垂直居中
 
 **症状：** 选中框（= 网格单元，standard 档 ~116px 高）内，图标紧贴框顶（~6px，边框/padding + 图标 SVG 内边距），而 1 行名称文字下方留有大片空白（像素测量截图 2026-09-08 08-56-51.png：主目录/初稿-修改.pdf 框底空白 ≈ 28~33px；2 行名称的框底部空白仅 ~12px）。整体观感：内容悬在框的上半部。

@@ -46,6 +46,13 @@ if ! grep -qE '^    _remoteCall\(' app/dbus-remote-operations.js; then
     echo "FAIL: app/dbus-remote-operations.js is missing the _remoteCall() helper definition"
     exit 1
 fi
+# sortFileListByKindStacked() pushes the marker factory's RETURN value
+# (the factory no longer receives the list). A push-style factory both
+# crashes (list is undefined) and yields undefined grid entries.
+if ! grep -A8 '_makeStackTopMarkerFolder(type)' app/sort-manager.js | grep -q 'return new stackItem'; then
+    echo "FAIL: _makeStackTopMarkerFolder must RETURN the stackItem (return-value contract of sortFileListByKindStacked)"
+    exit 1
+fi
 # Legacy GJS only exports top-level var/function — classes must be var-declared.
 if grep -qE '^class [A-Za-z]' app/*.js; then
     echo "FAIL: top-level bare 'class' declarations are not exported by legacy GJS"
