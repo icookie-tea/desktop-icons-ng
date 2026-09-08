@@ -71,7 +71,7 @@ export var DndManager = class {
             }
         }
         // force to store the new coordinates
-        this._dm._addFilesToDesktop(fileItems, Enums.StoredCoordinates.OVERWRITE);
+        this._dm._gridLayout.addFilesToDesktop(fileItems, Enums.StoredCoordinates.OVERWRITE);
         fileItems = undefined;
         if (this._dm.keepArranged) {
             this._dm._updateDesktopSafe('move with drag and drop (keep arranged)');

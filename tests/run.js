@@ -21,6 +21,7 @@ import * as TestVolumeMount from './test-volume-mount.js';
 import * as TestIconLayout from './test-icon-layout.js';
 import * as TestSelection from './test-selection.js';
 import * as TestSearchDialog from './test-search-dialog.js';
+import * as TestPlacement from './test-placement.js';
 
 const tests = [
     TestFileChangesQueue,
@@ -39,6 +40,7 @@ const tests = [
     TestIconLayout,
     TestSelection,
     TestSearchDialog,
+    TestPlacement,
 ];
 
 async function main() {

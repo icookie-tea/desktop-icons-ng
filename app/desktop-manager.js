@@ -765,144 +765,16 @@ export var DesktopManager = class {
         } else if (this.keepArranged) {
             this.doSorts();
         } else {
-            this._addFilesToDesktop(this._fileList, Enums.StoredCoordinates.PRESERVE);
+            this._gridLayout.addFilesToDesktop(this._fileList, Enums.StoredCoordinates.PRESERVE);
         }
-    }
-
-    /* Primary-screen fallback cell: where icons with no coordinates land.
-     * Reused by _addFilesToDesktop and _addSingleFileToDesktop. */
-    _getFallbackPosition() {
-        DebugLog.debugLog(`[place] fallback primary#${this._primaryIndex} desktops=${this._desktops.length}`);
-        if (this._primaryScreen !== null) {
-            const primaryGrid = this._desktops.find(g => g._monitor === this._primaryScreen.monitorIndex);
-            if (primaryGrid) {
-                return [primaryGrid._x, primaryGrid._y];
-            }
-            return [
-                this._primaryScreen.x + this._primaryScreen.windowMarginLeft,
-                this._primaryScreen.y + this._primaryScreen.windowMarginTop,
-            ];
-        }
-        return [0, 0];
-    }
-
-    /* Desktop that owns point (x, y): getDistance() === 0 wins; otherwise
-     * the first desktop able to host it (getDistance() !== -1), or — with
-     * nearest — the closest one. Returns null when nothing can host it. */
-    _findDesktopFor(x, y, { nearest = false, exactOnly = false } = {}) {
-        let firstAvailable = null;
-        let nearestDesktop = null;
-        let minDistance = -1;
-        for (let desktop of this._desktops) {
-            const distance = desktop.getDistance(x, y);
-            DebugLog.debugLog(`[place] find(${x},${y}) grid#${desktop._monitor} dist=${distance}`);
-            if (distance === 0) {
-                DebugLog.debugLog(`[place] find(${x},${y}) -> grid#${desktop._monitor} (exact)`);
-                return desktop;
-            }
-            if (exactOnly || distance === -1) {
-                continue;
-            }
-            if (firstAvailable === null) {
-                firstAvailable = desktop;
-            }
-            if ((minDistance === -1) || (distance < minDistance)) {
-                minDistance = distance;
-                nearestDesktop = desktop;
-            }
-        }
-        const chosen = nearest ? nearestDesktop : firstAvailable;
-        DebugLog.debugLog(`[place] find(${x},${y}) -> ${chosen === null ? 'NULL (no hostable grid)' : `grid#${chosen._monitor} ${nearest ? '(nearest)' : '(first-available)'}`}`);
-        return chosen;
     }
 
     _addFilesToDesktop(fileList, storeMode) {
-        if (this._desktops.length == 0) {
-            return;
-        }
-        let outOfDesktops = [];
-        let notAssignedYet = [];
-
-        // First, add those icons that fit in the current desktops
-        for (let fileItem of fileList) {
-            if (fileItem.savedCoordinates == null) {
-                notAssignedYet.push(fileItem);
-                continue;
-            }
-            if (fileItem.dropCoordinates != null) {
-                fileItem.dropCoordinates = null;
-            }
-            let [itemX, itemY] = fileItem.savedCoordinates;
-            const desktop = this._findDesktopFor(itemX, itemY, { exactOnly: true });
-            if (desktop !== null) {
-                desktop.addFileItemCloseTo(fileItem, itemX, itemY, storeMode);
-            } else {
-                outOfDesktops.push(fileItem);
-            }
-        }
-        // Now, assign those icons that are outside the current desktops,
-        // but have assigned coordinates
-        for (let fileItem of outOfDesktops) {
-            let [itemX, itemY] = fileItem.savedCoordinates;
-            const newDesktop = this._findDesktopFor(itemX, itemY, { nearest: true });
-            if (newDesktop == null) {
-                print('Not enough space to add icons');
-                break;
-            } else {
-                newDesktop.addFileItemCloseTo(fileItem, itemX, itemY, storeMode);
-            }
-        }
-        // Finally, assign those icons that still don't have coordinates
-        for (let fileItem of notAssignedYet) {
-            let x, y;
-            if (fileItem.dropCoordinates == null) {
-                [x, y] = this._getFallbackPosition();
-                storeMode = Enums.StoredCoordinates.ASSIGN;
-            } else {
-                [x, y] = fileItem.dropCoordinates;
-                fileItem.dropCoordinates = null;
-                storeMode = Enums.StoredCoordinates.OVERWRITE;
-            }
-            // designated desktop first, any other hostable desktop as fallback
-            const desktop = this._findDesktopFor(x, y);
-            if (desktop !== null) {
-                desktop.addFileItemCloseTo(fileItem, x, y, storeMode);
-            }
-        }
+        this._gridLayout.addFilesToDesktop(fileList, storeMode);
     }
 
     _addSingleFileToDesktop(fileItem) {
-        // Explicit drop intent wins over any stored position: a stale
-        // nautilus-icon-position (e.g. copied or leftover metadata) must
-        // not pull a freshly created/pasted icon onto another monitor.
-        if (fileItem.dropCoordinates) {
-            const [x, y] = fileItem.dropCoordinates;
-            DebugLog.debugLog(`[place] ${fileItem.file.get_basename()} drop=(${x},${y})`);
-            fileItem.dropCoordinates = null;
-            const desktop = this._findDesktopFor(x, y);
-            if (desktop !== null) {
-                desktop.addFileItemCloseTo(fileItem, x, y,
-                    Enums.StoredCoordinates.OVERWRITE);
-                return;
-            }
-        }
-        if (fileItem.savedCoordinates) {
-            const [x, y] = fileItem.savedCoordinates;
-            DebugLog.debugLog(`[place] ${fileItem.file.get_basename()} saved=(${x},${y})`);
-            const desktop = this._findDesktopFor(x, y, { exactOnly: true });
-            if (desktop !== null) {
-                desktop.addFileItemCloseTo(fileItem, x, y,
-                    Enums.StoredCoordinates.PRESERVE);
-                return;
-            }
-        }
-        DebugLog.debugLog(`[place] ${fileItem.file.get_basename()} FALLBACK primary=${!!this._primaryScreen}`);
-        const [x, y] = this._getFallbackPosition();
-        const desktop = this._findDesktopFor(x, y);
-        if (desktop !== null) {
-            desktop.addFileItemCloseTo(fileItem, x, y,
-                Enums.StoredCoordinates.ASSIGN);
-        }
+        this._gridLayout.addSingleFileToDesktop(fileItem);
     }
 
 
