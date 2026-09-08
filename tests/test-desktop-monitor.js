@@ -31,7 +31,6 @@ function makeDm(overrides = {}) {
     const dm = {
         _showHidden: false,
         keepArranged: false,
-        keepStacked: false,
         _desktopDir: {
             ...makeFile('/home/u/Desktop'),
             // consumed by monitor.updateWritableByOthers()

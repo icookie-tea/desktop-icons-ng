@@ -43,8 +43,6 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
         this._custom = custom;
         this._isSpecial = this._fileExtra != Enums.FileType.NONE;
         this._file = file;
-        this.isStackTop = false;
-        this.stackUnique = false;
         this._realizeId = 0;
 
         this._savedCoordinates = this._readCoordinatesFromAttribute(fileInfo, 'metadata::nautilus-icon-position');
@@ -919,14 +917,6 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
 
     get writableByOthers() {
         return this._writableByOthers;
-    }
-
-    get isStackMarker() {
-        if (this.isStackTop && !this.stackUnique) {
-            return true;
-        } else {
-            return false;
-        }
     }
 };
 Signals.addSignalMethods(FileItem.prototype);

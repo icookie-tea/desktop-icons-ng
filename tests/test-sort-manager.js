@@ -7,8 +7,7 @@
  * ASCII names across locales.
  */
 import { SortManager } from '../app/sort-manager.js';
-import * as Enums from '../app/enums.js';
-import { assertDeepEqual, assertEqual, summary } from './harness.js';
+import { assertDeepEqual, summary } from './harness.js';
 
 function mockItem(name, contentType) {
     return {
@@ -112,125 +111,6 @@ export function runTests() {
     dm.keepArranged = true;
     sm2.sortAllFilesFromGridsByPosition(); // must not throw
 
-    // 5. sortFileListByKindStacked: stacked-layout semantics (pure core
-    // extracted for testability; pins the O(n²)→O(n) rewrite behavior)
-    const mk = (name, type, extra = {}) => ({
-        _label: { get_text: () => name },
-        fileName: name,
-        attributeContentType: type,
-        isSpecial: false,
-        isDirectory: false,
-        _isValidDesktopFile: false,
-        isStackMarker: false,
-        updateIcon: () => {},
-        ...extra,
-    });
-
-    // NAME order: output = uniques + markers + specials/desktop-files/dirs,
-    // name-sorted together; unstacked types are re-inserted right after an
-    // item of the same type. Stacked (non-unstacked) members are intentionally
-    // absent — the marker represents the stack (originals are kept in
-    // desktopManager._allFileList for unstacking). Pins the O(n²)→O(n) rewrite.
-    {
-        const list = [
-            mk('b.png', 'image/png'),
-            mk('a.png', 'image/png'),
-            mk('c.png', 'image/png'),
-            mk('d.txt', 'text/plain'),
-            mk('e.txt', 'text/plain'),
-            mk('home', '', { isSpecial: true }),
-            mk('app.desktop', 'application/x-desktop', { _isValidDesktopFile: true }),
-            mk('docs', '', { isDirectory: true }),
-        ];
-        const markers = [];
-        const out = SortManager.sortFileListByKindStacked(
-            list, ['image/png'], Enums.SortOrder.NAME,
-            (type) => { const m = mk(`marker-${type}`, type, { isStackMarker: true }); markers.push(m); return m; });
-        // A marker is created for EVERY non-unique type (image and text are
-        // both doubled here). image/png is unstacked → its members are
-        // re-inserted right after marker-image/png; text/plain stays stacked
-        // → its members remain hidden behind marker-text/plain.
-        assertDeepEqual(out.map(i => i.fileName),
-            ['app.desktop', 'docs', 'home', 'marker-image/png', 'a.png', 'b.png', 'c.png', 'marker-text/plain'],
-            'NAME: markers for non-unique types, unstacked members after their marker, stacked members hidden');
-        assertEqual(markers.length, 2, 'one marker per non-unique type');
-        assertEqual(list.find(i => i.fileName === 'a.png').isStackTop, false,
-            'stack-top item demoted once its marker takes over');
-        const idxMarkerImg = out.findIndex(i => i.fileName === 'marker-image/png');
-        assertDeepEqual(out.slice(idxMarkerImg + 1, idxMarkerImg + 4).map(i => i.fileName),
-            ['a.png', 'b.png', 'c.png'],
-            'unstacked members immediately follow their marker, name-sorted');
-        assertEqual(out.some(i => i.fileName === 'd.txt' || i.fileName === 'e.txt'), false,
-            'stacked (non-unstacked) text members hidden behind their marker');
-    }
-
-    // NAME order, unstacked type: the marker represents the type in the
-    // merged list, and the type's members are spliced in right after the
-    // marker (re-insertion semantics, pinned).
-    {
-        const list = [
-            mk('b.png', 'image/png'),
-            mk('a.png', 'image/png'),
-            mk('d.txt', 'text/plain'),
-        ];
-        const out = SortManager.sortFileListByKindStacked(
-            list, ['image/png'], Enums.SortOrder.NAME,
-            (type) => mk(`marker-${type}`, type, { isStackMarker: true }));
-        // merged+sorted: d.txt, marker-image/png; marker's type matches the
-        // unstacked members (a.png, b.png by name) → spliced after the marker
-        assertDeepEqual(out.map(i => i.fileName),
-            ['d.txt', 'marker-image/png', 'a.png', 'b.png'],
-            'unstacked type: members re-inserted right after the marker');
-    }
-
-    // SIZE order: a fully-stacked type yields only its marker; the marker's
-    // size is copied from the first stacked file of its type (head of
-    // stackedFiles after the SIZE sort). NOTE: the production code copies
-    // `modifiedTime` (a plain property, undefined on FileItem which exposes
-    // a getter instead), so marker.time is pinned as undefined — a latent
-    // no-op, documented here rather than "fixed" in this test-only change.
-    {
-        const list = [
-            mk('big.png', 'image/png', { fileSize: 300 }),
-            mk('small.png', 'image/png', { fileSize: 100 }),
-            mk('mid.png', 'image/png', { fileSize: 200 }),
-        ];
-        const markers = [];
-        const out = SortManager.sortFileListByKindStacked(
-            list, [], Enums.SortOrder.SIZE,
-            (type) => { const m = mk('marker', type, { isStackMarker: true }); markers.push(m); return m; });
-        assertDeepEqual(out.map(i => i.fileName), ['marker'],
-            'fully-stacked type: only the marker is shown');
-        assertEqual(markers[0].size, 100, 'marker.size copied from first (smallest) stacked file');
-        assertEqual(markers[0].time, undefined,
-            'marker.time: production reads .modifiedTime (undefined on FileItem) — pinned as no-op');
-    }
-
-    // 6. _restoreStackInitialCoordinates: fileName→coords map, last entry
-    // wins on duplicates, state cleared after restore.
-    {
-        const dm3 = {
-            _fileList: [
-                mk('a.txt', 'text/plain'),
-                mk('dup.txt', 'text/plain'),
-                mk('z.txt', 'text/plain'), // never stored → untouched
-            ],
-            stackInitialCoordinates: [
-                ['a.txt', [1, 2]],
-                ['dup.txt', [9, 9]],
-                ['dup.txt', [5, 6]], // duplicate: last match wins
-            ],
-        };
-        const sm3 = new SortManager(dm3);
-        sm3._restoreStackInitialCoordinates();
-        assertDeepEqual(dm3._fileList.find(i => i.fileName === 'a.txt').savedCoordinates, [1, 2],
-            'restore: stored coordinates applied');
-        assertDeepEqual(dm3._fileList.find(i => i.fileName === 'dup.txt').savedCoordinates, [5, 6],
-            'restore: duplicate fileName — last entry wins');
-        assertEqual(dm3._fileList.find(i => i.fileName === 'z.txt').savedCoordinates, undefined,
-            'restore: unknown fileName untouched');
-        assertEqual(dm3.stackInitialCoordinates, null, 'restore: state cleared');
-    }
 
     return summary('SortManager');
 }

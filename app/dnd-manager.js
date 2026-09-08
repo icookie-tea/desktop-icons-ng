@@ -35,7 +35,7 @@ export var DndManager = class {
     }
 
     doMoveWithDragAndDrop(xOrigin, yOrigin, xDestination, yDestination) {
-        const keepArranged = this._dm.keepArranged || this._dm.keepStacked;
+        const keepArranged = this._dm.keepArranged;
         if (this._dm.sortSpecialFolders && keepArranged) {
             return;
         }

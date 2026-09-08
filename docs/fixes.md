@@ -4,7 +4,33 @@
 
 ## 2026-09-08
 
+### 移除“按类型堆叠”（keep-stacked）功能
+
+**动机：** 该功能 bug 较多（同日已修两例：`_getCurrentKeyboardIcon` shim 丢失、marker 工厂回调契约不匹配），且实际使用频率低；整体移除以降低维护复杂度。
+
+**移除范围：**
+- `app/stack-item.js`（整个文件）+ meson 安装清单条目
+- `app/sort-manager.js`：`doStacks`/`_unstack`/`_saveStackInitialCoordinates`/`_restoreStackInitialCoordinates`/`_makeStackTopMarkerFolder`/`_sortAllFilesFromGridsByKindStacked`/静态 `sortFileListByKindStacked`（保留 `_sortByKindByName`，sort-by-kind 仍在用）
+- `app/desktop-manager.js`：`doStacks`/`_unstack`/`onToggleStackUnstackThisTypeClicked` shim、`keepStacked`/`stackInitialCoordinates`/`_allFileList` 状态、`_placeAllFilesOnGrids` 的 keepStacked 分支、设置变更的 `keep-stacked`/`unstackedtypes` case；`updateFileList()` 简化为直接返回 `_fileList`
+- `app/desktop-menu.js`：“Keep Stacked by type...” 菜单项；`app/file-item-menu.js`：Stack/Unstack This Type 菜单项 + `isStackMarker` 条件；`app/file-item.js`：`isStackTop`/`stackUnique`/`isStackMarker`；`app/enums.js`：`FileType.STACK_TOP`；`app/preferences.js`：`getUnstackList`/`setUnstackList`
+- 模式：`keep-stacked`、`unstackedtypes` 两个 GSettings key（已重编译 schema）
+- 测试：`tests/test-sort-manager.js` 的 stacked-sort 段；`scripts/check.sh` 的 marker 工厂契约守护
+
+**兼容性：** 老用户已存的 `keep-stacked`/`unstackedtypes` 值会被 GSettings 静默忽略；若之前处于堆叠状态，重新启用扩展后图标按保留坐标/排序正常摆放。
+
+### 查找对话框（Ctrl+F / type-to-search）无法打开：AdwDialog.present 缺 parent 参数（基线既有）
+
+**症状：** 按 Ctrl+F 或键入字符触发查找时崩溃：`TypeError: method Adw.Dialog.present: At least 1 argument required, but only 0 passed`（`search-dialog.js` findFiles）。由 check.sh 冒烟测试在 2026-09-08 抓到（冒烟窗口获得焦点后收到真实按键）。
+
+**根因：** 对话框迁移到 `Adw.Dialog` 后，`present()` 与 `Gtk.Window.present()` 不同——`AdwDialog.present(parent)` 必须传 parent 窗口。`findFiles(window, text)` 的 `window` 参数本就为此而存在，但从未被使用。基线既有 bug。
+
+**修复：** `search-dialog.js` findFiles 末尾改为 `this._findFileWindow.present(window)`（window 存在时）。
+
+**附带（冒烟确定性）：** 冒烟窗口可能抢走用户键盘焦点，用户在 8 秒窗口期内的按键会驱动桌面逻辑。`DING_SMOKE=1` 时独立模式窗口在 CAPTURE 阶段消费所有 key-pressed（check.sh 已设置）；键盘行为本身由单测和真机检查覆盖。
+
 ### 勾选“按类型堆叠”崩溃且图标消失：堆叠顶工厂回调契约不匹配（基线既有）
+
+> 注：该功能已于同日整体移除（见上文），此条保留作为历史修复记录。
 
 **症状：** 在设置里勾选“按类型堆叠”（keep-stacked）后 DING 报 `JS ERROR: TypeError: can't access property "push", list is undefined`（`_makeStackTopMarkerFolder`），且桌面图标全部消失。
 
@@ -12,7 +38,7 @@
 
 **修复：** `app/sort-manager.js` `_makeStackTopMarkerFolder(type)` 改为 `return new stackItem.stackItem(...)`，与新契约一致。
 
-**防回归：** `scripts/check.sh` 新增结构守护——`_makeStackTopMarkerFolder` 必须 `return new stackItem`（返回契约），push 式写法直接红。
+**防回归：** `scripts/check.sh` 新增结构守护——`_makeStackTopMarkerFolder` 必须 `return new stackItem`（返回契约），push 式写法直接红。（守护已随功能移除一并删除。）
 
 ### 1 行名称的图标在选中框中偏上：内容块改为单元格内垂直居中
 

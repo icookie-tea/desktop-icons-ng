@@ -39,7 +39,6 @@ export var FileType = {
     USER_DIRECTORY_HOME: 'show-home',
     USER_DIRECTORY_TRASH: 'show-trash',
     EXTERNAL_DRIVE: 'external-drive',
-    STACK_TOP: 'stack-top',
 };
 
 export var StoredCoordinates = {

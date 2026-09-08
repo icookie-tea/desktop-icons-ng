@@ -40,7 +40,6 @@ install_data([
     'signals.js',
     'signal-manager.js',
     'sort-manager.js',
-    'stack-item.js',
     'theme-manager.js',
     'stylesheet.css',
     'templates-scripts-manager.js',

@@ -180,17 +180,3 @@ export function getSortOrder() {
     return Enums.SortOrder[desktopSettings.get_string(Enums.SortOrder.ORDER)];
 }
 
-/**
- *
- */
-export function getUnstackList() {
-    return desktopSettings.get_strv('unstackedtypes');
-}
-
-/**
- *
- * @param array
- */
-export function setUnstackList(array) {
-    desktopSettings.set_strv('unstackedtypes', array);
-}

@@ -177,7 +177,11 @@ export var SearchDialog = class {
             this._refreshSearchTimeout();
         });
         this._findFileWindow.show();
-        this._findFileWindow.present();
+        // AdwDialog.present requires a parent window (unlike plain
+        // GtkWindow.present) — passing none throws at runtime.
+        if (window) {
+            this._findFileWindow.present(window);
+        }
         this._findFileTextArea.grab_focus();
         if (text) {
             this._findFileTextArea.set_text(text);

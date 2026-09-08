@@ -30,7 +30,7 @@ icookie 分支在此基础上进行了大量重构和功能增强，包括模块
 │  │   ├── mount-manager.js ──── VolumeMonitor/mount 生命周期（拆分）│
 │  │   ├── theme-manager.js  ── accent color / 暗色模式             │
 │  │   ├── file-operations.js ── 文件操作封装                       │
-│  │   ├── sort-manager.js   ── 排序/堆叠逻辑                       │
+│  │   ├── sort-manager.js   ── 排序逻辑                             │
 │  │   ├── file-changes-queue.js ── 增量更新队列                    │
 │  │   ├── desktop-grid.js ──── 网格渲染（每块屏幕一个）              │
 │  │   │   └── paint-container.js ── 橡皮筋选择 / 拖放高亮绘制       │
@@ -202,8 +202,8 @@ DesktopManager.constructor()
   ├─→ _fileOps = FileOperations(this)        // 文件操作封装
   │   └─→ doCopy/doCut/doTrash/doDelete/doPaste/doRename/doNewFolder
   │
-  ├─→ _sortManager = SortManager(this)       // 排序/堆叠逻辑
-  │   └─→ doSorts() / doStacks()
+  ├─→ _sortManager = SortManager(this)       // 排序逻辑
+  │   └─→ doSorts()
   │
   ├─→ _fileChangesQueue = FileChangesQueue(200, 2)  // icookie: 增量更新队列
   │   └─→ onFlush(events => _processIncrementalEvents())
@@ -226,7 +226,9 @@ icookie 新增实例变量：
   ├─→ _processingIncremental = false          // 增量更新锁
   ├─→ _moveTimeoutId = 0                     // 移动超时定时器
   ├─→ _dragOriginX/Y = 0                    // icookie: 拖拽起始坐标
-  └─→ stackInitialCoordinates               // icookie: 堆叠初始状态保存
+```
+
+> 2026-09-08 起：“按类型堆叠”（keep-stacked）功能已整体移除（见 docs/fixes.md），相关状态（stackInitialCoordinates/_allFileList）与代码一并删除。
 ```
 
 **后续拆分（可维护性重构）：** `DesktopManager` 进一步拆分为三个独立模块——
@@ -279,7 +281,6 @@ _updateDesktop()
         ├─→ _removeAllFilesFromGrids()        // 清理旧图标
         ├─→ 恢复选中状态
         └─→ _placeAllFilesOnGrids()
-             ├─→ keep-stacked → doStacks()     // icookie: SortManager.doStacks()
              ├─→ keep-arranged → doSorts()     // icookie: SortManager.doSorts()
              └─→ 默认 → _addFilesToDesktop()   // 保留用户位置
 
@@ -408,7 +409,9 @@ ThemeManager
 
 ### 5.8 SortManager (icookie 新增模块)
 
-从 `desktop-manager.js` 抽离，处理所有排序和堆叠逻辑：
+从 `desktop-manager.js` 抽离，处理排序逻辑（原“按类型堆叠”功能已于 2026-09-08 整体移除：
+`stack-item.js`、doStacks/_unstack、sortFileListByKindStacked、keep-stacked/unstackedtypes
+设置项、右键菜单 Stack/Unstack This Type 均已删除，见 docs/fixes.md）：
 
 ```
 SortManager
@@ -416,16 +419,7 @@ SortManager
   │   └─→ _sortAllFilesFromGridsByName() / BySize() / ByKind() / ...
   │       └─→ _reassignFilesToDesktop()    // 清除坐标 + 重新分配位置
   │
-  ├─→ doStacks(restack)                   // icookie: 堆叠逻辑
-  │   ├─→ _saveStackInitialCoordinates()   // 保存堆叠前状态 (fileName → coordinate pairs)
-  │   ├─→ _sortAllFilesFromGridsByKindStacked(restack)  // 私有方法，按 contentType 分组
-  │   │   └─→ unstackList 中的类型不堆叠（可展开）
-  │   └─→ _restoreStackInitialCoordinates() // icookie: 取消堆叠恢复
-  │       └─→ 遍历 fileName 匹配 → 恢复 savedCoordinates
-  │
-  ├─→ sortAllFilesFromGridsByPosition()    // 按位置排序（支持四角起始）
-  └─→ onToggleStackUnstackThisTypeClicked(type)
-      └─→ toggle type in Prefs.getUnstackList()
+  └─→ sortAllFilesFromGridsByPosition()    // 按位置排序（支持四角起始）
 ```
 
 ### 5.9 FileOperations (icookie 新增模块)
@@ -520,9 +514,9 @@ icookie drag icon 修复链：
   ├─→ GdkPaintable.snapshot() 替代不存在的 GtkSnapshot.append_paintable()
   └─→ _createDragIcon: shrink ghost to match actual icon container size
 
-icookie stacked drag icons (feature):
-  └─→ multi-select → StackTopMarkerFolder + count badge overlay
 ```
+
+（原“堆叠拖拽图标”随 keep-stacked 功能一并移除）
 
 ### 7.3 键盘导航
 

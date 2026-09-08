@@ -24,10 +24,12 @@ gjs --module tests/run.js
 echo "== Smoke test (standalone ding.js, needs a display) =="
 # Catches constructor/wiring bugs that unit tests can't see: the process must
 # stay alive for the whole window without printing a JS ERROR.
+# DING_SMOKE=1 makes the standalone window consume all key events, so the
+# user's keystrokes (the window may grab focus) can't trigger desktop logic.
 if [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]; then
     smoke_log=$(mktemp)
     rc=0
-    timeout 8 gjs --module app/ding.js -P app >"$smoke_log" 2>&1 || rc=$?
+    DING_SMOKE=1 timeout 8 gjs --module app/ding.js -P app >"$smoke_log" 2>&1 || rc=$?
     if [ $rc -ne 124 ] || grep -q "JS ERROR" "$smoke_log"; then
         echo "FAIL: ding.js smoke test (exit=$rc)"
         grep -B1 -A8 "JS ERROR" "$smoke_log" | head -40
@@ -44,13 +46,6 @@ echo "== Structural sanity =="
 # the same file (guards against helpers lost in mechanical refactors).
 if ! grep -qE '^    _remoteCall\(' app/dbus-remote-operations.js; then
     echo "FAIL: app/dbus-remote-operations.js is missing the _remoteCall() helper definition"
-    exit 1
-fi
-# sortFileListByKindStacked() pushes the marker factory's RETURN value
-# (the factory no longer receives the list). A push-style factory both
-# crashes (list is undefined) and yields undefined grid entries.
-if ! grep -A8 '_makeStackTopMarkerFolder(type)' app/sort-manager.js | grep -q 'return new stackItem'; then
-    echo "FAIL: _makeStackTopMarkerFolder must RETURN the stackItem (return-value contract of sortFileListByKindStacked)"
     exit 1
 fi
 # Legacy GJS only exports top-level var/function — classes must be var-declared.
@@ -99,7 +94,8 @@ check_state_ownership 'ignoreKeys|_lastSelected' 'app/keyboard-manager.js' || ex
 # Every method called through the DesktopManager reference (this._dm.<m>( /
 # this._desktopManager.<m>( / dm.<m>() across app/) must exist on
 # DesktopManager — catches methods moved into a manager without a shim
-# (e.g. _getCurrentKeyboardIcon, which crash-looped doStacks on real device).
+# (e.g. _getCurrentKeyboardIcon, which crash-looped a settings toggle on a
+# real device).
 while read -r m; do
     if ! grep -qE "^\s+(async )?(get |set )?${m}\(" app/desktop-manager.js; then
         echo "FAIL: '$m' is called on the DesktopManager reference but not defined in app/desktop-manager.js (moved to a manager without a shim?)"

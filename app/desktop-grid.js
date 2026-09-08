@@ -17,6 +17,7 @@
  */
 import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
+import GLib from 'gi://GLib';
 
 import * as Prefs from './preferences.js';
 import * as Enums from './enums.js';
@@ -54,6 +55,18 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
         } else {
             // Opaque black test window
             this._window.add_css_class('testwindow');
+            if (GLib.getenv('DING_SMOKE') != null) {
+                // check.sh smoke run: a mapped window may grab the user's
+                // keyboard focus; consume every key event so their
+                // keystrokes cannot drive desktop logic (and cannot make
+                // the run non-deterministic). Keyboard behavior itself is
+                // covered by unit tests and real-device checks.
+                const keyFilter = new Gtk.EventControllerKey({
+                    propagation_phase: Gtk.PropagationPhase.CAPTURE,
+                });
+                keyFilter.connect('key-pressed', () => true);
+                this._window.add_controller(keyFilter);
+            }
         }
         this._window.set_resizable(false);
         this.connectSignal(this._window, 'close-request', () => {

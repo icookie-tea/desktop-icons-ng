@@ -234,28 +234,11 @@ export var DesktopManager = class {
                     desktop.resizeGrid();
                 }
                 this._fileList.forEach(x => x.updateIcon());
-                this._placeAllFilesOnGrids(true);
+                this._placeAllFilesOnGrids();
                 this._updateDesktopSafe('icon size changed');
                 return;
             case Enums.SortOrder.ORDER:
-                if (this.keepStacked) {
-                    this.doStacks(true);
-                } else {
-                    this.doSorts(true);
-                }
-                return;
-            case 'unstackedtypes':
-                if (this.keepStacked) {
-                    this.doStacks(true);
-                }
-                return;
-            case 'keep-stacked':
-                this.keepStacked = Prefs.desktopSettings.get_boolean('keep-stacked');
-                if (!this.keepStacked) {
-                    this._unstack();
-                } else {
-                    this.doStacks(true);
-                }
+                this.doSorts(true);
                 return;
             case 'keep-arranged':
                 this.keepArranged = Prefs.desktopSettings.get_boolean('keep-arranged');
@@ -280,7 +263,6 @@ export var DesktopManager = class {
         this._gridLayout.createGridWindows();
 
         DBusUtils.GtkVfsMetadata.connectSignalToProxy('AttributeChanged', this._monitor.metadataChanged.bind(this._monitor));
-        this._allFileList = null;
         this._forcedExit = false;
         this._updateDesktopSafe('initial load');
     }
@@ -354,13 +336,7 @@ export var DesktopManager = class {
     }
 
     updateFileList() {
-        let updateFileList;
-        if (this._allFileList && (this._allFileList.length > 0)) {
-            updateFileList = this._allFileList;
-        } else {
-            updateFileList = this._fileList;
-        }
-        return updateFileList;
+        return this._fileList;
     }
 
 
@@ -696,9 +672,6 @@ export var DesktopManager = class {
     }
 
     _drawDesktop(fileList) {
-        // Clear stacking data that references items about to be destroyed
-        this._allFileList = null;
-        this.stackInitialCoordinates = null;
         this._pendingMoves = {};
         if (this._moveTimeoutId) {
             GLib.source_remove(this._moveTimeoutId);
@@ -760,13 +733,10 @@ export var DesktopManager = class {
         }
     }
 
-    _placeAllFilesOnGrids(redisplay = false) {
-        this.keepStacked = Prefs.desktopSettings.get_boolean('keep-stacked');
+    _placeAllFilesOnGrids() {
         this.keepArranged = Prefs.desktopSettings.get_boolean('keep-arranged');
         this.sortSpecialFolders = Prefs.desktopSettings.get_boolean('sort-special-folders');
-        if (this.keepStacked) {
-            this.doStacks(redisplay);
-        } else if (this.keepArranged) {
+        if (this.keepArranged) {
             this.doSorts();
         } else {
             this._gridLayout.addFilesToDesktop(this._fileList, Enums.StoredCoordinates.PRESERVE);
@@ -895,23 +865,11 @@ export var DesktopManager = class {
     }
 
 
-    doStacks(restack) {
-        this._sortManager.doStacks(restack);
-    }
-
     sortAllFilesFromGridsByPosition() {
         this._sortManager.sortAllFilesFromGridsByPosition();
     }
 
-    _unstack() {
-        this._sortManager._unstack();
-    }
-
     doSorts(cleargrids) {
         this._sortManager.doSorts(cleargrids);
-    }
-
-    onToggleStackUnstackThisTypeClicked(type) {
-        this._sortManager.onToggleStackUnstackThisTypeClicked(type);
     }
 };

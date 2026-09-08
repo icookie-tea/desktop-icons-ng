@@ -53,7 +53,7 @@ export var DesktopMonitor = class {
                 return;
             }
         }
-        if (this._dm.keepArranged || this._dm.keepStacked) {
+        if (this._dm.keepArranged) {
             this.scheduleFullRefresh();
             return;
         }

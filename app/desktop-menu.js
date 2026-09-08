@@ -144,7 +144,6 @@ export var DesktopMenu = class extends MenuHelper.MenuHelper {
         this._addNewAction('select-all', null, () => this._desktopManager.selectAll());
         this._addNewAction('arrange-icons', null, () => this._desktopManager.sortAllFilesFromGridsByPosition());
         this._addNewActionBoolean('keep-arranged');
-        this._addNewActionBoolean('keep-stacked');
         this._addNewActionBoolean('sort-special-folders');
         this._addNewActionSelection('arrangeorder');
         this._addNewAction('show-in-files', null, () => this._onOpenDesktopInFilesClicked());
@@ -221,7 +220,6 @@ export var DesktopMenu = class extends MenuHelper.MenuHelper {
 
         let section = this._newSection(arrangeSubMenu);
         this._newMenuElement(_('Keep Arranged...'), 'keep-arranged', section);
-        this._newMenuElement(_('Keep Stacked by type...'), 'keep-stacked', section);
         this._newMenuElement(_('Sort Home/Drives/Trash...'), 'sort-special-folders', section);
 
         this._newMenuElement(_('Sort by Name'), 'arrangeorder', section, GLib.Variant.new_string('NAME'));

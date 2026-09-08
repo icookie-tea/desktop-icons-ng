@@ -61,8 +61,6 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
             }
         });
 
-        this._addNewAction('toggle-stack', null, this.onToggleStackUnstackThisTypeClicked.bind(this), 's');
-
         this._addNewAction('open-with', null, this._doOpenWith.bind(this));
 
         this._addNewAction('launch-with-discrete-gpu', null, (action, parameter) => {
@@ -210,10 +208,6 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
         DesktopIconsUtil.trySpawn(null, params, environ);
     }
 
-    onToggleStackUnstackThisTypeClicked(menuItem, variantPath) {
-        this._desktopManager.onToggleStackUnstackThisTypeClicked(variantPath.get_string()[0]);
-    }
-
     showMenu(fileItem, x, y) {
         this._currentFileItem = fileItem;
         if (this._lastMenu !== null) {
@@ -292,31 +286,14 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
 
         let section = this._newSection(menu);
         let added_element = false;
-        if (!fileItem.isStackMarker) {
-            this._newMenuElement(
-                selectedItemsNum > 1 ? _('Open All...') : _('Open'),
-                "open-selected-files",
-                section
-            );
-            added_element = true;
-        }
+        this._newMenuElement(
+            selectedItemsNum > 1 ? _('Open All...') : _('Open'),
+            "open-selected-files",
+            section
+        );
+        added_element = true;
 
-        let keepStacked = Prefs.desktopSettings.get_boolean('keep-stacked');
-        if (keepStacked && !fileItem.stackUnique) {
-            if (!fileItem.isSpecial && !fileItem.isDirectory && !fileItem.isValidDesktopFile) {
-                let unstackList = Prefs.getUnstackList();
-                let typeInList = unstackList.includes(fileItem.attributeContentType);
-                this._newMenuElement(
-                    typeInList ? _('Stack This Type') : _('Unstack This Type'),
-                    "toggle-stack",
-                    section,
-                    GLib.Variant.new('s', fileItem.attributeContentType)
-                );
-                added_element = true;
-            }
-        }
-
-        if (fileItem.isAllSelectable && !fileItem.isStackMarker) {
+        if (fileItem.isAllSelectable) {
             let submenu = this._scriptsMonitor.createMenu();
             if (submenu !== null) {
                 // Historical bug: the submenu was built but never appended,
@@ -500,21 +477,19 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
             section = this._newSection(menu);
         }
 
-        if (!fileItem.isStackMarker) {
-            this._newMenuElement(
-                selectedItemsNum > 1 ? _('Common Properties') : _('Properties'),
-                "show-properties",
-                section
-            );
+        this._newMenuElement(
+            selectedItemsNum > 1 ? _('Common Properties') : _('Properties'),
+            "show-properties",
+            section
+        );
 
-            section = this._newSection(menu);
+        section = this._newSection(menu);
 
-            this._newMenuElement(
-                selectedItemsNum > 1 ? _('Show All in Files') : _('Show in Files'),
-                "show-files-in-files",
-                section
-            );
-        }
+        this._newMenuElement(
+            selectedItemsNum > 1 ? _('Show All in Files') : _('Show in Files'),
+            "show-files-in-files",
+            section
+        );
 
         if (fileItem.isDirectory && (fileItem.path != null) && (selectedItemsNum == 1)) {
             this._newMenuElement(
