@@ -178,8 +178,12 @@ export var DesktopMonitor = class {
         if (this._dm._renameWindow && fileItem.fileName === this._dm._renamingFile) {
             this._dm._renameWindow.closeWindow();
         }
-        fileItem.removeFromGrid(true);
+        /* Splice BEFORE removeFromGrid: if removal/destroy ever throws, no
+         * dead entry survives in _fileList to pollute the next selection or
+         * drag (same defence-in-depth as removeItem's map-first ordering,
+         * docs/fixes.md 2026-09-08). */
         this._dm._fileList.splice(index, 1);
+        fileItem.removeFromGrid(true);
         return true;
     }
     async handleFileCreated(file) {

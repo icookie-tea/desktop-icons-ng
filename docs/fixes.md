@@ -15,6 +15,7 @@
 - `app/paint-container.js`：删除选中/键盘选中轮廓的批量描边路径（及不再使用的 `borderKeyboard` 颜色），overlay 只画橡皮筋与拖拽预览。
 - `app/desktop-icon-item.js` `_setSelectedStatus()`：移除 `changed` 跟踪与 `_grid.queue_draw()`（选中状态不再影响 overlay，widget 自身 style recalc 负责重绘）。
 - `app/desktop-grid.js` `removeItem()`：先删 `_fileItems` 条目再移除 widget——即使 GTK 调用异常，也不会留下能画出鬼影框的残留条目（双保险）。
+- `app/desktop-monitor.js` `handleFileDeleted()`：先从 `_fileList` splice 再 `removeFromGrid(true)`——即使移除/销毁中途抛异常，死条目也不会留在列表里污染下一次拖拽选中（三层防护的第三层；来自 2026-09-08 的 `fix/stale-item-after-drag` 诊断分支，三轮真机复现 + 静态分析确认当前删除链路干净，诊断日志未合入）。
 
 **代价：** CSS 1px 边框在亚像素位置上会比 Gsk 描边略软（抗锯齿跨两行像素），这是回退的已知视觉代价；换来选中外观与 widget 生命周期绑定，map 状态异常时不再出现鬼影。
 
