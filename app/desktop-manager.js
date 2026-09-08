@@ -43,6 +43,7 @@ import * as FileOperations from './file-operations.js';
 import * as SortManager from './sort-manager.js';
 import * as SelectionManager from './selection-manager.js';
 import * as SearchDialog from './search-dialog.js';
+import * as KeyboardManager from './keyboard-manager.js';
 
 import Gettext from 'gettext';
 
@@ -52,7 +53,6 @@ export var DesktopManager = class {
     constructor(mainApp, dbusManager, desktopList, codePath, asDesktop, primaryIndex) {
         this.mainApp = mainApp;
         this.dbusManager = dbusManager;
-        this._lastSelected = null;
         this._fileList = [];
 
         this._initDesktopHold(asDesktop);
@@ -74,6 +74,7 @@ export var DesktopManager = class {
         this._initFileMonitoring();
         this._initSettingsHandlers(mainApp);
         this._searchDialog = new SearchDialog(this);
+        this._keyboardManager = new KeyboardManager(this);
         this._initStyles(codePath);
         this._initGridAndMetadata();
         this._initKeyboardAndNautilusCheck();
@@ -291,8 +292,6 @@ export var DesktopManager = class {
 
     _initKeyboardAndNautilusCheck() {
         this._scriptsList = [];
-
-        this.ignoreKeys = [Gdk.KEY_space, Gdk.KEY_Shift_L, Gdk.KEY_Shift_R, Gdk.KEY_Control_L, Gdk.KEY_Control_R, Gdk.KEY_Caps_Lock, Gdk.KEY_Shift_Lock, Gdk.KEY_Meta_L, Gdk.KEY_Meta_R, Gdk.KEY_Alt_L, Gdk.KEY_Alt_R, Gdk.KEY_Super_L, Gdk.KEY_Super_R, Gdk.KEY_ISO_Level3_Shift, Gdk.KEY_ISO_Level5_Shift];
 
         // Check if Nautilus is available
         try {
@@ -577,190 +576,12 @@ export var DesktopManager = class {
         return this._selectionManager._getBottomRightIcon();
     }
 
-    _setIconAsSelected(icon) {
-        this._fileList.forEach(fileItem => fileItem.isKeyboardSelected = fileItem === icon);
-    }
-
-    _getLastKeyboardIcon() {
-        if ((this._lastSelected !== null) && this._fileList.includes(this._lastSelected)) {
-            this._setIconAsSelected(this._lastSelected);
-            return this._lastSelected;
-        }
-        return null;
-    }
-
-    _getCurrentKeyboardIcon() {
-        let currentKeyboardIcon = null;
-
-        for (let fileItem of this._fileList) {
-            if ((currentKeyboardIcon === null) && (fileItem.isKeyboardSelected)) {
-                currentKeyboardIcon = fileItem;
-            } else {
-                if (fileItem.isKeyboardSelected) {
-                    fileItem.isKeyboardSelected = false;
-                }
-            }
-        }
-        return currentKeyboardIcon;
-    }
-
     onKeyRelease(keyval, keycode, state) {
-        if (this._popupCounter != 0)
-            return false;
-
-        const isCtrl = (state & Gdk.ModifierType.CONTROL_MASK) != 0;
-        const isShift = (state & Gdk.ModifierType.SHIFT_MASK) != 0;
-
-        if ((keyval == Gdk.KEY_Left) || (keyval == Gdk.KEY_Right) ||
-        (keyval == Gdk.KEY_Up) || (keyval == Gdk.KEY_Down)) {
-            let selected = this._getCurrentKeyboardIcon();
-            if (!selected) {
-                selected = this._getLastKeyboardIcon();
-                if (selected) {
-                    return false;
-                }
-            }
-            // if there is no last selected, or the last selected isn't in the desktop
-            // (for example, because it was deleted), select the top-left icon.
-            if (!selected) {
-                selected = this._getTopLeftIcon();
-                if (selected) {
-                    selected.isKeyboardSelected = true;
-                }
-                this._lastSelected = selected;
-                return false;
-            }
-            let selectedCoordinates = selected.getCoordinates();
-            let index;
-            let multiplier;
-            switch (keyval) {
-                case Gdk.KEY_Left:
-                    index = 0;
-                    multiplier = -1;
-                    break;
-                case Gdk.KEY_Right:
-                    index = 0;
-                    multiplier = 1;
-                    break;
-                case Gdk.KEY_Up:
-                    index = 1;
-                    multiplier = -1;
-                    break;
-                case Gdk.KEY_Down:
-                    index = 1;
-                    multiplier = 1;
-                    break;
-            }
-            let newDistance = null;
-            let newItem = null;
-            for (let item of this._fileList) {
-                let itemCoordinates = item.getCoordinates();
-                if ((selectedCoordinates[index] * multiplier) >= (itemCoordinates[index] * multiplier)) {
-                    continue;
-                }
-                let distance = Math.pow(selectedCoordinates[0] - itemCoordinates[0], 2) + Math.pow(selectedCoordinates[1] - itemCoordinates[1], 2);
-                if ((newDistance === null) || (newDistance > distance)) {
-                    newDistance = distance;
-                    newItem = item;
-                }
-            }
-            if (newItem === null) {
-                newItem = selected;
-            } else {
-                selected.isKeyboardSelected = false;
-                if (isCtrl || isShift) {
-                    selected.setSelected();
-                }
-            }
-            newItem.isKeyboardSelected = true;
-            this._lastSelected = newItem;
-            return false;
-        }
-        return false;
+        return this._keyboardManager.onKeyRelease(keyval, keycode, state);
     }
 
     onKeyPress(keyval, keycode, state, grid, timestamp) {
-        if (this._popupCounter != 0)
-            return false;
-        const isCtrl = (state & Gdk.ModifierType.CONTROL_MASK) != 0;
-        const isShift = (state & Gdk.ModifierType.SHIFT_MASK) != 0;
-        const isAlt = (state & Gdk.ModifierType.MOD1_MASK) != 0;
-        let selection = this.getCurrentSelection(false);
-        if (keyval == Gdk.KEY_Home) {
-            this._setIconAsSelected(this._getTopLeftIcon());
-            return true;
-        } else if (keyval == Gdk.KEY_End) {
-            this._setIconAsSelected(this._getBottomRightIcon());
-            return true;
-        } else if (isCtrl && (keyval === Gdk.KEY_space)) {
-            const selected = this._getCurrentKeyboardIcon();
-            if (selected !== null) {
-                selected.toggleSelected();
-                return true;
-            }
-        } else if (isCtrl && ((keyval == Gdk.KEY_C) || (keyval == Gdk.KEY_c))) {
-            this.doCopy();
-            return true;
-        } else if (isCtrl && ((keyval == Gdk.KEY_X) || (keyval == Gdk.KEY_x))) {
-            this.doCut();
-            return true;
-        } else if (isCtrl && ((keyval == Gdk.KEY_V) || (keyval == Gdk.KEY_v))) {
-            this.doPaste(true).catch(e => {console.log(`Error doing paste from keyboard: ${e.message}\n${e.stack}`)});
-            return true;
-        } else if (isAlt && (keyval == Gdk.KEY_Return)) {
-            let currentSelection = this.getCurrentSelection(true);
-            DBusUtils.RemoteFileOperations.ShowItemPropertiesRemote(currentSelection, Gdk.CURRENT_TIME);
-            return true;
-        } else if (keyval == Gdk.KEY_Return) {
-            if (selection && (selection.length == 1)) {
-                selection[0].doOpen(timestamp);
-                return true;
-            }
-        } else if (keyval == Gdk.KEY_F2) {
-            if (selection && (selection.length == 1)) {
-                // Support renaming other grids file items.
-                this.doRename(selection[0], false);
-                return true;
-            }
-        } else if (selection && keyval == Gdk.KEY_space) {
-            // Support previewing other grids file items.
-            DBusUtils.RemoteFileOperations.ShowFileRemote(selection[0].uri, 0, true);
-            return true;
-        } else if (isCtrl && ((keyval == Gdk.KEY_A) || (keyval == Gdk.KEY_a))) {
-            this.selectAll();
-            return true;
-        } else if (keyval == Gdk.KEY_F5) {
-            this._updateDesktopSafe('F5 refresh');
-            return true;
-        } else if (isCtrl && ((keyval == Gdk.KEY_H) || (keyval == Gdk.KEY_h))) {
-            Prefs.gtkSettings.set_boolean('show-hidden', !this._showHidden);
-            return true;
-        } else if (isCtrl && ((keyval == Gdk.KEY_F) || (keyval == Gdk.KEY_f))) {
-            this._searchDialog.findFiles(grid.Window);
-            return true;
-        } else if (keyval == Gdk.KEY_Escape) {
-            this._searchDialog.escape();
-            return true;
-        } else if ((keyval == Gdk.KEY_Menu) || ((keyval == Gdk.KEY_F10) && isShift)) {
-            if (selection) {
-                this._fileItemMenu.showMenu(selection[0], null, true);
-            } else {
-                this._desktopMenu.showDesktopMenu(0, 0, this._desktops[0]._container);
-            }
-            return true;
-        } else if (isCtrl && (keyval == Gdk.KEY_plus)) {
-            Prefs.increase_icon_size();
-            return true;
-        } else if (isCtrl && (keyval == Gdk.KEY_minus)) {
-            Prefs.decrease_icon_size();
-            return true;
-        } else {
-            if (this.ignoreKeys.includes(keyval)) {
-                return false;
-            }
-            return this._searchDialog.typeKey(keyval, grid.Window);
-        }
-        return false;
+        return this._keyboardManager.onKeyPress(keyval, keycode, state, grid, timestamp);
     }
 
     async updateClipboard() {

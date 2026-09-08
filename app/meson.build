@@ -27,6 +27,7 @@ install_data([
     'file-operations.js',
     'file-item-menu.js',
     'file-utils.js',
+    'keyboard-manager.js',
     'log.js',
     'menu-helper.js',
     'mount-manager.js',
