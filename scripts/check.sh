@@ -89,6 +89,17 @@ check_state_ownership 'searchString|_findFileWindow|keypressTimeoutID' 'app/sear
 check_state_ownership 'dragItem|_dragList|_dragOriginX|_dragOriginY' 'app/dnd-manager.js app/file-item.js' || exit 1
 # keyboard-manager.js: keyboard navigation state
 check_state_ownership 'ignoreKeys|_lastSelected' 'app/keyboard-manager.js' || exit 1
+# Every method called through the DesktopManager reference (this._dm.<m>( /
+# this._desktopManager.<m>( / dm.<m>() across app/) must exist on
+# DesktopManager — catches methods moved into a manager without a shim
+# (e.g. _getCurrentKeyboardIcon, which crash-looped doStacks on real device).
+while read -r m; do
+    if ! grep -qE "^\s+(async )?(get |set )?${m}\(" app/desktop-manager.js; then
+        echo "FAIL: '$m' is called on the DesktopManager reference but not defined in app/desktop-manager.js (moved to a manager without a shim?)"
+        exit 1
+    fi
+done < <(grep -rhoE "(this\._dm|this\._desktopManager|\bdm)\.[A-Za-z_$][A-Za-z0-9_$]*\(" app/*.js \
+            | grep -oE "[A-Za-z_$][A-Za-z0-9_$]*\($" | tr -d '(' | sort -u)
 # The legacy 'imports' global is deprecated by GNOME Shell — everything is
 # ESM now (app/signals.js replaces imports.signals). Reject regressions.
 if grep -nE '(^|[^.A-Za-z_])imports\.(signals|gi|main|misc|ui)' extension.js prefs.js \

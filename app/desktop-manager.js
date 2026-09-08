@@ -485,6 +485,11 @@ export var DesktopManager = class {
         return this._keyboardManager.onKeyPress(keyval, keycode, state, grid, timestamp);
     }
 
+    /* sort-manager.js reads the keyboard-selected icon through the manager */
+    _getCurrentKeyboardIcon() {
+        return this._keyboardManager._getCurrentKeyboardIcon();
+    }
+
     async updateClipboard() {
         return this._fileOps.updateClipboard();
     }
