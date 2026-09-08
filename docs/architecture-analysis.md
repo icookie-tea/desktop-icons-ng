@@ -31,6 +31,10 @@ icookie 分支在此基础上进行了大量重构和功能增强，包括模块
 │  │   ├── theme-manager.js  ── accent color / 暗色模式             │
 │  │   ├── file-operations.js ── 文件操作封装                       │
 │  │   ├── sort-manager.js   ── 排序逻辑                             │
+│  │   ├── selection-manager.js ─ 框选/选择状态（dm-split 拆分）      │
+│  │   ├── keyboard-manager.js ── 键盘导航/快捷键（dm-split 拆分）    │
+│  │   ├── search-dialog.js ───── 查找对话框（dm-split 拆分）         │
+│  │   ├── dnd-manager.js ─────── 图标拖动/外部拖放（dm-split 拆分）  │
 │  │   ├── file-changes-queue.js ── 增量更新队列                    │
 │  │   ├── desktop-grid.js ──── 网格渲染（每块屏幕一个）              │
 │  │   │   └── paint-container.js ── 橡皮筋选择 / 拖放高亮绘制       │
@@ -240,7 +244,7 @@ icookie 新增实例变量：
 | `grid-layout.js` | 网格布局、窗口创建/销毁、D-Bus 几何广告（`GridLayout` 类） | 新文件 111 行 |
 | `dbus-remote-operations.js` | 远程 D-Bus 文件操作（复制/移动/删除等 `_remoteCall` 模板化封装） | dbus-utils 780→542 |
 
-**2026-08 继续拆分（`refactor/dm-split` 分支，desktop-manager 1625→913 行）：**
+**2026-08 继续拆分（`refactor/dm-split` 分支，desktop-manager 1625→875 行；2026-09-08 移除 keep-stacked 后再减）：**
 
 | 模块 | 职责 | 拥有的状态 |
 |---|---|---|
@@ -554,8 +558,6 @@ metadata::nautilus-drop-position → icookie: 拖放临时坐标（用于新建�
 
 桌面刷新时读取这些属性恢复图标位置。如果文件没有保存坐标，则自动分配空位。
 
-icookie 分支新增 `stackInitialCoordinates`：堆叠模式下保存每个文件的初始坐标，取消堆叠时可恢复。
-
 ---
 
 ## 九、进程生命周期管理
@@ -598,7 +600,7 @@ Shell 热重载：
 ### 11.1 模块化重构（模块提取）
 - `ThemeManager` — accent color / dark mode 管理
 - `FileOperations` — 文件操作封装
-- `SortManager` — 排序/堆叠逻辑（堆叠排序核心已抽为静态纯函数 `sortFileListByKindStacked`）
+- `SortManager` — 排序逻辑（原堆叠逻辑已于 2026-09-08 随 keep-stacked 功能移除）
 - `PaintContainer` — 自定义绘制容器
 - `MountManager`（app/mount-manager.js）— mount 生命周期，见 5.2.1
 - `title-protocol.js` — 窗口标题协议（@!x,y;flags / Desktop Icons <n>）纯解析，自 emulate-x11-window-type.js 抽出以支持无 Meta 环境单测
@@ -610,17 +612,20 @@ gnome-shell-override.js 注入 WorkspaceBackground，实现进入/退出概览�
 FileChangesQueue 替代旧的单体防抖机制，支持事件合并和出错 fallback
 
 ### 11.5 单元测试（gjs --module，无 GTK 依赖）
-`tests/run.js` 跑 13 个测试组（纯逻辑 + GJS 模块，headless）：
+`tests/run.js` 跑 19 个测试组（纯逻辑 + GJS 模块，headless）：
 
 | 测试组 | 覆盖 |
 |---|---|
-| test-grid-layout / test-sort-manager | 网格坐标、排序/堆叠（含 O(n) 堆叠恢复） |
-| test-click-coordinates / test-drop / test-link-emblem | 点击命中、拖放文件名/条目匹配、链接徽章 |
+| test-grid-layout / test-sort-manager | 网格坐标、排序比较器 |
+| test-placement / test-icon-layout | 图标放置三阶段路由（exact/nearest/exactOnly）、图标布局 |
+| test-selection / test-state-ownership | 框选/选择状态、各 manager 字段归属（防状态漂移） |
+| test-search-dialog | 查找对话框 type-to-search 状态机 |
+| test-click-coordinates / test-drop-filename / test-pending-drop / test-link-emblem | 点击命中、拖放文件名/条目匹配、链接徽章 |
 | test-scripts-menu / test-drive-menu | 脚本菜单构建、驱动器菜单 Eject/Unmount 判定（对齐 Nautilus） |
 | test-file-changes-queue / test-desktop-monitor | 事件合并队列、显示器监听 |
 | test-volume-mount | mount 判定纯函数 + 信号 mock 端到端 |
 | test-theme-accent | accent 色 @define-color 解析（注释剥离/后定义胜/非法值跳过） |
-| test-title-protocol | 窗口标题协议（@!x,y;flags、尾随空格别名、Desktop Icons <n>） |
+| test-title-protocol / test-visible-area | 窗口标题协议、可用区域 margin 聚合（Shell 侧，注入式可测） |
 
 运行：`gjs --module tests/run.js`（`scripts/check.sh` 会顺带跑）。约束：GJS ESM 命名空间只读（不能 monkeypatch 导入模块）、headless 无 GSettings schema / Meta GI——所以可测点都抽成了不依赖 Shell 的纯函数/静态方法。
 
@@ -630,8 +635,8 @@ FileChangesQueue 替代旧的单体防抖机制，支持事件合并和出错 fa
 - folder self-drop guard (reject when own URI in dropped filelist)
 - drag ghost preview 尺寸修正
 
-### 11.5 堆叠拖拽图标 (feature)
-multi-select → StackTopMarkerFolder + count badge overlay（e633ac1）
+### 11.5 多选拖拽预览 (feature)
+multi-select → 拖拽幽灵图叠加最多 4 个选中图标 + 数量角标（`_createDragIconImpl`，desktop-icon-item.js；e633ac1）。与已移除的 keep-stacked 功能无关。
 
 ### 11.6 GJS API 兼容性修复
 - `Gdk.Screen.get_default()` → `Gtk.Settings.get_default()`
