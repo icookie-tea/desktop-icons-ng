@@ -39,7 +39,10 @@ function _emit(that, name, args) {
             try {
                 callback.apply(that, args);
             } catch (e) {
-                logError(e, `Error while emitting signal "${name}" (handler ${handlerId})`);
+                // A throwing handler must not mask the original error or the
+                // remaining handlers — report and continue (GJS signals do
+                // the same).
+                print(`DING: signal "${name}" handler ${handlerId} failed: ${e.message}\n${e.stack ?? ''}`);
             }
         }
     }

@@ -75,7 +75,7 @@ export default class DING extends Extension {
             this.data.x11Manager = new EmulateX11.EmulateX11WindowType();
         }
         if (!this.DesktopIconsUsableArea) {
-            this.DesktopIconsUsableArea = new VisibleArea.VisibleArea();
+            this.DesktopIconsUsableArea = new VisibleArea.VisibleArea(() => Main.layoutManager.primaryIndex);
             this.data.visibleArea = this.DesktopIconsUsableArea;
         }
         if (!this.data.gnomeShellOverride) {

@@ -23,6 +23,7 @@ import * as TestSelection from './test-selection.js';
 import * as TestSearchDialog from './test-search-dialog.js';
 import * as TestPlacement from './test-placement.js';
 import * as TestStateOwnership from './test-state-ownership.js';
+import * as TestVisibleArea from './test-visible-area.js';
 
 const tests = [
     TestFileChangesQueue,
@@ -43,6 +44,7 @@ const tests = [
     TestSearchDialog,
     TestPlacement,
     TestStateOwnership,
+    TestVisibleArea,
 ];
 
 async function main() {

@@ -15,12 +15,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 'use strict';
-const Signals = imports.signals;
-import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 import GLib from 'gi://GLib'
+import * as Signals from './app/signals.js'
 
 export class VisibleArea {
-    constructor() {
+    /* getPrimaryIndex is injected by the caller (extension.js) so this
+       module stays free of any GNOME Shell imports and is unit-testable
+       under plain gjs. */
+    constructor(getPrimaryIndex) {
+        this._getPrimaryIndex = getPrimaryIndex;
         this._usableAreas = {};
         this._marginsList = {};
         this._refreshTimerId = null;
@@ -61,7 +64,7 @@ export class VisibleArea {
             for (let workspace in margins) {
                 let index = workspace;
                 if (workspace < 0) {
-                    index = Main.layoutManager.primaryIndex;
+                    index = this._getPrimaryIndex();
                 }
                 if (!(index in this._usableAreas)) {
                     this._usableAreas[index] = {
