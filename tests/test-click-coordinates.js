@@ -66,10 +66,14 @@ export function runTests() {
     // --- left-click: stores the (already global) coords it receives ---
     {
         const { dm, calls } = makeStub();
-        dm._clickCaptured = false;
+        // selection state now lives on the SelectionManager; stub the
+        // manager the way the real constructor would wire it
+        dm._selectionManager = {
+            _clickCaptured: false,
+            unselectAll: () => {},
+            _startRubberband: () => {},
+        };
         dm._desktopMenu._lastBgMenu = null;
-        dm.unselectAll = () => {};
-        dm._startRubberband = () => {};
         const controller = { get_current_event_state: () => 0 };
         dm.onPressMainButton(controller, GLOBAL_X, GLOBAL_Y, {});
 

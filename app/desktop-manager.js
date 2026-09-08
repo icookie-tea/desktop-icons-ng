@@ -43,6 +43,7 @@ import * as DebugLog from './log.js';
 import * as ThemeManager from './theme-manager.js';
 import * as FileOperations from './file-operations.js';
 import * as SortManager from './sort-manager.js';
+import * as SelectionManager from './selection-manager.js';
 
 import Gettext from 'gettext';
 
@@ -57,7 +58,6 @@ export var DesktopManager = class {
 
         this._initDesktopHold(asDesktop);
         this._selectedFiles = null;
-        this._clickCaptured = false;
         this._popupCounter = 0;
 
         this._initThemeAndManagers();
@@ -71,6 +71,7 @@ export var DesktopManager = class {
         this._initPremultipliedCheck();
         this.autoAr = new AutoAr.AutoAr(this);
         this._initGridState(desktopList, primaryIndex, codePath, asDesktop);
+        this._selectionManager = new SelectionManager(this);
         this._initFileMonitoring();
         this._initSettingsHandlers(mainApp);
         this._initStyles(codePath);
@@ -273,8 +274,6 @@ export var DesktopManager = class {
     }
 
     _initStyles(codePath) {
-        this.rubberBand = false;
-
         this._cssProvider = new Gtk.CssProvider();
         this._cssProvider.load_from_file(Gio.File.new_for_path(GLib.build_filenamev([codePath, 'stylesheet.css'])));
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), this._cssProvider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
@@ -521,11 +520,11 @@ export var DesktopManager = class {
     }
 
     clickCaptured() {
-        this._clickCaptured = true;
+        this._selectionManager.clickCaptured();
     }
 
     onPressMainButton(controller, x, y, grid) {
-        if (this._clickCaptured) {
+        if (this._selectionManager._clickCaptured) {
             return;
         }
         if (this._desktopMenu._lastBgMenu != null) {
@@ -536,21 +535,13 @@ export var DesktopManager = class {
         let state = DesktopIconsUtil.getControllerStatus(controller);
         if (!state.shift && !state.control) {
             // clear selection
-            this.unselectAll();
+            this._selectionManager.unselectAll();
         }
-        this._startRubberband(x, y);
+        this._selectionManager._startRubberband(x, y);
     }
 
     onReleaseMainButton() {
-        this._clickCaptured = false;
-        if (this.rubberBand) {
-            this.rubberBand = false;
-            this.selectionRectangle = null;
-        }
-        for (let grid of this._desktops) {
-            grid.queue_draw();
-        }
-        return false;
+        return this._selectionManager.onReleaseMainButton();
     }
 
     _pressedMouseButton(x, y) {
@@ -580,35 +571,11 @@ export var DesktopManager = class {
     }
 
     _getTopLeftIcon() {
-        if (this._fileList.length == 0) {
-            return null;
-        }
-        let currentCoords = null;
-        let currentItem = null;
-        for (let item of this._fileList) {
-            const newCoords = item.getCoordinates();
-            if ((currentCoords === null) || (newCoords[0] < currentCoords[0]) || (newCoords[1] < currentCoords[1])) {
-                currentCoords = newCoords;
-                currentItem = item;
-            }
-        }
-        return currentItem;
+        return this._selectionManager._getTopLeftIcon();
     }
 
     _getBottomRightIcon() {
-        if (this._fileList.length == 0) {
-            return null;
-        }
-        let currentCoords = null;
-        let currentItem = null;
-        for (let item of this._fileList) {
-            const newCoords = item.getCoordinates();
-            if ((currentCoords === null) || (newCoords[0] > currentCoords[0]) || (newCoords[1] > currentCoords[1])) {
-                currentCoords = newCoords;
-                currentItem = item;
-            }
-        }
-        return currentItem;
+        return this._selectionManager._getBottomRightIcon();
     }
 
     _setIconAsSelected(icon) {
@@ -830,10 +797,7 @@ export var DesktopManager = class {
     }
 
     unselectAll() {
-        this._fileList.forEach(f => {
-            f.unsetSelected();
-            f.isKeyboardSelected = false;
-        });
+        this._selectionManager.unselectAll();
     }
 
     _refreshSearchTimeout() {
@@ -980,90 +944,19 @@ export var DesktopManager = class {
     }
 
     selectAll() {
-        for (let fileItem of this._fileList) {
-            if (fileItem.isAllSelectable) {
-                fileItem.setSelected();
-            }
-        }
+        this._selectionManager.selectAll();
     }
 
     onMotion(x, y) {
-        if (this.rubberBand) {
-            this.x1 = Math.floor(Math.min(x, this.rubberBandInitX));
-            this.x2 = Math.floor(Math.max(x, this.rubberBandInitX));
-            this.y1 = Math.floor(Math.min(y, this.rubberBandInitY));
-            this.y2 = Math.floor(Math.max(y, this.rubberBandInitY));
-            this.selectionRectangle = new Gdk.Rectangle({ 'x': this.x1, 'y': this.y1, 'width': this.x2 - this.x1, 'height': this.y2 - this.y1 });
-            for (let grid of this._desktops) {
-                grid.queue_draw();
-            }
-            for (let item of this._fileList) {
-                if (item.checkIntersects(this.selectionRectangle)) {
-                    item.setSelected();
-                    item.touchedByRubberband = true;
-                } else if (item.touchedByRubberband) {
-                    item.unsetSelected();
-                }
-            }
-        }
-        return false;
+        return this._selectionManager.onMotion(x, y);
     }
 
     onCancelledMainButton() {
         this.onReleaseMainButton();
     }
 
-    _startRubberband(x, y) {
-        this.rubberBandInitX = x;
-        this.rubberBandInitY = y;
-        this.rubberBand = true;
-        for (let item of this._fileList) {
-            item.touchedByRubberband = false;
-        }
-    }
-
     selected(fileItem, action) {
-        switch (action) {
-            case Enums.Selection.ALONE:
-                if (!fileItem.isSelected) {
-                    for (let item of this._fileList) {
-                        if (item === fileItem) {
-                            item.setSelected();
-                        } else {
-                            item.unsetSelected();
-                        }
-                    }
-                }
-                break;
-            case Enums.Selection.WITH_SHIFT:
-                fileItem.toggleSelected();
-                break;
-            case Enums.Selection.RIGHT_BUTTON:
-                if (!fileItem.isSelected) {
-                    for (let item of this._fileList) {
-                        if (item === fileItem) {
-                            item.setSelected();
-                        } else {
-                            item.unsetSelected();
-                        }
-                    }
-                }
-                break;
-            case Enums.Selection.ENTER:
-                if (this.rubberBand) {
-                    fileItem.setSelected();
-                }
-                break;
-            case Enums.Selection.RELEASE:
-                for (let item of this._fileList) {
-                    if (item === fileItem) {
-                        item.setSelected();
-                    } else {
-                        item.unsetSelected();
-                    }
-                }
-                break;
-        }
+        this._selectionManager.selected(fileItem, action);
     }
 
     _removeAllFilesFromGrids() {
@@ -1494,58 +1387,23 @@ export var DesktopManager = class {
     }
 
     checkIfSpecialFilesAreSelected() {
-        for (let item of this._fileList) {
-            if (item.isSelected && item.isSpecial) {
-                return true;
-            }
-        }
-        return false;
+        return this._selectionManager.checkIfSpecialFilesAreSelected();
     }
 
     checkIfDirectoryIsSelected() {
-        for (let item of this._fileList) {
-            if ((item.isSelected || item.isKeyboardSelected) && item.isDirectory) {
-                return true;
-            }
-        }
-        return false;
+        return this._selectionManager.checkIfDirectoryIsSelected();
     }
 
     getCurrentSelection(getUri = false) {
-        let selection = [];
-        for (let fileItem of this._fileList) {
-            if ((fileItem.isSelected) || (fileItem.isKeyboardSelected)) {
-                if (getUri) {
-                    selection.push(fileItem.file.get_uri());
-                } else {
-                    selection.push(fileItem);
-                }
-            }
-        }
-        if (selection.length !== 0) {
-            return selection;
-        } else {
-            return null;
-        }
+        return this._selectionManager.getCurrentSelection(getUri);
     }
 
     getNumberOfSelectedItems() {
-        let count = 0;
-        for (let item of this._fileList) {
-            if ((item.isSelected) || (item.isKeyboardSelected)) {
-                count++;
-            }
-        }
-        return count;
+        return this._selectionManager.getNumberOfSelectedItems();
     }
 
     getFileItemFromURI(uri) {
-        for (let item of this._fileList) {
-            if (uri == item.uri) {
-                return item;
-            }
-        }
-        return null;
+        return this._selectionManager.getFileItemFromURI(uri);
     }
 
     doRename(fileItem, allowReturnOnSameName) {
