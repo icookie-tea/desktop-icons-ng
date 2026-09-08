@@ -71,12 +71,12 @@ export var DesktopManager = class {
         this._initPremultipliedCheck();
         this.autoAr = new AutoAr.AutoAr(this);
         this._initGridState(desktopList, primaryIndex, codePath, asDesktop);
-        this._selectionManager = new SelectionManager(this);
-        this._dndManager = new DndManager(this);
+        this._selectionManager = new SelectionManager.SelectionManager(this);
+        this._dndManager = new DndManager.DndManager(this);
         this._initFileMonitoring();
         this._initSettingsHandlers(mainApp);
-        this._searchDialog = new SearchDialog(this);
-        this._keyboardManager = new KeyboardManager(this);
+        this._searchDialog = new SearchDialog.SearchDialog(this);
+        this._keyboardManager = new KeyboardManager.KeyboardManager(this);
         this._initStyles(codePath);
         this._initGridAndMetadata();
         this._initKeyboardAndNautilusCheck();

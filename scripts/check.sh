@@ -37,5 +37,13 @@ if grep -nE '\(this[,)]|\[this[,]' app/grid-layout.js app/desktop-monitor.js app
     echo "FAIL: bare 'this' passed as argument in extracted manager (should be this._dm)"
     exit 1
 fi
+# Namespace imports (import * as X) must never be constructed bare —
+# 'new X(' throws "X is not a constructor" at runtime, use 'new X.ClassName('.
+for m in $(grep -oE '^import \* as [A-Za-z]+' app/desktop-manager.js | awk '{print $4}'); do
+    if grep -qE "new ${m}\(" app/desktop-manager.js; then
+        echo "FAIL: bare namespace construction 'new ${m}(' (must be 'new ${m}.ClassName()')"
+        exit 1
+    fi
+done
 
 echo "ALL CHECKS PASSED"
