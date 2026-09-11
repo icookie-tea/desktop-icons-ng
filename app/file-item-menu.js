@@ -661,10 +661,23 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
         let position = clickedItem.savedCoordinates;
         let newFolderFileItems = this._desktopManager.getCurrentSelection(true);
         this._desktopManager.unselectAll();
-        clickedItem.removeFromGrid(true);
+        // Create the folder BEFORE removing the icon: if creation fails
+        // (read-only desktop, permissions), destroying the item here would
+        // leave it in _fileList with a null container and poison later
+        // refreshes (audit 2026-09-11).
         let newFolder = this._desktopManager.doNewFolder(position);
-        if (newFolder) {
-            DBusUtils.RemoteFileOperations.MoveURIsRemote(newFolderFileItems, newFolder);
+        if (!newFolder) {
+            return;
         }
+        // Moved away: hide the icon immediately; the file monitor removes the
+        // FileItem from _fileList once the move lands.
+        clickedItem.removeFromGrid(true);
+        DBusUtils.RemoteFileOperations.MoveURIsRemote(newFolderFileItems, newFolder, (result, error) => {
+            if (error) {
+                // The move failed, so the file is still on the desktop while the
+                // icon is already gone: rebuild from disk to bring it back.
+                this._desktopManager._updateDesktopSafe('move into new folder failed');
+            }
+        });
     }
 };

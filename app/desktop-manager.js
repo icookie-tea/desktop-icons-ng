@@ -544,6 +544,13 @@ export var DesktopManager = class {
         }
         const uris = new Set(newList.map(f => f.uri));
         for (const item of this._fileList) {
+            // A destroyed widget (e.g. a failed "new folder with selection",
+            // or a move whose monitor event has not landed yet) must never be
+            // re-adopted: _addFileItemTo would call container.put(null) after
+            // the grids were cleared, blanking the desktop.
+            if (item._destroyed) {
+                return false;
+            }
             if (!uris.has(item.uri)) {
                 return false;
             }
