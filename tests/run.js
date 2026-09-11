@@ -9,6 +9,7 @@ import * as TestFileChangesQueue from './test-file-changes-queue.js';
 import * as TestDesktopMonitor from './test-desktop-monitor.js';
 import * as TestPendingDrop from './test-pending-drop.js';
 import * as TestGridLayout from './test-grid-layout.js';
+import * as TestDesktopGrid from './test-desktop-grid.js';
 import * as TestSortManager from './test-sort-manager.js';
 import * as TestDropFilename from './test-drop-filename.js';
 import * as TestClickCoordinates from './test-click-coordinates.js';
@@ -30,6 +31,7 @@ const tests = [
     TestDesktopMonitor,
     TestPendingDrop,
     TestGridLayout,
+    TestDesktopGrid,
     TestSortManager,
     TestDropFilename,
     TestClickCoordinates,

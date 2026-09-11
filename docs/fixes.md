@@ -2,6 +2,35 @@
 
 > 2026-08 及更早的条目已归档：[fixes-2026-08.md](archive/fixes-2026-08.md)、[fixes-2026-07.md](archive/fixes-2026-07.md)。
 
+## 2026-09-11
+
+### 图标“没空间放”：网格占用计数只增不减，刷新若干次后所有网格被误判为已满
+
+**症状：** 桌面运行一段时间后日志出现 `DING: Not enough space to add icons`（本次真机为启动后 48 秒、连续两行）；此后坐标不在当前显示器上的图标（外接 HDMI 已拔掉、坐标仍是 x≈4994 的 12 个图标）无法 nearest 迁回主屏，直接不显示。
+
+**根因：** `app/desktop-grid.js` `_setGridUse()`。`b17bed4`（perf: replace O(n²) stacked-sort/coordinate scans with Map/Set indexes）把“网格是否已满”从扫描 `_gridStatus` 改为 O(1) 计数器时写错了判断：
+
+```js
+const wasInUse = this._gridStatus[key] === true;   // 存的是 FileItem 对象
+if (wasInUse !== inUse) { this._occupiedCount += inUse ? 1 : -1; }
+```
+
+`_addFileItemTo()` 存的是 `fileItem` 对象，`=== true` 永远为假 → 释放格子时 `wasInUse(false) !== inUse(false)` 不成立，**`_occupiedCount` 永不回退**；而每次桌面重绘（清空 + 重放）都会 +N。容量 `_maxColumns * _maxRows`（2560×1440@1.25、dock 边距 → 16×8 = 128）被灌满后，`getDistance()` 对所有网格返回 -1，`GridLayout.findDesktopFor()` 返回 null → `addFilesToDesktop()` 打印该消息并 `break`（后续待放置图标全部丢弃）。
+
+**证据：** 临时给安装副本加 `[occ]` 日志（未合入）：一次“清空 + 重放”里 13 次移除全部保持 `occ=13/128` 不变，随后 13 次添加把计数推到 `26/128`。真机时间线：23:41:40 启动（13 个图标）→ ChromaLeon（`user-accent-colors@fabito02`）每 ~5 秒热重载触发 DING 的 `gtk icon theme changed` 全量刷新 → 23:42:28 第 9 次刷新后 `occ=130 ≥ 128`，与日志中两行 `Not enough space` 完全吻合。
+
+**修复：** `_setGridUse()` 改为按真值比较（保持 `_gridStatus` 仍存对象/false 的语义）：
+
+```js
+const wasInUse = !!this._gridStatus[key];
+const nowInUse = !!inUse;
+if (wasInUse !== nowInUse) { this._occupiedCount += nowInUse ? 1 : -1; }
+```
+
+新增回归测试 `tests/test-desktop-grid.js`（占用/释放/重复占格/5 轮清空重放后占用必须回到 0、清空后 `getDistance() !== -1`），并在 `tests/run.js` 注册。
+
+**遗留（本次未做）：** `findDesktopFor()` 在 exactOnly 阶段也打印 `-> NULL (no hostable grid)`，排障时容易误读；`updateGridWindows()` 只拒绝 `width/height/scale <= 0`，margins 吃光尺寸时派生的 `_maxColumns/_maxRows` 会退化成 1（容量 1），是同症状的另一条潜在路径。
+
 ## 2026-09-08
 
 ### 图标标签双层文字阴影偏“硬”：模糊≤偏移 + 全不透明（gtk4-ding 样式基调）

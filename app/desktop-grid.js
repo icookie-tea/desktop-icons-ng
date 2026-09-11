@@ -458,9 +458,14 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
 
     _setGridUse(x, y, inUse) {
         const key = y * this._maxColumns + x;
-        const wasInUse = this._gridStatus[key] === true;
-        if (wasInUse !== inUse) {
-            this._occupiedCount += inUse ? 1 : -1;
+        // _gridStatus stores the FileItem (or false): compare truthiness so a
+        // freed cell decrements the counter. Comparing against `true` never
+        // matched a stored item, so removals leaked capacity until the grid
+        // looked permanently full (findDesktopFor -> "Not enough space").
+        const wasInUse = !!this._gridStatus[key];
+        const nowInUse = !!inUse;
+        if (wasInUse !== nowInUse) {
+            this._occupiedCount += nowInUse ? 1 : -1;
         }
         this._gridStatus[key] = inUse;
     }
