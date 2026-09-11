@@ -223,7 +223,7 @@ export var AutoAr = class {
         const total = fullPath.length;
         const folderName = fullPath.substring(0, total - extSize);
         const folder = Gio.File.new_for_path(folderName);
-        const doExtract = new progressDialog(this, _('Extracting files'));
+        const doExtract = new ProgressDialog(this, _('Extracting files'));
         this._password = null;
         doExtract.doExtractFile(fullPath, folder, folderName).catch(
             e => console.error(e));
@@ -240,7 +240,7 @@ export var AutoAr = class {
         if (!this.checkAutoAr()) {
             return;
         }
-        const doCompress = new progressDialog(this, _('Compressing files'));
+        const doCompress = new ProgressDialog(this, _('Compressing files'));
         doCompress.doCompressFiles(fileList, outputFile, format, filter, password).catch(
             e => console.error(e));
     }
@@ -279,7 +279,7 @@ export var AutoAr = class {
 
 Signals.addSignalMethods(AutoAr.prototype);
 
-const progressDialog = class {
+export var ProgressDialog = class {
     constructor(autoArClass, message) {
         this._autoAr = autoArClass;
         this._waitingForPassword = false;
@@ -440,6 +440,7 @@ const progressDialog = class {
             }
         });
 
+        let buttonPromise = null;
         try {
             await this._autoAr.runToolAsync(extractor, this._cancellable);
 
@@ -455,13 +456,10 @@ const progressDialog = class {
                         '${fullPathFile}', fullPathFile.get_basename()));
             } else {
                 if ((e.code == GnomeAutoar.PASSPHRASE_REQUIRED_ERRNO) && (e.domain == GnomeAutoar.Extractor.quark())) {
-                    this._waitingForPassword = true;
-                    this._processBar.hide();
-                    this._passEntry.show();
-                    this._passOkButton.show();
-                    this._passOkButton.set_receives_default(true);
-                    const tmpfile = Gio.File.new_for_path(fullPath);
-                    this._processLabel.set_label(_('Passphrase required for ${filename}').replace('${filename}', tmpfile.get_basename()));
+                    // Arm the button promise together with the prompt: a click
+                    // that lands while the cleanup below is in flight must be
+                    // delivered, not lost (audit 2026-09-11).
+                    buttonPromise = this._requestPassphrase(fullPath);
                 } else {
                     this._waitingForPassword = false;
                     this._autoAr.notify(_('Error during extraction'), e.message);
@@ -476,7 +474,7 @@ const progressDialog = class {
             }
         }
         if (this._waitingForPassword) {
-            const retval = await this._waitButtons();
+            const retval = await buttonPromise;
             this._buttonPromiseAccept = null;
             this._waitingForPassword = false;
             if (retval) {
@@ -489,6 +487,23 @@ const progressDialog = class {
                 this._destroy();
             }
         }
+    }
+
+    /* Shows the passphrase prompt and arms the button promise **before** the
+     * caller awaits the (possibly slow) cleanup of the partially extracted
+     * tree. The prompt is what the user acts on, so a click can easily arrive
+     * while that cleanup is in flight; installing the resolver only afterwards
+     * left the dialog unclosable and the LOGOUT|SUSPEND inhibit held forever. */
+    _requestPassphrase(fullPath) {
+        this._waitingForPassword = true;
+        this._processBar.hide();
+        this._passEntry.show();
+        this._passOkButton.show();
+        this._passOkButton.set_receives_default(true);
+        const tmpfile = Gio.File.new_for_path(fullPath);
+        this._processLabel.set_label(_('Passphrase required for ${filename}').replace(
+            '${filename}', tmpfile.get_basename()));
+        return this._waitButtons();
     }
 
     _waitButtons() {

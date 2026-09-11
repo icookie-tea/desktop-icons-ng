@@ -13,6 +13,7 @@ import * as TestDesktopGrid from './test-desktop-grid.js';
 import * as TestUndoStatus from './test-undo-status.js';
 import * as TestNewFolderSelection from './test-new-folder-selection.js';
 import * as TestRenamePopup from './test-rename-popup.js';
+import * as TestPassphraseRace from './test-passphrase-race.js';
 import * as TestSortManager from './test-sort-manager.js';
 import * as TestDropFilename from './test-drop-filename.js';
 import * as TestClickCoordinates from './test-click-coordinates.js';
@@ -38,6 +39,7 @@ const tests = [
     TestUndoStatus,
     TestNewFolderSelection,
     TestRenamePopup,
+    TestPassphraseRace,
     TestSortManager,
     TestDropFilename,
     TestClickCoordinates,
