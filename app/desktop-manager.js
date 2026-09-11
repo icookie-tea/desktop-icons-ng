@@ -589,41 +589,48 @@ export var DesktopManager = class {
         this._forceDraw = false;
         this._lastDesktopUpdateRequest = GLib.get_monotonic_time();
         let fileList = [];
-        while (true) {
-            this._desktopFilesChanged = false;
-            DebugLog.debugLog(`[update] iter reading=${this._readingDesktopFiles} changed=${this._desktopFilesChanged} forceDraw=${this._forceDraw}`);
-            if (!this._desktopDir.query_exists(null)) {
-                fileList = [];
-                break;
-            }
-            fileList = await this._doReadAsync();
-            DebugLog.debugLog(`[update] read result: ${fileList === null ? 'NULL' : fileList.length + ' files'}`);
-            if (this._forcedExit) {
-                return;
-            }
-            if (fileList !== null) {
-                if (!this._desktopFilesChanged) {
+        try {
+            while (true) {
+                this._desktopFilesChanged = false;
+                DebugLog.debugLog(`[update] iter reading=${this._readingDesktopFiles} changed=${this._desktopFilesChanged} forceDraw=${this._forceDraw}`);
+                if (!this._desktopDir.query_exists(null)) {
+                    fileList = [];
                     break;
                 }
-                if (this._forceDraw) {
-                    this._drawDesktop(fileList);
-                    this._lastDesktopUpdateRequest = GLib.get_monotonic_time();
-                } else {
-                    // Destroy the unused FileItems to prevent memory leak
-                    for (let item of fileList) {
-                        item._onDestroy();
+                fileList = await this._doReadAsync();
+                DebugLog.debugLog(`[update] read result: ${fileList === null ? 'NULL' : fileList.length + ' files'}`);
+                if (this._forcedExit) {
+                    return;
+                }
+                if (fileList !== null) {
+                    if (!this._desktopFilesChanged) {
+                        break;
+                    }
+                    if (this._forceDraw) {
+                        this._drawDesktop(fileList);
+                        this._lastDesktopUpdateRequest = GLib.get_monotonic_time();
+                    } else {
+                        // Destroy the unused FileItems to prevent memory leak
+                        for (let item of fileList) {
+                            item._onDestroy();
+                        }
                     }
                 }
+                await DesktopIconsUtil.waitDelayMs(Constants.REFRESH_RETRY_DELAY_MS);
+                if ((GLib.get_monotonic_time() - this._lastDesktopUpdateRequest) > Constants.DESKTOP_UPDATE_THROTTLE_US) {
+                    this._forceDraw = true;
+                } else {
+                    this._forceDraw = false;
+                }
             }
-            await DesktopIconsUtil.waitDelayMs(Constants.REFRESH_RETRY_DELAY_MS);
-            if ((GLib.get_monotonic_time() - this._lastDesktopUpdateRequest) > Constants.DESKTOP_UPDATE_THROTTLE_US) {
-                this._forceDraw = true;
-            } else {
-                this._forceDraw = false;
-            }
+        } finally {
+            // Any throw (a rejected read, a _drawDesktop crash) must
+            // release the guard: otherwise every later refresh only
+            // sets _desktopFilesChanged and the desktop never redraws
+            // again until the process is restarted (audit 2026-09-11).
+            this._readingDesktopFiles = false;
+            this._forceDraw = false;
         }
-        this._readingDesktopFiles = false;
-        this._forceDraw = false;
         this._drawDesktop(fileList);
     }
 
