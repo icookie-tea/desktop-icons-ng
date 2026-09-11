@@ -31,6 +31,45 @@ if (wasInUse !== nowInUse) { this._occupiedCount += nowInUse ? 1 : -1; }
 
 **遗留（本次未做）：** `findDesktopFor()` 在 exactOnly 阶段也打印 `-> NULL (no hostable grid)`，排障时容易误读；`updateGridWindows()` 只拒绝 `width/height/scale <= 0`，margins 吃光尺寸时派生的 `_maxColumns/_maxRows` 会退化成 1（容量 1），是同症状的另一条潜在路径。
 
+### 审计第一批（P0）：监视器创建失败、重命名刷屏、密码框挂死、撤销/重做失效、新建文件夹失败残留
+
+> 来源：2026-09-11 全仓审计（5 路并行：历史项核对 / 派生状态 / 异步竞态 / UI·GTK4 / Shell·D-Bus）。以下 5 项为高危项，均按 TDD 修复并新增回归测试。
+
+**P0-A Gio 监视器创建失败会“假死”或中断构造**
+
+**根因：** `Gio.File.monitor_directory()` 在 inotify 实例耗尽（`无法找到默认的本地文件监视器类型`，本机日志 268 次，`gnome-control-center` 也报过）时会抛异常。4 处调用无 try/catch（`desktop-manager.js` 桌面目录、`file-item.js` 回收站、`templates-scripts-manager.js` 两处），`theme-manager.js` 有 catch 但**无重试**且未初始化 `_userCssMonitor`（导致 `disconnect()` 再抛）。最严重的是 `DesktopManager`：异常发生在 `mainApp.hold()` 之后，信号回调里的异常被 GJS 吞掉 → 进程存活但无桌面，扩展监听到进程未退出 → **永不重启，直到手动重启 DING/重新登录**。
+
+**修复：** 新增 `desktop-icons-util.js:monitorDirectoryDefensively(file, {flags, onMonitor, label, rateLimit, retryDelaysMs})`——永不抛异常，失败时按 2s/5s/10s/30s 有界退避重试，成功后才把 monitor 交给 `onMonitor`（由调用方接信号与保存）。5 处调用全部改走它；`DesktopManager.destroy()`/`TemplatesScriptsManager.destroy()` 置 `_destroyed` 并取消 monitor，`ThemeManager.disconnect()` 改用真值判断。
+**测试：** `tests/test-monitor-defensive.js`（成功路径、瞬时失败后重试成功、永久失败不抛且有界、ThemeManager.disconnect 容忍 monitor 缺失）。
+
+**P0-B 重命名弹窗：GTK3 API + 快速刷新用已销毁对象**
+
+**根因：** `ask-rename-popup.js:updateFileItem()` 调 `Gtk.Popover.set_relative_to()`（GTK3 API，GTK 4.22 实测不存在）并引用不存在的 `_iconContainer`；`_drawDesktop()` 在弹窗打开期间每次刷新都会调它 → TypeError → 整个刷新被丢弃。与之配套：复用快速路径销毁新建 item 后，重命名/选中块仍在旧 `fileList` 里取目标 → `setRenamePopup()` 于 `container === null` 上 `connect_after` → 网格已清空却未重放 → **桌面空白**（被前者抢先抛出而暂时掩盖）。
+
+**修复：** 改用 GTK4 的 `unparent()`/`set_parent()`（实测 `unparent()` 不触发 `closed`，重命名可跨刷新存活，`set_parent()` 会自动重新 mapped）；两个块改为遍历 `this._fileList`（存活对象）；`FileItem.setRenamePopup()` 对已销毁 item 直接返回。
+**测试：** `tests/test-rename-popup.js`（popover 摘除/重挂 spy、销毁 item 守卫、快速路径重挂目标）。
+
+**P0-C 加密压缩密码框竞态 → 永久挂起 + 会话抑制泄漏**
+
+**根因：** `auto-ar.js` 弹出 `Passphrase required` 后先 `await _cleanupFile()`（删半成品目录，可能耗时）**再** `_waitButtons()` 安装 `_buttonPromiseAccept`。期间点 Cancel：走了 `_cancellable.cancel()`（还中断了清理），点 OK：密码被丢；之后安装的 resolver 永远无人调用 → 对话框关不掉、进度元素不清、`inhibit(LOGOUT|SUSPEND)` 长期持有。
+
+**修复：** 新增 `_requestPassphrase(fullPath)`，在弹提示的同时同步安装 resolver 并返回 promise；`doExtractFile()` 等它而不是等 `_waitButtons()`。为可测性将文件内私有类 `progressDialog` 导出为 `ProgressDialog`。
+**测试：** `tests/test-passphrase-race.js`（resolver 同步安装、早期点击不丢）。
+
+**P0-D 撤销/重做永久失效**
+
+**根因：** `desktop-menu.js:205` 用 `RemoteFileOperations.isAvailable` 做门控，但该类（`RemoteFileOperationsManager`/`Legacy…`）**没有这个属性**（只有 `ProxyManager` 有）→ `!undefined` 恒真 → 永远 `{undo:false, redo:false}`。
+
+**修复：** `DbusOperationsManager` 增加 `isAvailable` getter（镜像 FileOperations 代理），两处 `UndoStatus()` 改 `proxy?.UndoStatus`，避免 Nautilus 重启竞态抛异常。
+**测试：** `tests/test-undo-status.js`（两个管理器的可用性契约 + 代理消失竞态）。
+
+**P0-E “新建含选区的文件夹”失败残留死 item**
+
+**根因：** `file-item-menu.js:_doNewFolderFromSelection()` 先 `clickedItem.removeFromGrid(true)` 销毁图标，再 `doNewFolder()`；返回 null（只读桌面/权限）或 `MoveURIsRemote` 失败时无补偿 → `_fileList` 残留 `container === null` 的死 item → 键盘导航 `getCoordinates()` 抛错、下次快速刷新在 `container.put(null)` 崩掉并清空桌面。
+
+**修复：** 先建目录，成功后才销毁图标；移动失败回调里触发一次重建自愈；`_canReuseFileItems()` 永不采纳 `_destroyed` 的 item（强制走重建路径）。
+**测试：** `tests/test-new-folder-selection.js`（销毁保护 + 已销毁 item 触发重建）。
+
 ## 2026-09-08
 
 ### 图标标签双层文字阴影偏“硬”：模糊≤偏移 + 全不透明（gtk4-ding 样式基调）

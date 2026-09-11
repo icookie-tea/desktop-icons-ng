@@ -149,9 +149,23 @@ export var DesktopManager = class {
         this._desktopDir = DesktopIconsUtil.getDesktopDir();
         this.desktopFsId = this._desktopDir.query_info('id::filesystem', Gio.FileQueryInfoFlags.NONE, null).get_attribute_string('id::filesystem');
         this._monitor.updateWritableByOthers();
-        this._monitorDesktopDir = this._desktopDir.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, null);
-        this._monitorDesktopDir.set_rate_limit(Constants.MONITOR_RATE_LIMIT_MS);
-        this._signalManager.connectSignal(this._monitorDesktopDir, 'changed', (obj, file, otherFile, eventType) => this._monitor.updateDesktopIfChanged(file, otherFile, eventType));
+        // Defensive creation: a transient GIO failure (inotify exhaustion)
+        // must not abort this constructor after mainApp.hold() already ran,
+        // which left a live-but-empty process the shell never relaunched.
+        this._monitorDesktopDir = null;
+        DesktopIconsUtil.monitorDirectoryDefensively(this._desktopDir, {
+            flags: Gio.FileMonitorFlags.WATCH_MOVES,
+            rateLimit: Constants.MONITOR_RATE_LIMIT_MS,
+            label: 'the Desktop folder',
+            onMonitor: monitor => {
+                if (this._destroyed) {
+                    monitor.cancel();
+                    return;
+                }
+                this._monitorDesktopDir = monitor;
+                this._signalManager.connectSignal(monitor, 'changed', (obj, file, otherFile, eventType) => this._monitor.updateDesktopIfChanged(file, otherFile, eventType));
+            },
+        });
 
         this._pendingMoves = {};
         this._processingIncremental = false;
@@ -281,6 +295,13 @@ export var DesktopManager = class {
     }
 
     destroy() {
+        // Late retries from monitorDirectoryDefensively must not wire signals
+        // into a destroyed manager.
+        this._destroyed = true;
+        if (this._monitorDesktopDir) {
+            this._monitorDesktopDir.cancel();
+            this._monitorDesktopDir = null;
+        }
         this._signalManager.disconnectAllSignals();
         if (this._mountManager) {
             this._mountManager.destroy();

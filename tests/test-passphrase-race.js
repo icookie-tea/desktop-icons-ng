@@ -12,7 +12,7 @@
  * The fix arms the button promise synchronously together with the prompt, so
  * a click can never race the resolver installation. */
 import { ProgressDialog } from '../app/auto-ar.js';
-import { assert, assertEqual, summary } from './harness.js';
+import { assertEqual, summary } from './harness.js';
 
 function makeAr() {
     const ar = Object.create(ProgressDialog.prototype);

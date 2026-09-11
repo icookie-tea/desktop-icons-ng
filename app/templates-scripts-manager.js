@@ -41,17 +41,29 @@ export var TemplatesScriptsManager = class extends SignalManager.SignalManager {
         this._entriesFolderChanged = false;
         this._flags = flags;
         this._entriesDirSignals = new SignalManager.SignalManager();
+        this._destroyed = false;
 
         if (this._entriesDir == GLib.get_home_dir()) {
             this._entriesDir = null;
         }
         if (this._entriesDir !== null) {
-            this._monitorDir = baseFolder.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, null);
-            this._monitorDir.set_rate_limit(1000);
-            this.connectSignal(this._monitorDir, 'changed', (obj, file, otherFile, eventType) => {
-                this._updateEntries().catch(e => {
-                    print(`Exception while updating entries in monitor: ${e.message}\n${e.stack}`);
-                });
+            this._monitorDir = null;
+            DesktopIconsUtil.monitorDirectoryDefensively(baseFolder, {
+                flags: Gio.FileMonitorFlags.WATCH_MOVES,
+                rateLimit: 1000,
+                label: 'the templates/scripts folder',
+                onMonitor: monitor => {
+                    if (this._destroyed) {
+                        monitor.cancel();
+                        return;
+                    }
+                    this._monitorDir = monitor;
+                    this.connectSignal(monitor, 'changed', () => {
+                        this._updateEntries().catch(e => {
+                            print(`Exception while updating entries in monitor: ${e.message}\n${e.stack}`);
+                        });
+                    });
+                },
             });
             this._updateEntries().catch(e => {
                 print(`Exception while updating entries: ${e.message}\n${e.stack}`);
@@ -60,6 +72,11 @@ export var TemplatesScriptsManager = class extends SignalManager.SignalManager {
     }
 
     destroy() {
+        this._destroyed = true;
+        if (this._monitorDir) {
+            this._monitorDir.cancel();
+            this._monitorDir = null;
+        }
         this._entriesDirSignals.disconnectAllSignals();
         this.disconnectAllSignals();
     }
@@ -98,10 +115,19 @@ export var TemplatesScriptsManager = class extends SignalManager.SignalManager {
             return [];
         }
         if (directory !== this._entriesDir) {
-            let monitorDir = directory.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, null);
-            monitorDir.set_rate_limit(1000);
-            this._entriesDirSignals.connectSignal(monitorDir, 'changed', (obj, file, otherFile, eventType) => {
-                this._updateEntries();
+            DesktopIconsUtil.monitorDirectoryDefensively(directory, {
+                flags: Gio.FileMonitorFlags.WATCH_MOVES,
+                rateLimit: 1000,
+                label: `the subfolder ${directory.get_path()}`,
+                onMonitor: monitor => {
+                    if (this._destroyed) {
+                        monitor.cancel();
+                        return;
+                    }
+                    this._entriesDirSignals.connectSignal(monitor, 'changed', () => {
+                        this._updateEntries();
+                    });
+                },
             });
         }
 

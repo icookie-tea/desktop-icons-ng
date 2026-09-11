@@ -361,3 +361,55 @@ export function waitDelayMs(ms) {
         });
     });
 }
+
+/* Retry backoff (ms) for defensive monitor creation. */
+const MONITOR_RETRY_DELAYS_MS = [2000, 5000, 10000, 30000];
+
+/**
+ * Creates a directory monitor without ever throwing.
+ *
+ * Gio.File.monitor_directory() can fail transiently — typically inotify
+ * instance exhaustion, reported as "Unable to find default local file monitor
+ * type" (seen in this machine's journal, also from gnome-control-center).
+ * Letting that exception escape aborted the calling constructor; for
+ * DesktopManager it ran after mainApp.hold(), so the DING process stayed
+ * alive with no desktop and the shell extension never relaunched it (audit
+ * 2026-09-11). Retries with backoff and hands every successful monitor to
+ * `onMonitor`, which owns signal wiring and storage.
+ *
+ * @param {Gio.File} file directory to monitor
+ * @param {object} opts
+ * @param {Gio.FileMonitorFlags} opts.flags
+ * @param {function(Gio.FileMonitor)} opts.onMonitor
+ * @param {string} [opts.label] human-readable name used in the log
+ * @param {number} [opts.rateLimit] forwarded to set_rate_limit()
+ * @param {number[]} [opts.retryDelaysMs] test seam for the backoff schedule
+ */
+export function monitorDirectoryDefensively(file, { flags, onMonitor, label = '', rateLimit = 0, retryDelaysMs = MONITOR_RETRY_DELAYS_MS }) {
+    const name = label || file.get_path() || 'directory';
+    let attempt = 0;
+    const tryCreate = () => {
+        let monitor = null;
+        try {
+            monitor = file.monitor_directory(flags, null);
+        } catch (e) {
+            print(`Failed to monitor ${name}: ${e.message}`);
+        }
+        if (monitor) {
+            if (rateLimit > 0) {
+                monitor.set_rate_limit(rateLimit);
+            }
+            onMonitor(monitor);
+            return;
+        }
+        if (attempt >= retryDelaysMs.length) {
+            print(`Giving up monitoring ${name} after ${retryDelaysMs.length} retries`);
+            return;
+        }
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, retryDelaysMs[attempt++], () => {
+            tryCreate();
+            return GLib.SOURCE_REMOVE;
+        });
+    };
+    tryCreate();
+}

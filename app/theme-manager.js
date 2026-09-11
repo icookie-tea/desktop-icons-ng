@@ -23,11 +23,17 @@ import Gio from 'gi://Gio';
 import Adw from 'gi://Adw';
 
 import * as Prefs from './preferences.js';
+import * as DesktopIconsUtil from './desktop-icons-util.js';
 
 export var ThemeManager = class {
     constructor(desktopManager) {
         this._dm = desktopManager;
         this._cssColorProviderSelection = null;
+        // Set before any creation attempt: disconnect() runs during shutdown
+        // even when monitor creation failed (audit 2026-09-11).
+        this._userCssMonitor = null;
+        this._userCssMonitorSignalId = undefined;
+        this._disconnected = false;
         this._adwStyleManager = Adw.StyleManager.get_default();
         this._accentColorsAvailable = false;
         this.selectColor = new Gdk.RGBA({
@@ -71,31 +77,39 @@ export var ThemeManager = class {
             console.log(`Unable to listen to accent color changes: ${e.message}\n${e.stack}`);
         }
 
-        try {
-            // Monitoring the whole dir also catches Chromaleon replacing
-            // custom-accent.css (the @import target of gtk.css).
-            const cssDir = Gio.File.new_for_path(
-                GLib.build_filenamev([GLib.get_user_config_dir(), 'gtk-4.0'])
-            );
-            this._userCssMonitor = cssDir.monitor(Gio.FileMonitorFlags.NONE, null);
-            this._userCssMonitorSignalId = this._userCssMonitor.connect('changed', () => {
-                // A file write can generate several events (temp file +
-                // rename); debounce and re-read once the dust settles.
-                if (this._userCssChangeTimeoutId !== undefined)
-                    GLib.source_remove(this._userCssChangeTimeoutId);
-                this._userCssChangeTimeoutId = GLib.timeout_add(
-                    GLib.PRIORITY_DEFAULT,
-                    300,
-                    () => {
-                        this._userCssChangeTimeoutId = undefined;
-                        handler();
-                        return GLib.SOURCE_REMOVE;
-                    }
-                );
-            });
-        } catch (e) {
-            console.log(`Unable to monitor user gtk.css: ${e.message}\n${e.stack}`);
-        }
+        // Monitoring the whole dir also catches Chromaleon replacing
+        // custom-accent.css (the @import target of gtk.css). Creation is
+        // defensive: a transient inotify failure used to be swallowed with no
+        // retry, so accent changes were missed for the whole process lifetime.
+        const cssDir = Gio.File.new_for_path(
+            GLib.build_filenamev([GLib.get_user_config_dir(), 'gtk-4.0'])
+        );
+        DesktopIconsUtil.monitorDirectoryDefensively(cssDir, {
+            flags: Gio.FileMonitorFlags.NONE,
+            label: 'the user gtk.css folder',
+            onMonitor: monitor => {
+                if (this._disconnected) {
+                    monitor.cancel();
+                    return;
+                }
+                this._userCssMonitor = monitor;
+                this._userCssMonitorSignalId = monitor.connect('changed', () => {
+                    // A file write can generate several events (temp file +
+                    // rename); debounce and re-read once the dust settles.
+                    if (this._userCssChangeTimeoutId !== undefined)
+                        GLib.source_remove(this._userCssChangeTimeoutId);
+                    this._userCssChangeTimeoutId = GLib.timeout_add(
+                        GLib.PRIORITY_DEFAULT,
+                        300,
+                        () => {
+                            this._userCssChangeTimeoutId = undefined;
+                            handler();
+                            return GLib.SOURCE_REMOVE;
+                        }
+                    );
+                });
+            },
+        });
     }
 
     /* All notify handlers (global singletons), the file monitor and the
@@ -103,6 +117,7 @@ export var ThemeManager = class {
      * DesktopManager; without this the extension's disable/enable cycles
      * accumulate live handlers and providers on the global display. */
     disconnect() {
+        this._disconnected = true;
         if (this._adwStyleManagerSignalId !== undefined) {
             this._adwStyleManager.disconnect(this._adwStyleManagerSignalId);
             this._adwStyleManagerSignalId = undefined;
@@ -111,7 +126,7 @@ export var ThemeManager = class {
             GLib.source_remove(this._userCssChangeTimeoutId);
             this._userCssChangeTimeoutId = undefined;
         }
-        if (this._userCssMonitor !== null) {
+        if (this._userCssMonitor) {
             if (this._userCssMonitorSignalId !== undefined)
                 this._userCssMonitor.disconnect(this._userCssMonitorSignalId);
             this._userCssMonitor.cancel();

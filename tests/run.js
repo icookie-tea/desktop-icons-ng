@@ -14,6 +14,7 @@ import * as TestUndoStatus from './test-undo-status.js';
 import * as TestNewFolderSelection from './test-new-folder-selection.js';
 import * as TestRenamePopup from './test-rename-popup.js';
 import * as TestPassphraseRace from './test-passphrase-race.js';
+import * as TestMonitorDefensive from './test-monitor-defensive.js';
 import * as TestSortManager from './test-sort-manager.js';
 import * as TestDropFilename from './test-drop-filename.js';
 import * as TestClickCoordinates from './test-click-coordinates.js';
@@ -40,6 +41,7 @@ const tests = [
     TestNewFolderSelection,
     TestRenamePopup,
     TestPassphraseRace,
+    TestMonitorDefensive,
     TestSortManager,
     TestDropFilename,
     TestClickCoordinates,

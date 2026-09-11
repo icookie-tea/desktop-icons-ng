@@ -68,40 +68,51 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
             this._trashChanged = false;
             this._queryTrashInfoCancellable = null;
             this._scheduleTrashRefreshId = 0;
-            this._monitorTrashDir = this._file.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, null);
-            this.connectSignal(this._monitorTrashDir, 'changed', (obj, file, otherFile, eventType) => {
-                switch (eventType) {
-                    case Gio.FileMonitorEvent.DELETED:
-                    case Gio.FileMonitorEvent.MOVED_OUT:
-                    case Gio.FileMonitorEvent.CREATED:
-                    case Gio.FileMonitorEvent.MOVED_IN:
-                        if (this._queryTrashInfoCancellable || this._scheduleTrashRefreshId) {
-                            if (this._scheduleTrashRefreshId) {
-                                GLib.source_remove(this._scheduleTrashRefreshId);
-                            }
-                            if (this._queryTrashInfoCancellable) {
-                                this._queryTrashInfoCancellable.cancel();
-                                this._queryTrashInfoCancellable = null;
-                            }
-                            this._scheduleTrashRefreshId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
-                                this._refreshTrashIcon();
-                                this._scheduleTrashRefreshId = 0;
-                                return GLib.SOURCE_REMOVE;
-                            });
-                        } else {
-                            this._refreshTrashIcon();
-                            // after a refresh, don't allow more refreshes until 200ms after, to coalesce extra events
-                            this._scheduleTrashRefreshId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
-                                this._scheduleTrashRefreshId = 0;
-                                return GLib.SOURCE_REMOVE;
-                            });
+            this._monitorTrashDir = null;
+            DesktopIconsUtil.monitorDirectoryDefensively(this._file, {
+                flags: Gio.FileMonitorFlags.WATCH_MOVES,
+                label: 'the Trash folder',
+                onMonitor: monitor => {
+                    if (this._destroyed) {
+                        monitor.cancel();
+                        return;
+                    }
+                    this._monitorTrashDir = monitor;
+                    this.connectSignal(monitor, 'changed', (obj, file, otherFile, eventType) => {
+                        switch (eventType) {
+                            case Gio.FileMonitorEvent.DELETED:
+                            case Gio.FileMonitorEvent.MOVED_OUT:
+                            case Gio.FileMonitorEvent.CREATED:
+                            case Gio.FileMonitorEvent.MOVED_IN:
+                                if (this._queryTrashInfoCancellable || this._scheduleTrashRefreshId) {
+                                    if (this._scheduleTrashRefreshId) {
+                                        GLib.source_remove(this._scheduleTrashRefreshId);
+                                    }
+                                    if (this._queryTrashInfoCancellable) {
+                                        this._queryTrashInfoCancellable.cancel();
+                                        this._queryTrashInfoCancellable = null;
+                                    }
+                                    this._scheduleTrashRefreshId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
+                                        this._refreshTrashIcon();
+                                        this._scheduleTrashRefreshId = 0;
+                                        return GLib.SOURCE_REMOVE;
+                                    });
+                                } else {
+                                    this._refreshTrashIcon();
+                                    // after a refresh, don't allow more refreshes until 200ms after, to coalesce extra events
+                                    this._scheduleTrashRefreshId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
+                                        this._scheduleTrashRefreshId = 0;
+                                        return GLib.SOURCE_REMOVE;
+                                    });
+                                }
+                                break;
                         }
-                        break;
-                }
-            }, {
-                destroyCb: () => {
-                    this._monitorTrashDir.cancel();
-                }
+                    }, {
+                        destroyCb: () => {
+                            this._monitorTrashDir?.cancel();
+                        }
+                    });
+                },
             });
         } else {
             this._scheduleTrashRefreshId = 0;
