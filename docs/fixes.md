@@ -95,6 +95,30 @@ if (wasInUse !== nowInUse) { this._occupiedCount += nowInUse ? 1 : -1; }
 **P1-G 缩略图队列竞态（修：`b8fde23`）** \
 每次构建的状态（`_doCancel`/`_timeoutID`）挂在实例上：超时与 generate/save 回调可双完成，各自 `_launchNewBuild()` 并竞争缩略图缓存；`_launchNewBuild()` 对被销毁/已消失的项不 resolve，promise 永悬空；failed-thumbnail 快捷路径忽略 `_resolveThumbnail()` 的 false。改为每构建本地 cancellable + 首个完成者胜（`complete()` 守卫），所有路径保证 promise 必结算。测试 `tests/test-thumbnail-queue.js`。
 
+### 审计第三批（P2）：拖放坐标/预览状态泄漏、复用图标旧接线、NaN 边距、每帧分配、Shell 侧杀进程与 /proc 扫描
+
+> 均为低危但真实的遗留项；同样 TDD（除 Shell 侧无单测）。完整背景见 `docs/archive/code-audit-2026-09.md`。至此审计发现的 P0/P1/P2 全部关闭。
+
+**P2-1 待落点坐标只在“匹配成功”时清理（修：`632a06f`）** \
+`_pendingDropFiles` 的 TTL（5 分钟）与 64 条上限只在 `applyDropCoordinates()` 里执行，也就是只在后续某次拖放成功匹配到新文件时才跑：复制失败/文件一直没出现的条目会残留整个会话。4 个写入点（`file-operations.js` ×2、`desktop-manager.js`、`desktop-menu.js`）统一走 `DesktopMonitor.addPendingDropFile()`，插入时就执行 TTL/上限。
+
+**P2-2 复用图标保留旧的拖放接线（修：`632a06f`）** \
+“放下位置高亮”（`show-drop-place`）开时整块 container 接收拖放、关时 icon+label 接收，但该接线只写在构造函数里：就地复用（fast path）刷新不会重放，开关设置后所有复用图标仍是旧接线。`FileItem._updateDropDestinations()` 负责重放并**先移除旧 controller**（否则每次切换都会在同一个控件上叠一个 drop target），`_refreshReusedFileItem()` 调用它。
+
+**P2-3 拖拽结束后预览列表未清（修：`632a06f`）** \
+`DndManager.onDragEnd()` 只清 `dragItem`，`_dragList`（预览相对偏移）留了下来：桌面不会被通知撤掉预览，下一次拖拽还可能复用旧偏移。改为执行与 `onDragLeave()` 相同的清理。
+
+**P2-4 第三方只报部分边距 → 可用区域变 NaN（修：`632a06f`）** \
+`Math.max(0, undefined)` 是 NaN，一旦某个集成的边距对象缺少某一侧，整个 `_usableAreas` 以及下游 `_maxColumns/_maxRows` 全变 NaN。现在只对有限数值取 max。
+
+**P2-7 每帧分配矩形（修：`632a06f`）** \
+`DesktopGrid._coordinatesBelongToThisGrid()` 每个图标每帧 `new Gdk.Rectangle`；`PaintContainer._snapshotRoundedRect()` 每个圆角矩形每帧 `new Graphene.Rect` + `new Gsk.RoundedRect`（快照会把它们拷进节点，因此可安全复用）。两者改为复用 scratch 对象。
+
+**P2-5/P2-6/P2-8 Shell 侧硬化（修：`9f1b22a`）** \
+- P2-5：`killCurrentProcess()` 只发 SIGTERM 且立刻丢弃进程引用，主循环阻塞（长复制、gvfs 卡住）时会残留旧实例继续占着 D-Bus 名与桌面窗口 → 现在 2 秒后升级 SIGKILL；仅在该子进程**未被 reap** 时执行（reap 后 pid 可能被回收，`LaunchSubprocess.reaped` 由 `wait_async` 回调置位）。
+- P2-6：`innerEnable()` 移除待启动定时器时未把 `launchDesktopId` 归零，后续 `GLib.source_remove()` 会作用在已移除（可能已被复用）的 source id 上。
+- P2-8：构造函数里同步遍历 `/proc` 查杀旧实例会拖慢 Shell 启动 → 改为 `PRIORITY_DEFAULT_IDLE` 延迟执行；`launchDesktop()` 等待扫描完成（`procSweepDone`/`launchPending`）以避免旧实例抢先占用应用名；扫描时排除本次刚启动的 pid；外层加 try/catch，防止扫描失败导致桌面永不启动。
+
 ## 2026-09-08
 
 ### 图标标签双层文字阴影偏“硬”：模糊≤偏移 + 全不透明（gtk4-ding 样式基调）

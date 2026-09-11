@@ -3,7 +3,7 @@
 > 只读审计，未在审计阶段修改代码。基线 `audit/hidden-bugs`（起点 `af9fb46`，`scripts/check.sh` 全绿）。
 > 方法：5 路并行全文精读（历史项核对 / 派生状态 / 异步竞态 / UI·GTK4·拖放 / Shell·D-Bus）+ 交叉验证。
 > 关键结论均经二次核实：GTK 4.22 API 探针、Gio 监视器行为实测、真实 journal 证据与反证（详见各项“证据”列）。
-> **总计：P0×5、P1×7 已全部修复（含回归测试）；P2 剩余项见文末。**
+> **总计：P0×5、P1×7、P2×8 均已修复（含回归测试；Shell 侧无单测，见末节）。**
 
 ## 一、已修复（P0，5 项）
 
@@ -27,18 +27,20 @@
 | P1-F | `/proc` TOCTOU 可致扩展整个会话不加载；6s 看门狗与延迟 show 冲突（慢盘首读被杀循环） | 逐项 try/catch；app 首次刷新激活 shell `disableTimer` | `01ceb73` |
 | P1-G | 缩略图队列：超时与 generate/save 双完成、双 `_launchNewBuild()`、promise 悬空 | 每构建本地 cancellable + `complete()` 首个完成者胜；所有路径必结算 | `b8fde23` |
 
-## 三、仍开放（P2，未修复）
+## 三、已修复（P2，8 项）
 
-| # | 位置 | 问题 | 影响 |
-|---|------|------|------|
-| P2-1 | `desktop-monitor.js` `applyDropCoordinates()` | `_pendingDropFiles` 的 TTL/64 上限只在应用落点坐标时触发；复制全程失败则永不清理 | 低（映射无界 + 5 分钟窗口内可能误配） |
-| P2-2 | `desktop-manager.js` `_refreshReusedFileItem()` | 快速路径不重放 `show-drop-place` 设置 | 低（需一次文件集变化才生效） |
-| P2-3 | `dnd-manager.js:125-127` | `onDragEnd` 只清 `dragItem`，不清 `_dragList` | 低（第二次拖拽预览偏移错误） |
-| P2-4 | `visible-area.js:78` | `Math.max(0, undefined)` 会把只设部分边距的第三方集成变成 NaN → `_maxColumns` NaN | 低-中（当前 dash-to-dock 四边齐全；属潜在） |
-| P2-5 | `extension.js:229-235` | disable 只发 SIGTERM，无升级兜底 | 低（app 主循环阻塞时可能残留旧实例；未复现） |
-| P2-6 | `extension.js` `innerEnable()` | 移除 `launchDesktopId` 未归零 → 后续 `source_remove` 警告 | 低（难触发） |
-| P2-7 | `desktop-grid.js:490` / `paint-container.js:181` | 每帧 `new Gdk.Rectangle` / `RoundedRect`（P2-2 剩余分配） | 低（GC 抖动，无正确性问题） |
-| P2-8 | `extension.js` `doKillAllOldDesktopProcesses()` | 构造时同步全量扫 `/proc`（P2-9 历史项未做） | 低（会话繁忙时短暂阻塞 Shell 主循环） |
+> 全部在审计后第二批 P2 批次关闭（提交 `632a06f`、`9f1b22a`），详见 `docs/fixes.md` 的「审计第三批（P2）」。「原影响」列保留审计时的评估。
+
+| # | 位置 | 问题 | 原影响 | 修复 |
+|---|------|------|------|------|
+| P2-1 | `desktop-monitor.js` `applyDropCoordinates()` | `_pendingDropFiles` 的 TTL/64 上限只在应用落点坐标时触发；复制全程失败则永不清理 | 低（映射无界 + 5 分钟窗口内可能误配）| 新增 `addPendingDropFile()`，4 个写入点统一走它（插入即清理） |
+| P2-2 | `desktop-manager.js` `_refreshReusedFileItem()` | 快速路径不重放 `show-drop-place` 设置 | 低（需一次文件集变化才生效）| `_updateDropDestinations()` 重放并先摘除旧 controller，复用路径调用 |
+| P2-3 | `dnd-manager.js:125-127` | `onDragEnd` 只清 `dragItem`，不清 `_dragList` | 低（第二次拖拽预览偏移错误）| `onDragEnd()` 执行与 `onDragLeave()` 相同的清理 |
+| P2-4 | `visible-area.js:78` | `Math.max(0, undefined)` 会把只设部分边距的第三方集成变成 NaN → `_maxColumns` NaN | 低-中（当前 dash-to-dock 四边齐全；属潜在）| 只对有限数值取 max |
+| P2-5 | `extension.js:229-235` | disable 只发 SIGTERM，无升级兜底 | 低（app 主循环阻塞时可能残留旧实例；未复现）| 2s 后升级 SIGKILL，仅限未 reap 的子进程（`reaped` 标志） |
+| P2-6 | `extension.js` `innerEnable()` | 移除 `launchDesktopId` 未归零 → 后续 `source_remove` 警告 | 低（难触发）| 归零 |
+| P2-7 | `desktop-grid.js:490` / `paint-container.js:181` | 每帧 `new Gdk.Rectangle` / `RoundedRect`（P2-2 剩余分配） | 低（GC 抖动，无正确性问题）| 复用 scratch 对象 |
+| P2-8 | `extension.js` `doKillAllOldDesktopProcesses()` | 构造时同步全量扫 `/proc`（P2-9 历史项未做） | 低（会话繁忙时短暂阻塞 Shell 主循环）| 延迟到 idle；`launchDesktop()` 等待扫描；排除自身 pid；外层 try/catch |
 
 ## 四、诚实性说明：被推翻/被掩盖的结论
 
@@ -51,7 +53,7 @@
 
 - **21 项 FIXED**（P0-1~P0-4、P1-1~P1-7、P2-1、P2-3~P2-6，含“修复未引入新 bug”专项检查）
 - **1 项 PARTIAL**：P2-2 每帧分配（主体已修，剩余见 P2-7）
-- **1 项 OPEN**：P2-9 同步扫 `/proc`（见 P2-8）
+- **1 项 OPEN**：P2-9 同步扫 `/proc` —— 本轮已修（P2-8）
 - **2 项已排除**：P1-8（Meta API 废弃已对 mutter 源码证伪）、P2-8（Overview clone 已真机排除）
 
 ## 六、测试与验证
