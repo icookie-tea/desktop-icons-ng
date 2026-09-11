@@ -7,7 +7,7 @@
  * metadata (name, icon, size). The callback also ran after the item was
  * destroyed. */
 import { FileItem } from '../app/file-item.js';
-import { assert, assertEqual, summary } from './harness.js';
+import { assertEqual, summary } from './harness.js';
 
 function makeItem() {
     const item = Object.create(FileItem.prototype);

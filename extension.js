@@ -312,36 +312,44 @@ export default class DING extends Extension {
         let fileEnum = procFolder.enumerate_children('standard::*', Gio.FileQueryInfoFlags.NONE, null);
         let info;
         while ((info = fileEnum.next_file(null))) {
-            let filename = info.get_name();
-            if (!filename) {
-                break;
-            }
-            let processPath = GLib.build_filenamev(['/proc', filename, 'cmdline']);
-            let processUser = Gio.File.new_for_path(processPath);
-            if (!processUser.query_exists(null)) {
-                continue;
-            }
-            let [binaryData] = processUser.load_bytes(null);
-            let contents = '';
-            let readData = binaryData.get_data();
-            for (let i = 0; i < readData.length; i++) {
-                if (readData[i] < 32) {
-                    contents += ' ';
-                } else {
-                    contents += String.fromCharCode(readData[i]);
+            try {
+                let filename = info.get_name();
+                if (!filename) {
+                    break;
                 }
-            }
-            // The shebang `#!/usr/bin/env -S gjs --module` makes /proc/<pid>/cmdline
-            // read "gjs --module <path>/ding.js -E -P ..." — match on the script
-            // path alone (includes), not on a "gjs <path>" prefix, otherwise
-            // the ESM-era processes are never recognized and stale DING
-            // processes survive Shell restarts (two processes then race for
-            // the com.rastersoft.ding application name).
-            let path = GLib.build_filenamev([this.path, 'app', 'ding.js']);
-            if (contents.includes(path)) {
-                let proc = new Gio.Subprocess({ argv: ['/bin/kill', filename] });
-                proc.init(null);
-                proc.wait(null);
+                let processPath = GLib.build_filenamev(['/proc', filename, 'cmdline']);
+                let processUser = Gio.File.new_for_path(processPath);
+                if (!processUser.query_exists(null)) {
+                    continue;
+                }
+                let [binaryData] = processUser.load_bytes(null);
+                let contents = '';
+                let readData = binaryData.get_data();
+                for (let i = 0; i < readData.length; i++) {
+                    if (readData[i] < 32) {
+                        contents += ' ';
+                    } else {
+                        contents += String.fromCharCode(readData[i]);
+                    }
+                }
+                // The shebang `#!/usr/bin/env -S gjs --module` makes /proc/<pid>/cmdline
+                // read "gjs --module <path>/ding.js -E -P ..." — match on the script
+                // path alone (includes), not on a "gjs <path>" prefix, otherwise
+                // the ESM-era processes are never recognized and stale DING
+                // processes survive Shell restarts (two processes then race for
+                // the com.rastersoft.ding application name).
+                let path = GLib.build_filenamev([this.path, 'app', 'ding.js']);
+                if (contents.includes(path)) {
+                    let proc = new Gio.Subprocess({ argv: ['/bin/kill', filename] });
+                    proc.init(null);
+                    proc.wait(null);
+                }
+            } catch (e) {
+                // PIDs come and go while we walk /proc: a process exiting
+                // between query_exists() and load_bytes() must not abort the
+                // Extension constructor — that would leave the whole session
+                // without a desktop (audit 2026-09-11).
+                debugLog(`[proc] skipping ${info.get_name()}: ${e.message}`);
             }
         }
     }

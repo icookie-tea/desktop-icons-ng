@@ -580,6 +580,25 @@ export var DesktopManager = class {
         return true;
     }
 
+    /* The shell extension SIGKILLs the process when no window maps within
+     * WINDOW_MAP_TIMEOUT_MS (6 s) — a safety net for a hung launch. Desktop
+     * windows are only shown after the first icon pass (deferred show), so a
+     * slow cold-cache first read would be killed and relaunched forever.
+     * Activating the shell's disableTimer action on the first refresh says
+     * "alive and working"; the map notifications still cancel the timer on
+     * the normal path. */
+    _disableMapWatchdog(actionGroup = DBusUtils.extensionControl) {
+        if (this._mapWatchdogDisabled) {
+            return;
+        }
+        this._mapWatchdogDisabled = true;
+        try {
+            actionGroup?.activate_action('disableTimer', null);
+        } catch (e) {
+            print(`Unable to cancel the shell map watchdog: ${e.message}`);
+        }
+    }
+
     async _updateDesktop() {
         if (this._readingDesktopFiles) {
             this._desktopFilesChanged = true;
@@ -589,6 +608,7 @@ export var DesktopManager = class {
         this._readingDesktopFiles = true;
         this._forceDraw = false;
         this._lastDesktopUpdateRequest = GLib.get_monotonic_time();
+        this._disableMapWatchdog();
         let fileList = [];
         try {
             while (true) {

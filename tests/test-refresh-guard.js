@@ -89,5 +89,29 @@ export async function runTests() {
             'the guard is released after a mid-loop draw crash');
     }
 
+    // 4. The first refresh cancels the shell's window-map watchdog (deferred
+    //    window show used to risk a 6 s kill/relaunch loop on slow first
+    //    reads).
+    {
+        const dm = makeManager(async () => []);
+        assertEqual(typeof dm._disableMapWatchdog, 'function',
+            '_disableMapWatchdog exists');
+        if (typeof dm._disableMapWatchdog === 'function') {
+            let calls = 0;
+            const names = [];
+            const actionGroup = {
+                activate_action(name) {
+                    calls += 1;
+                    names.push(name);
+                },
+            };
+            dm._disableMapWatchdog(actionGroup);
+            dm._disableMapWatchdog(actionGroup);
+            assertEqual(calls, 1, 'the watchdog is cancelled exactly once');
+            assertEqual(names[0], 'disableTimer',
+                'the shell extension disableTimer action is activated');
+        }
+    }
+
     return summary('refresh-guard');
 }
