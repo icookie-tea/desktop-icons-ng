@@ -18,6 +18,7 @@ import * as TestMonitorDefensive from './test-monitor-defensive.js';
 import * as TestRefreshGuard from './test-refresh-guard.js';
 import * as TestIconDrop from './test-icon-drop.js';
 import * as TestPendingMoves from './test-pending-moves.js';
+import * as TestMetadataRefresh from './test-metadata-refresh.js';
 import * as TestSortManager from './test-sort-manager.js';
 import * as TestDropFilename from './test-drop-filename.js';
 import * as TestClickCoordinates from './test-click-coordinates.js';
@@ -48,6 +49,7 @@ const tests = [
     TestRefreshGuard,
     TestIconDrop,
     TestPendingMoves,
+    TestMetadataRefresh,
     TestSortManager,
     TestDropFilename,
     TestClickCoordinates,

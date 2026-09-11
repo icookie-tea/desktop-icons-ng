@@ -316,14 +316,23 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
             this._queryFileInfoCancellable.cancel();
         }
         this._queryFileInfoCancellable = new Gio.Cancellable();
+        const cancellable = this._queryFileInfoCancellable;
         this._file.query_info_async(Enums.DEFAULT_ATTRIBUTES,
             Gio.FileQueryInfoFlags.NONE,
             GLib.PRIORITY_DEFAULT,
-            this._queryFileInfoCancellable,
+            cancellable,
             (source, result) => {
                 try {
-                    this._queryFileInfoCancellable = null;
                     let newFileInfo = source.query_info_finish(result);
+                    // A newer refresh may have superseded this query (and the
+                    // item may be destroyed): only the newest, still-live query
+                    // may apply its result and release the shared handle, or a
+                    // stale completion would overwrite newer metadata and drop
+                    // the newer query's cancellable (audit 2026-09-11).
+                    if (this._destroyed || this._queryFileInfoCancellable !== cancellable) {
+                        return;
+                    }
+                    this._queryFileInfoCancellable = null;
                     this._updateMetadataFromFileInfo(newFileInfo);
                     newFileInfo = undefined;
                     if (rebuild) {
