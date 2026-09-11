@@ -5,7 +5,7 @@
  * but the managers only exposed `proxy`, so the guard was undefined-falsy and
  * the desktop Undo/Redo entries stayed permanently disabled. UndoStatus() must
  * also survive the Nautilus-restart race (proxy gone between check and call). */
-import { RemoteFileOperationsManager,
+import { DbusOperationsManager, RemoteFileOperationsManager,
     LegacyRemoteFileOperationsManager } from '../app/dbus-remote-operations.js';
 import { assert, assertEqual, summary } from './harness.js';
 
@@ -23,7 +23,7 @@ function callUndoStatus(manager) {
     }
 }
 
-export function runTests() {
+export async function runTests() {
     const available = new RemoteFileOperationsManager(
         null, makeProxyManager({ available: true, proxy: { UndoStatus: 1 } }), null, null, null);
     assertEqual(available.isAvailable, true,
@@ -46,6 +46,42 @@ export function runTests() {
     assertEqual(callUndoStatus(available), 1,
         'UndoStatus() reads the proxy property');
     assert(available.isAvailable, 'availability stays reported after a status read');
+
+    // 3. Both managers keep the async contract callers rely on: the rename
+    //    popup chains .catch() on RenameURIRemote, which the legacy manager
+    //    used to return as undefined.
+    {
+        const legacy = new LegacyRemoteFileOperationsManager(
+            makeProxyManager({ available: false, proxy: null }), null, null, null);
+        const returned = legacy.RenameURIRemote(['file:///a'], 'b.txt');
+        assert(returned !== null && returned !== undefined && typeof returned.catch === 'function',
+            'legacy RenameURIRemote returns a promise');
+        assert(returned !== null && returned !== undefined && typeof returned.then === 'function',
+            'legacy RenameURIRemote is awaitable');
+    }
+
+    // 4. The exported Wayland handle is released even when the proxy call
+    //    throws synchronously (it used to leak until another successful call).
+    {
+        const manager = Object.create(DbusOperationsManager.prototype);
+        let freed = false;
+        manager.platformData = async () => ({
+            data: { 'parent-handle': 1 },
+            freePlatformData: () => {
+                freed = true;
+            },
+        });
+        const proxyManager = {
+            proxy: {
+                RenameURIRemote() {
+                    throw new Error('proxy vanished');
+                },
+            },
+        };
+        await manager._remoteCallWithPlatformData(proxyManager, 'RenameURIRemote', 'Error renaming', [], null);
+        assertEqual(freed, true,
+            'the Wayland handle is freed when the proxy call throws synchronously');
+    }
 
     return summary('UndoStatus');
 }

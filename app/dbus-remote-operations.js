@@ -106,6 +106,17 @@ export var DbusOperationsManager = class {
             });
         } catch (e) {
             console.log(`${errorMessage}: ${e.message}`);
+            // The D-Bus completion callback — the only place that normally
+            // releases the exported Wayland handle — never ran: without this
+            // the handle stays exported until the next successful call on
+            // this toplevel (audit 2026-09-11).
+            if (platform && platform.freePlatformData) {
+                try {
+                    platform.freePlatformData();
+                } catch (freeError) {
+                    // ignore unexport errors
+                }
+            }
             if (callback) {
                 callback(null, e.message);
             }
@@ -275,7 +286,9 @@ export var LegacyRemoteFileOperationsManager = class extends DbusOperationsManag
         this._remoteCall(this.fileOperationsManager, 'CopyURIsRemote', 'Error copying files', [fileList, uri], callback);
     }
 
-    RenameURIRemote(fileList, uri, callback) {
+    async RenameURIRemote(fileList, uri, callback) {
+        // async for caller parity with RemoteFileOperationsManager: the rename
+        // popup chains .catch() on the result, which was undefined here.
         this._remoteCall(this.fileOperationsManager, 'RenameURIRemote', 'Error renaming files', [fileList, uri], callback, 'RenameFileRemote');
     }
 
