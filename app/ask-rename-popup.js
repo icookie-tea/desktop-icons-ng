@@ -92,13 +92,23 @@ export var AskRenamePopup = class extends SignalManager.SignalManager {
     updateFileItem(fileItem) {
         this._fileItem = fileItem;
         if (fileItem) {
-            this._popover.set_relative_to(this._fileItem._iconContainer);
-            this._popover.modal = true;
+            // GTK4 reparenting: detach first, then attach to the new container.
+            // unparent() does not emit 'closed', so the rename survives a
+            // desktop refresh, and set_parent() maps the popover again
+            // (verified on GTK 4.22). GTK3's set_relative_to() does not exist
+            // in GTK4 — calling it threw and dropped the whole refresh.
+            if (this._popover.get_parent() !== fileItem.container) {
+                if (this._popover.get_parent()) {
+                    this._popover.unparent();
+                }
+                this._popover.set_parent(fileItem.container);
+            }
             this._textArea.set_position(this._cursorPosition);
         } else {
             this._cursorPosition = this._textArea.get_position();
-            this._popover.modal = false;
-            this._popover.set_relative_to(null);
+            if (this._popover.get_parent()) {
+                this._popover.unparent();
+            }
         }
     }
 

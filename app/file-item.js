@@ -202,6 +202,11 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
     }
 
     setRenamePopup(renameWindow) {
+        // A refresh can hand the popup an item whose widget was already
+        // destroyed (container === null): reattaching would connect to null.
+        if (this._destroyed || !this.container) {
+            return;
+        }
         if (this._realizeId) {
             this.container.disconnect(this._realizeId);
         }

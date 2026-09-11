@@ -712,17 +712,19 @@ export var DesktopManager = class {
             this._fileList = fileList;
             DebugLog.debugLog(`[draw] rebuild ${fileList.length} t=${Math.floor(GLib.get_monotonic_time() / 1000)}`);
         }
-        // Select the files that were selected before the repaint
+        // Select the files that were selected before the repaint. Iterate the
+        // live list: the reuse fast path swapped in the reused items and
+        // destroyed the freshly created ones.
         if (this._selectedFiles) {
-            for (let fileItem of fileList) {
+            for (let fileItem of this._fileList) {
                 if (this._selectedFiles.includes(fileItem.uri)) {
                     fileItem.setSelected();
                 }
             }
         }
         if (this._renameWindow) {
-            // assign the popover to the new fileItem
-            let file = fileList.filter(f => f.fileName == this._renamingFile)[0];
+            // Reattach the popover to the live item (same reasoning as above).
+            let file = this._fileList.find(f => f.fileName == this._renamingFile);
             if (file) {
                 file.setRenamePopup(this._renameWindow);
             } else {
