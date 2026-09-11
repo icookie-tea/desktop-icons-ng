@@ -70,6 +70,31 @@ if (wasInUse !== nowInUse) { this._occupiedCount += nowInUse ? 1 : -1; }
 **修复：** 先建目录，成功后才销毁图标；移动失败回调里触发一次重建自愈；`_canReuseFileItems()` 永不采纳 `_destroyed` 的 item（强制走重建路径）。
 **测试：** `tests/test-new-folder-selection.js`（销毁保护 + 已销毁 item 触发重建）。
 
+### 审计第二批（P1）：刷新守卫、拖放语义、远程调用契约、移动超时、元数据竞态、/proc 竞态与看门狗、缩略图队列
+
+> 同样按 TDD：每项先写失败测试再实现。详细背景见 `docs/archive/code-audit-2026-09.md`。
+
+**P1-A 刷新系统无 try/finally（修：`a2853fc`）** \
+`_updateDesktop()` 只在正常路径复位 `_readingDesktopFiles`；读失败或中途 `_drawDesktop` 抛异常后守卫永不复位 → 后续所有刷新只置 `_desktopFilesChanged` 就返回，桌面再不更新（直到重启进程）。改为把读取/绘制循环包进 `try/finally`；末次 `_drawDesktop` 留在外面（它的失败不再冻结系统）。测试 `tests/test-refresh-guard.js`。
+
+**P1-B 文件夹图标拖放总变复制 + 文本拖放当 URI（修：`718b633`）** \
+`manageIconDrop()` 把 COPY|MOVE 折叠成 `ASK` 并原样返回；FileItem 只在 `action === MOVE` 时移动，所以拖到文件夹图标恒为复制，且 `drop.finish()` 永远报 COPY（与真实操作矛盾）。新增 `resolveDropAction()`（可移动则 MOVE，否则 COPY）同时用于 `finish()` 与返回值。`text/plain` 之前把原文当 URI 传给 Move/CopyURIsRemote；新增 `writeTextIntoFolder()`（`writeDroppedTextFile()` 增加 `targetDir` 参数）写入目标文件夹并去重命名。测试 `tests/test-icon-drop.js`。
+
+**P1-C 远程调用契约：legacy 重命名返回 undefined；Wayland handle 泄漏（修：`3674f65`）** \
+`LegacyRemoteFileOperationsManager.RenameURIRemote()` 非 async，重命名弹窗的 `.catch()` 在旧接口下报 TypeError；改为 async 与新接口一致。`_remoteCallWithPlatformData()` 的同步抛错路径不调 `freePlatformData()` → 导出的 handle 泄漏到下一次成功调用；catch 里补释放。测试 `tests/test-undo-status.js` 扩展。
+
+**P1-D 待定移动共用超时（修：`fef5466`）** \
+所有 `_pendingMoves` 共用 `_moveTimeoutId`，150ms 内两次 MOVED_OUT 时第一条永不清理（残留图标/可能改错项）。改为 `_pendingMoveTimeouts[oldPath]` 每项独立，超时/匹配到 MOVED_IN/`_drawDesktop` 重置时均清理。测试 `tests/test-pending-moves.js`。
+
+**P1-E 元数据查询竞态（修：`c61411b`）** \
+`query_info_async` 回调无条件清空共享 cancellable 并应用结果 → 旧查询可覆盖新元数据、新查询失去可取消句柄；且销毁后回调仍改状态。改为回调持有自己的 cancellable，只有“最新且在存活”的查询才能应用结果并释放句柄，`_destroyed` 后直接丢弃。测试 `tests/test-metadata-refresh.js`。
+
+**P1-F /proc TOCTOU 可致扩展不加载；6s 看门狗潜在杀循环（修：`01ceb73`）** \
+`doKillAllOldDesktopProcesses()` 在 `query_exists()` 与 `load_bytes()` 之间 PID 退出会抛异常冒出 `Extension` 构造函数 → 本次登录扩展不加载；逐项包 try/catch。另外 6s `WINDOW_MAP_TIMEOUT_MS` 看门狗与“首帧才 show”冲突（慢盘首读 >6s 会被反复杀/重启）：app 在首次刷新开始时激活 shell 侧的 `disableTimer` action（该 action 之前全库无消费方）。测试 `tests/test-refresh-guard.js` 扩展（注入 actionGroup 桩）。
+
+**P1-G 缩略图队列竞态（修：`b8fde23`）** \
+每次构建的状态（`_doCancel`/`_timeoutID`）挂在实例上：超时与 generate/save 回调可双完成，各自 `_launchNewBuild()` 并竞争缩略图缓存；`_launchNewBuild()` 对被销毁/已消失的项不 resolve，promise 永悬空；failed-thumbnail 快捷路径忽略 `_resolveThumbnail()` 的 false。改为每构建本地 cancellable + 首个完成者胜（`complete()` 守卫），所有路径保证 promise 必结算。测试 `tests/test-thumbnail-queue.js`。
+
 ## 2026-09-08
 
 ### 图标标签双层文字阴影偏“硬”：模糊≤偏移 + 全不透明（gtk4-ding 样式基调）

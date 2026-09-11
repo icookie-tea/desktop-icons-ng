@@ -13,6 +13,7 @@
 
 | 文档 | 说明 |
 |---|---|
+| [`archive/code-audit-2026-09.md`](archive/code-audit-2026-09.md) | 2026-09-11 全仓审计（P0×5、P1×7 已修 + P2 遗留清单 + 历史项核对） |
 | [`archive/maintainability-refactor.md`](archive/maintainability-refactor.md) | 2026-07~08 可维护性重构总结（分支 `refactor/maintainability`） |
 | [`archive/manual-test-checklist.md`](archive/manual-test-checklist.md) | audit-fixes 批次（提交 `f147f54`）手动回归清单 |
 | [`archive/fixes-2026-07.md`](archive/fixes-2026-07.md) | 修复日志 2026-07 条目归档 |
