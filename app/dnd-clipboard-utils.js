@@ -20,6 +20,7 @@ import * as Enums from './enums.js';
 import GLib from 'gi://GLib';
 import Gdk from 'gi://Gdk';
 import * as FileUtils from './file-utils.js';
+import * as DesktopIconsUtil from './desktop-icons-util.js';
 
 // Prepares a file list for cut or copy
 export function manageCutCopy(action) {
@@ -159,21 +160,52 @@ export function loadDragData({fileList, specialFilesSelected}) {
     ]);
 }
 
-// manages the drop action over an icon (a folder, for example)
-export async function manageIconDrop(fileItem, drop, x, y) {
-    let gdkDropAction = drop.get_actions();
-    if (!Gdk.DragAction.is_unique(gdkDropAction)) {
-        if (((gdkDropAction & Gdk.DragAction.COPY) != 0) && ((gdkDropAction & Gdk.DragAction.MOVE) != 0)) {
-            gdkDropAction = Gdk.DragAction.ASK;
+/* Resolves the action a folder-icon drop performs from the actions the drag
+ * source offered. Folder drops move when the source allows it (the drop
+ * target advertises MOVE in drag-motion, matching Nautilus); GTK collapses
+ * COPY|MOVE to ASK, which used to make every folder drop a copy. */
+export function resolveDropAction(availableActions) {
+    if ((availableActions & Gdk.DragAction.MOVE) !== 0) {
+        return Gdk.DragAction.MOVE;
+    }
+    return Gdk.DragAction.COPY;
+}
+
+/* Drops plain text into a folder icon as a new file: the folder counterpart
+ * of the desktop's "Dropped Text.txt" behaviour (text is not a URI list, so
+ * it must never be handed to Move/CopyURIsRemote). */
+export function writeTextIntoFolder(folder, text) {
+    const filename = uniqueNameInFolder(folder, DesktopIconsUtil.generateDropFilename(text));
+    DesktopIconsUtil.writeDroppedTextFile(text, filename, null, folder);
+}
+
+function uniqueNameInFolder(folder, name) {
+    if (!folder.get_child(name).query_exists(null)) {
+        return name;
+    }
+    const dot = name.lastIndexOf('.');
+    const stem = dot > 0 ? name.substring(0, dot) : name;
+    const suffix = dot > 0 ? name.substring(dot) : '';
+    for (let i = 1; i < 1000; i++) {
+        const candidate = `${stem} (${i})${suffix}`;
+        if (!folder.get_child(candidate).query_exists(null)) {
+            return candidate;
         }
     }
-    let gdkReturnAction = Gdk.DragAction.COPY;
+    return name;
+}
+
+// manages the drop action over an icon (a folder, for example)
+export async function manageIconDrop(fileItem, drop, x, y) {
+    // Resolve the action before finishing the drop: the caller performs the
+    // same action and drop.finish() must report it to the source.
+    const dropAction = resolveDropAction(drop.get_actions());
     let dropFinished = false;
 
     try {
         let [dropData, mimetype] = await drop.read_async_promise(Enums.MIME_TYPES, GLib.PRIORITY_DEFAULT, null);
 
-        drop.finish(gdkReturnAction);
+        drop.finish(dropAction);
         dropFinished = true;
 
         const data = await FileUtils.readAll(dropData);
@@ -207,7 +239,7 @@ export async function manageIconDrop(fileItem, drop, x, y) {
                 break;
         }
         return {
-            'action': gdkDropAction,
+            'action': dropAction,
             'mimetype': mimetype,
             'filelist': file_list
         };

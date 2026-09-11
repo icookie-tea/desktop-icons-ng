@@ -305,9 +305,9 @@ export function generateDropFilename(text) {
     return _("Dropped Text.txt");
 }
 
-export function writeDroppedTextFile(text, filename, dropCoordinates) {
-    let desktopDir = getDesktopDir();
-    let file = desktopDir.get_child(filename);
+export function writeDroppedTextFile(text, filename, dropCoordinates, targetDir = null) {
+    let parentDir = targetDir || getDesktopDir();
+    let file = parentDir.get_child(filename);
 
     let content = text;
     if (!content.endsWith('\n')) {

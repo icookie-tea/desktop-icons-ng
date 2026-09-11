@@ -572,6 +572,12 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
             if (dropInfo.filelist.includes(this.uri)) {
                 return false;
             }
+            if (dropInfo.mimetype === Enums.DndTargetInfo.TEXT_PLAIN) {
+                // Text payloads are not URIs: write them into the folder, like
+                // dropping them on the desktop writes "Dropped Text.txt".
+                dndClipboardUtils.writeTextIntoFolder(this.file, dropInfo.filelist[0]);
+                return true;
+            }
             try {
                 if (dropInfo.action === Gdk.DragAction.MOVE) {
                     DBusUtils.RemoteFileOperations.MoveURIsRemote(dropInfo.filelist, this.uri);
