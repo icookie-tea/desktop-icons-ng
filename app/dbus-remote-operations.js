@@ -30,6 +30,13 @@ export var DbusOperationsManager = class {
         this.gnomeArchiveManager = gnomeArchiveManager;
     }
 
+    /* Whether the FileOperations proxy is currently reachable. Subclasses set
+     * this.fileOperationsManager; callers (desktop-menu._syncUndoRedo) gate
+     * UndoStatus() behind it so a Nautilus restart cannot crash the menu. */
+    get isAvailable() {
+        return !!this.fileOperationsManager?.isAvailable;
+    }
+
     _sendNoProxyError(callback) {
         if (callback) {
             GLib.idle_add(GLib.PRIORITY_LOW, () => {
@@ -247,7 +254,9 @@ export var RemoteFileOperationsManager = class extends DbusOperationsManager {
     }
 
     UndoStatus() {
-        return this.fileOperationsManager.proxy.UndoStatus;
+        // The proxy may have gone away between the availability check and this
+        // call (Nautilus restart): report "unknown" instead of throwing.
+        return this.fileOperationsManager.proxy?.UndoStatus;
     }
 }
 
@@ -295,7 +304,8 @@ export var LegacyRemoteFileOperationsManager = class extends DbusOperationsManag
     }
 
     UndoStatus() {
-        return this.fileOperationsManager.proxy.UndoStatus;
+        // Same Nautilus-restart race as the FileOperations2 manager above.
+        return this.fileOperationsManager.proxy?.UndoStatus;
     }
 }
 
