@@ -226,10 +226,14 @@ export var DesktopMonitor = class {
             return this.handleFileDeleted(file);
         }
         this._dm._pendingMoves[oldPath] = newPath;
-        if (this._dm._moveTimeoutId) {
-            GLib.source_remove(this._dm._moveTimeoutId);
+        // Each pending move owns its timeout: with one shared timer, a second
+        // MOVED_OUT arriving within MOVE_PENDING_TIMEOUT_MS removed the first
+        // entry's cleanup, leaving a stale icon behind (audit 2026-09-11).
+        if (this._dm._pendingMoveTimeouts[oldPath]) {
+            GLib.source_remove(this._dm._pendingMoveTimeouts[oldPath]);
         }
-        this._dm._moveTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, Constants.MOVE_PENDING_TIMEOUT_MS, () => {
+        this._dm._pendingMoveTimeouts[oldPath] = GLib.timeout_add(GLib.PRIORITY_DEFAULT, Constants.MOVE_PENDING_TIMEOUT_MS, () => {
+            delete this._dm._pendingMoveTimeouts[oldPath];
             try {
                 if (oldPath in this._dm._pendingMoves) {
                     DebugLog.debugLog(`[monitor] MOVED_OUT timeout fired old=${oldPath} t=${Math.floor(GLib.get_monotonic_time() / 1000)}`);
@@ -253,6 +257,10 @@ export var DesktopMonitor = class {
         DebugLog.debugLog(`[monitor] MOVED_IN new=${newPath} old=${oldPath} matched=${matched} t=${Math.floor(GLib.get_monotonic_time() / 1000)}`);
         if (matched) {
             delete this._dm._pendingMoves[oldPath];
+            if (this._dm._pendingMoveTimeouts[oldPath]) {
+                GLib.source_remove(this._dm._pendingMoveTimeouts[oldPath]);
+                delete this._dm._pendingMoveTimeouts[oldPath];
+            }
             return await this.handleFileRenamed(file, otherFile);
         }
         return await this.handleFileCreated(file);

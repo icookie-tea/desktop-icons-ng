@@ -107,7 +107,7 @@ export function runTests() {
     {
         const dm = Object.create(DesktopManager.prototype);
         dm._pendingMoves = {};
-        dm._moveTimeoutId = 0;
+        dm._pendingMoveTimeouts = {};
         dm._selectedFiles = null;
         dm._renamingFile = 'a.txt';
         let reattachedTo = null;

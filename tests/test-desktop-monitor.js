@@ -42,7 +42,7 @@ function makeDm(overrides = {}) {
         _desktopFilesChanged: false,
         _fileList: [],
         _pendingMoves: {},
-        _moveTimeoutId: 0,
+        _pendingMoveTimeouts: {},
         _renameWindow: null,
         _renamingFile: null,
         _desktops: [],

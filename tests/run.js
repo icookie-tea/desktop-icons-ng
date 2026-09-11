@@ -17,6 +17,7 @@ import * as TestPassphraseRace from './test-passphrase-race.js';
 import * as TestMonitorDefensive from './test-monitor-defensive.js';
 import * as TestRefreshGuard from './test-refresh-guard.js';
 import * as TestIconDrop from './test-icon-drop.js';
+import * as TestPendingMoves from './test-pending-moves.js';
 import * as TestSortManager from './test-sort-manager.js';
 import * as TestDropFilename from './test-drop-filename.js';
 import * as TestClickCoordinates from './test-click-coordinates.js';
@@ -46,6 +47,7 @@ const tests = [
     TestMonitorDefensive,
     TestRefreshGuard,
     TestIconDrop,
+    TestPendingMoves,
     TestSortManager,
     TestDropFilename,
     TestClickCoordinates,

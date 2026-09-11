@@ -169,7 +169,8 @@ export var DesktopManager = class {
 
         this._pendingMoves = {};
         this._processingIncremental = false;
-        this._moveTimeoutId = 0;
+        // One timeout per pending move (see desktop-monitor.handleMovedOut).
+        this._pendingMoveTimeouts = {};
         this._fileChangesQueue = new FileChangesQueue.FileChangesQueue(Constants.FILE_CHANGES_DEBOUNCE_MS, Constants.MAX_INCREMENTAL_EVENTS);
         this._fileChangesQueue.onFlush(events => {
             this._monitor.processIncrementalEvents(events).catch(e => {
@@ -708,10 +709,12 @@ export var DesktopManager = class {
 
     _drawDesktop(fileList) {
         this._pendingMoves = {};
-        if (this._moveTimeoutId) {
-            GLib.source_remove(this._moveTimeoutId);
-            this._moveTimeoutId = 0;
+        for (const timeoutId of Object.values(this._pendingMoveTimeouts)) {
+            if (timeoutId) {
+                GLib.source_remove(timeoutId);
+            }
         }
+        this._pendingMoveTimeouts = {};
         this._selectedFiles = this.getCurrentSelection(true);
         if (this._renameWindow) {
             // disconnect the popup from the fileItem to avoid it being
