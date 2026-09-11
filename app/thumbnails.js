@@ -79,16 +79,24 @@ export var ThumbnailLoader = class {
             // if the file disappeared while waiting in the queue, don't refresh the thumbnail
             [file, resolve] = this._thumbList.shift();
             if (file._destroyed) {
+                // Settle the promise: skipping it left the awaiting icon-update
+                // frame pending forever (audit 2026-09-11).
+                resolve(null);
                 continue;
             }
-            if (file.file.query_exists(null)) {
-                if (this._thumbnailFactoryLarge.has_valid_failed_thumbnail(file.uri, file.modifiedTime)) {
-                    this._resolveThumbnail(file, resolve);
-                    continue;
-                } else {
-                    break;
-                }
+            if (!file.file.query_exists(null)) {
+                // Disappeared before generation: settle it as well.
+                resolve(null);
+                continue;
             }
+            if (this._thumbnailFactoryLarge.has_valid_failed_thumbnail(file.uri, file.modifiedTime)) {
+                if (!this._resolveThumbnail(file, resolve)) {
+                    // The lookup missed (file moved/renamed meanwhile).
+                    resolve(null);
+                }
+                continue;
+            }
+            break;
         } while (true);
         this._running = true;
         if (this._useAsyncAPI) {
@@ -100,13 +108,35 @@ export var ThumbnailLoader = class {
 
     _createThumbnailAsync(file, resolve) {
         let fileInfo = file.file.query_info('standard::content-type,time::modified', Gio.FileQueryInfoFlags.NONE, null);
-        this._doCancel = new Gio.Cancellable();
+        // Per-build state: with the cancellable on `this`, the timeout
+        // installed a new one while the generate/save callbacks were still in
+        // flight, so both paths completed and each launched a build, racing on
+        // the thumbnail cache (audit 2026-09-11).
+        const cancellable = new Gio.Cancellable();
         let modifiedTime = fileInfo.get_attribute_uint64('time::modified');
-        this._thumbnailFactoryLarge.generate_thumbnail_async(file.uri, fileInfo.get_content_type(), this._doCancel, (obj, res) => {
+
+        // Only the first path to finish may resolve the promise and start the
+        // next build.
+        let finished = false;
+        const complete = callback => {
+            if (finished) {
+                return;
+            }
+            finished = true;
+            callback();
+            this._launchNewBuild();
+        };
+
+        this._thumbnailFactoryLarge.generate_thumbnail_async(file.uri, fileInfo.get_content_type(), cancellable, (obj, res) => {
+            if (finished) {
+                // The timeout path already owns this build.
+                return;
+            }
             this._removeTimeout();
             try {
                 let thumbnailPixbuf = obj.generate_thumbnail_finish(res);
-                this._thumbnailFactoryLarge.save_thumbnail_async(thumbnailPixbuf, file.uri, modifiedTime, this._doCancel, (obj, res) => {
+                this._thumbnailFactoryLarge.save_thumbnail_async(thumbnailPixbuf, file.uri, modifiedTime, cancellable, (obj, res) => {
+                    let failed = false;
                     try {
                         obj.save_thumbnail_finish(res);
                     } catch (e) {
@@ -117,17 +147,16 @@ export var ThumbnailLoader = class {
                             return;
                         }
                         print(`Error while saving thumbnail: ${e.message}\n${e.stack}`);
-                        resolve(null);
-                        this._launchNewBuild();
-                        return;
+                        failed = true;
                     }
-                    if (!this._resolveThumbnail(file, resolve)) {
-                        // Saved, but the lookup missed (file moved/renamed in
-                        // between): resolve with null instead of hanging the
-                        // promise forever.
-                        resolve(null);
-                    }
-                    this._launchNewBuild();
+                    complete(() => {
+                        if (failed || !this._resolveThumbnail(file, resolve)) {
+                            // Saved, but the lookup missed (file moved/renamed in
+                            // between): resolve with null instead of hanging the
+                            // promise forever.
+                            resolve(null);
+                        }
+                    });
                 });
             } catch (e) {
                 // A cancelled operation means the timeout handler already ran
@@ -136,29 +165,31 @@ export var ThumbnailLoader = class {
                     return;
                 }
                 print(`Error while creating thumbnail: ${e.message}\n${e.stack}`);
-                this._createFailedThumbnailAsync(file, modifiedTime, resolve);
+                complete(() => this._createFailedThumbnailAsync(file, modifiedTime, resolve));
             }
         });
         this._timeoutID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, this._timeoutValue, () => {
             print(`Timeout while generating thumbnail for ${file.displayName}`);
             this._timeoutID = 0;
-            this._doCancel.cancel();
-            this._createFailedThumbnailAsync(file, modifiedTime, resolve);
+            cancellable.cancel();
+            complete(() => this._createFailedThumbnailAsync(file, modifiedTime, resolve));
             return false;
         });
     }
 
     _createFailedThumbnailAsync(file, modifiedTime, resolve) {
-        this._doCancel = new Gio.Cancellable();
-        this._thumbnailFactoryLarge.create_failed_thumbnail_async(file.uri, modifiedTime, this._doCancel, (obj, res) => {
+        const cancellable = new Gio.Cancellable();
+        this._thumbnailFactoryLarge.create_failed_thumbnail_async(file.uri, modifiedTime, cancellable, (obj, res) => {
             try {
                 obj.create_failed_thumbnail_finish(res);
-                this._resolveThumbnail(file, resolve);
+                if (!this._resolveThumbnail(file, resolve)) {
+                    resolve(null);
+                }
             } catch (e) {
                 print(`Error while creating failed thumbnail: ${e.message}\n${e.stack}`);
                 resolve(null);
             }
-            this._launchNewBuild();
+            // The caller (complete()) launches the next build.
         });
     }
 
@@ -175,7 +206,9 @@ export var ThumbnailLoader = class {
                 if (result2) {
                     let status = source.get_status();
                     if (status == 0) {
-                        this._resolveThumbnail(file, resolve);
+                        if (!this._resolveThumbnail(file, resolve)) {
+                            resolve(null);
+                        }
                     }
                 } else {
                     print(`Failed to generate thumbnail for ${file.displayName}`);
