@@ -75,7 +75,14 @@ export class VisibleArea {
                     };
                 }
                 for (let index2 of ['top', 'bottom', 'left', 'right']) {
-                    this._usableAreas[index][index2] = Math.max(this._usableAreas[index][index2], margins[workspace][index2]);
+                    // Third-party integrations may report only the sides they
+                    // use; Math.max(0, undefined) is NaN, and a NaN margin
+                    // poisoned the whole usable area (and the grid's
+                    // column/row count) (audit 2026-09-11).
+                    const value = margins[workspace][index2];
+                    if (Number.isFinite(value)) {
+                        this._usableAreas[index][index2] = Math.max(this._usableAreas[index][index2], value);
+                    }
                 }
             }
         }

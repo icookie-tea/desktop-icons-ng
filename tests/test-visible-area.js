@@ -91,5 +91,30 @@ export function runTests() {
         assertDeepEqual(v._usableAreas[0], MARGINS(1, 1, 1, 1), 'second call replaces, not merges, the same extension');
     }
 
+    // 9. Third-party integrations may report only the sides they use.
+    //    Math.max(0, undefined) is NaN, and a NaN margin propagated into
+    //    the grid's _maxColumns/_maxRows (icons could not be placed).
+    {
+        const v = va();
+        v.setMarginsForExtension('ext-a', { 0: { top: 30 } });
+        v._refreshMargins();
+        assertDeepEqual(v._usableAreas[0], MARGINS(30, 0, 0, 0),
+            'missing sides default to 0 instead of NaN');
+        assertEqual(Number.isNaN(v._usableAreas[0].bottom), false,
+            'no NaN leaks into the usable area');
+    }
+
+    // 10. Non-numeric side values are ignored (they neither win the max nor
+    //     poison the whole area)
+    {
+        const v = va();
+        v.setMarginsForExtension('ext-a', { 0: MARGINS(10, 10, 10, 10) });
+        v.setMarginsForExtension('ext-b',
+            { 0: { top: undefined, bottom: null, left: '20', right: 50 } });
+        v._refreshMargins();
+        assertDeepEqual(v._usableAreas[0], MARGINS(10, 10, 10, 50),
+            'only finite numbers take part in the max');
+    }
+
     return summary('VisibleArea');
 }

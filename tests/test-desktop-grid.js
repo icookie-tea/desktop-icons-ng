@@ -87,5 +87,29 @@ export function runTests() {
             'grid is still hostable after repeated repaints');
     }
 
+    // 4. _coordinatesBelongToThisGrid() runs for every icon on every frame;
+    //    it must reuse a single probe rectangle instead of allocating a
+    //    fresh Gdk.Rectangle per call.
+    {
+        const seen = [];
+        const grid = Object.create(DesktopGrid.prototype);
+        grid.gridGlobalRectangle = {
+            intersect: rect => {
+                seen.push(rect);
+                return [true];
+            },
+        };
+        const first = grid._coordinatesBelongToThisGrid(5, 6);
+        const second = grid._coordinatesBelongToThisGrid(7, 8);
+        assertEqual(seen.length, 2, 'intersect() is called once per probe');
+        assert(seen[0] === seen[1], 'the same Gdk.Rectangle instance is reused');
+        assertEqual(seen[1].x, 7, 'the reused rectangle is updated in x');
+        assertEqual(seen[1].y, 8, 'the reused rectangle is updated in y');
+        assertEqual(seen[1].width, 1, 'and keeps the 1x1 probe size');
+        assertEqual(seen[1].height, 1, 'in both axes');
+        assertEqual(first, true, 'the intersection result is returned');
+        assertEqual(second, true, 'also on the second call');
+    }
+
     return summary('DesktopGrid');
 }

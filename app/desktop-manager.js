@@ -545,6 +545,11 @@ export var DesktopManager = class {
         if (old._custom !== newItem._custom) {
             old._custom = newItem._custom;
         }
+        // The drop-place setting may have changed since the item was built:
+        // the constructor wiring never runs again for a reused item.
+        if (typeof old._updateDropDestinations === 'function') {
+            old._updateDropDestinations();
+        }
         if (typeof old._updateMetadataFromFileInfo === 'function') {
             old._updateMetadataFromFileInfo(newItem._fileInfo);
             // assign the coordinate fields directly: the setters
@@ -905,7 +910,7 @@ export var DesktopManager = class {
                 // gvfs-metadata writes are async; the create event may
                 // arrive before they land, so also record by basename like
                 // the paste path does (matched in applyDropCoordinates).
-                this._pendingDropFiles[newName] = [position[0], position[1], Date.now()];
+                this._monitor.addPendingDropFile(newName, position);
             } catch (e) {
                 console.error(e, 'Failed to create folder');
                 const header = _('Folder Creation Failed');

@@ -178,12 +178,15 @@ export var PaintContainer = class PaintContainer extends Gtk.Widget {
         radius = Math.min(radius, width / 2, height / 2);
 
         if (fillColor) {
-            const rect = new Graphene.Rect();
-            rect.init(x, y, width, height);
-            const roundedRect = new Gsk.RoundedRect();
-            roundedRect.init_from_rect(rect, radius);
-            snapshot.push_rounded_clip(roundedRect);
-            snapshot.append_color(fillColor, rect);
+            // One pair of scratch objects per widget: getters/setters copy
+            // them into the snapshot nodes, and this method runs for every
+            // rounded rect of every frame (audit 2026-09-11).
+            this._snapshotRect ??= new Graphene.Rect();
+            this._snapshotRoundedRectValue ??= new Gsk.RoundedRect();
+            this._snapshotRect.init(x, y, width, height);
+            this._snapshotRoundedRectValue.init_from_rect(this._snapshotRect, radius);
+            snapshot.push_rounded_clip(this._snapshotRoundedRectValue);
+            snapshot.append_color(fillColor, this._snapshotRect);
             snapshot.pop();
         }
 

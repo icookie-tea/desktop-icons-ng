@@ -106,7 +106,7 @@ export var DesktopMenu = class extends MenuHelper.MenuHelper {
             // gvfs-metadata writes are async; the create event may arrive
             // before they land, so also record the target by basename like
             // the paste path does (matched in applyDropCoordinates).
-            this._desktopManager._pendingDropFiles[finalName] = [this._clickX, this._clickY, Date.now()];
+            this._desktopManager._monitor.addPendingDropFile(finalName, [this._clickX, this._clickY]);
         } catch (e) {
             console.error(e, `Failed to create template ${e.message}`);
             const header = _('Template Creation Failed');

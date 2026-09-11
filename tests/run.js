@@ -35,6 +35,10 @@ import * as TestSearchDialog from './test-search-dialog.js';
 import * as TestPlacement from './test-placement.js';
 import * as TestStateOwnership from './test-state-ownership.js';
 import * as TestVisibleArea from './test-visible-area.js';
+import * as TestPendingDropFiles from './test-pending-drop-files.js';
+import * as TestDropPlaceSetting from './test-drop-place-setting.js';
+import * as TestDndManager from './test-dnd-manager.js';
+import * as TestPaintContainer from './test-paint-container.js';
 
 const tests = [
     TestFileChangesQueue,
@@ -67,6 +71,10 @@ const tests = [
     TestPlacement,
     TestStateOwnership,
     TestVisibleArea,
+    TestPendingDropFiles,
+    TestDropPlaceSetting,
+    TestDndManager,
+    TestPaintContainer,
 ];
 
 async function main() {

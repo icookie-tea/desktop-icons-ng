@@ -124,6 +124,10 @@ export var DndManager = class {
 
     onDragEnd() {
         this.dragItem = null;
+        // Also drop the preview list: it used to outlive the drag, so the
+        // desktops kept painting the last preview and the next drag could
+        // reuse stale offsets (audit 2026-09-11).
+        this.onDragLeave();
     }
 
     onDragDataReceived(dropInfo, xDestination, yDestination, forceMove) {

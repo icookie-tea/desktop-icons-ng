@@ -314,6 +314,14 @@ export var DesktopMonitor = class {
         }
         this.prunePendingDropFiles();
     }
+    /* Single entry point for _pendingDropFiles: enforces the TTL and the size
+     * cap at insertion time too. Pruning only when a later drop matched a new
+     * desktop file left the entries of failed copies behind for the whole
+     * session (audit 2026-09-11). */
+    addPendingDropFile(name, coordinates) {
+        this._dm._pendingDropFiles[name] = [coordinates[0], coordinates[1], Date.now()];
+        this.prunePendingDropFiles();
+    }
     prunePendingDropFiles() {
         const now = Date.now();
         const keys = Object.keys(this._dm._pendingDropFiles);

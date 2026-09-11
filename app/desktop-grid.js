@@ -487,8 +487,13 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
     }
 
     _coordinatesBelongToThisGrid(X, Y) {
-        let checkRectangle = new Gdk.Rectangle({ x: X, y: Y, width: 1, height: 1 });
-        return this.gridGlobalRectangle.intersect(checkRectangle)[0];
+        // One probe rectangle for the lifetime of the grid: this runs for
+        // every icon on every frame, and allocating a Gdk.Rectangle per call
+        // was pure garbage (audit 2026-09-11).
+        this._checkRectangle ??= new Gdk.Rectangle({ x: 0, y: 0, width: 1, height: 1 });
+        this._checkRectangle.x = X;
+        this._checkRectangle.y = Y;
+        return this.gridGlobalRectangle.intersect(this._checkRectangle)[0];
     }
 
     _getEmptyPlaceClosestTo(x, y, coordinatesAction, reverseHorizontal) {

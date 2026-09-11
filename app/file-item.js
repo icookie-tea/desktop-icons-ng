@@ -121,12 +121,9 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
         if (this._dropCoordinates) {
             this.setSelected();
         }
-        if (this._desktopManager.showDropPlace) {
-            this._setDropDestination(this.container);
-        } else {
-            this._setDropDestination(this._icon);
-            this._setDropDestination(this._label);
-        }
+        this._dropTargetControllers = [];
+        this._dropDestinationWidgets = [];
+        this._updateDropDestinations();
     }
 
     _getEmblem() {
@@ -538,6 +535,34 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
      * Drag and Drop *
      ***********************/
 
+    /** Wires (or re-wires) the drop targets according to the current
+     *  "show-drop-place" setting. Reused items never run the constructor
+     *  again, so the in-place refresh path must call this too; the previous
+     *  controllers are removed first, otherwise every settings change would
+     *  pile another drop target on the same widget (audit 2026-09-11). */
+    _updateDropDestinations() {
+        const acceptsDrops = (this._fileExtra == Enums.FileType.USER_DIRECTORY_TRASH) ||
+            (this._fileExtra == Enums.FileType.USER_DIRECTORY_HOME) ||
+            (this._fileExtra == Enums.FileType.EXTERNAL_DRIVE) ||
+            this._isDirectory;
+        let desired = [];
+        if (acceptsDrops) {
+            desired = this._desktopManager.showDropPlace ? [this.container] : [this._icon, this._label];
+        }
+        if (desired.length === this._dropDestinationWidgets.length &&
+            desired.every((widget, index) => widget === this._dropDestinationWidgets[index])) {
+            return;
+        }
+        for (const [widget, controller] of this._dropTargetControllers) {
+            widget.remove_controller(controller);
+        }
+        this._dropTargetControllers = [];
+        this._dropDestinationWidgets = desired;
+        for (const widget of desired) {
+            this._setDropDestination(widget);
+        }
+    }
+
     _setDropDestination(dropDestination) {
         if ((this._fileExtra != Enums.FileType.USER_DIRECTORY_TRASH) &&
             (this._fileExtra != Enums.FileType.USER_DIRECTORY_HOME) &&
@@ -604,6 +629,7 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
         });
 
         dropDestination.add_controller(dropTarget);
+        this._dropTargetControllers.push([dropDestination, dropTarget]);
     }
 
     _hasToRouteDragToGrid() {

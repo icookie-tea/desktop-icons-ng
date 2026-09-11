@@ -36,7 +36,7 @@ export var FileOperations = class {
             let file = Gio.File.new_for_uri(element);
             if (!file.is_native() || !file.query_exists(null)) {
                 if (dropCoordinates != null) {
-                    this._dm._pendingDropFiles[file.get_basename()] = [...dropCoordinates, Date.now()];
+                    this._dm._monitor.addPendingDropFile(file.get_basename(), dropCoordinates);
                     DebugLog.debugLog(`[dropcoords] non-native ${file.get_basename()} -> (${dropCoordinates[0]},${dropCoordinates[1]}) pending=${Object.keys(this._dm._pendingDropFiles).length}`);
                 }
                 continue;
@@ -58,7 +58,7 @@ export var FileOperations = class {
                  * also record it here keyed by basename. FileItem creation
                  * (_applyDropCoordinates) will match it and place the new
                  * icon on the requested grid cell. */
-                this._dm._pendingDropFiles[file.get_basename()] = [...dropCoordinates, Date.now()];
+                this._dm._monitor.addPendingDropFile(file.get_basename(), dropCoordinates);
                 DebugLog.debugLog(`[dropcoords] ${file.get_basename()} -> (${dropCoordinates[0]},${dropCoordinates[1]}) pending=${Object.keys(this._dm._pendingDropFiles).length}`);
             }
         }
