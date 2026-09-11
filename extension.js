@@ -39,6 +39,7 @@ const debugLog = (...args) => {
 /* Timeouts (microseconds/milliseconds) for process launch/relaunch handling. */
 const PROCESS_CRASH_WINDOW_US = 1000000; // if the process died within 1s of launch
 const WINDOW_MAP_TIMEOUT_MS = 6000;      // kill + relaunch if no window maps in time
+const PROCESS_KILL_TIMEOUT_MS = 2000;    // SIGTERM -> SIGKILL grace period
 
 export default class DING extends Extension {
     constructor(metadata) {
@@ -63,11 +64,33 @@ export default class DING extends Extension {
         * This is a safeguard measure for the case of Gnome Shell being
         * relaunched (killall -3 gnome-shell, a shell crash restart, or a
         * fresh login) while the old DING process is still alive, to kill
-        * any stale instance. That's why it must be here, in init(), and
-        * not in enable() or disable() (disable already guarantees that
-        * the current instance is killed).
+        * any stale instance. It runs before any desktop process is launched
+        * (launchDesktop() waits for the sweep): starting a second instance
+        * first could let the stale one win the application name.
+        *
+        * The sweep walks every process in /proc and used to run
+        * synchronously here, blocking Shell startup. It is deferred to an
+        * idle now (audit 2026-09-11).
         */
-        this.doKillAllOldDesktopProcesses();
+        this.data.procSweepDone = false;
+        this.data.launchPending = false;
+        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            try {
+                this.doKillAllOldDesktopProcesses();
+            } catch (e) {
+                // Never leave launchDesktop() waiting forever.
+                debugLog(`[proc] stale-instance sweep failed: ${e.message}`);
+            }
+            this.data.procSweepDone = true;
+            if (this.data.launchPending) {
+                this.data.launchPending = false;
+                // disable() may have run while the sweep was pending.
+                if (this.data.isEnabled) {
+                    this.launchDesktop();
+                }
+            }
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     enable() {
@@ -189,6 +212,10 @@ export default class DING extends Extension {
         this.data.isEnabled = true;
         if (this.data.launchDesktopId) {
             GLib.source_remove(this.data.launchDesktopId);
+            // Zero it: a later killCurrentProcess()/doRelaunch() must not try
+            // to remove this already-removed (and possibly recycled) source
+            // id (audit 2026-09-11).
+            this.data.launchDesktopId = 0;
         }
 
         this.data.dbusConnectionId = Gio.bus_own_name(Gio.BusType.SESSION, 'com.rastersoft.dingextension', Gio.BusNameOwnerFlags.NONE, null, (connection, name) => {
@@ -232,10 +259,23 @@ export default class DING extends Extension {
         }
 
         // kill the desktop program. It will be reloaded automatically.
-        if (this.data.currentProcess && this.data.currentProcess.subprocess) {
-            this.data.currentProcess.cancel_timer();
-            this.data.currentProcess.cancellable.cancel();
-            this.data.currentProcess.subprocess.send_signal(15);
+        const runningProcess = this.data.currentProcess;
+        if (runningProcess && runningProcess.subprocess) {
+            runningProcess.cancel_timer();
+            runningProcess.cancellable.cancel();
+            runningProcess.subprocess.send_signal(15);
+            // The app's main loop can be blocked (a long copy, a hung gvfs
+            // call): escalate once instead of leaving a stale instance that
+            // keeps the D-Bus name and the desktop windows. Only while the
+            // child has not been reaped — after that its pid could belong to
+            // another process (audit 2026-09-11).
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, PROCESS_KILL_TIMEOUT_MS, () => {
+                if (!runningProcess.reaped && runningProcess.subprocess) {
+                    debugLog('[DING] desktop process ignored SIGTERM, sending SIGKILL');
+                    runningProcess.subprocess.send_signal(9);
+                }
+                return GLib.SOURCE_REMOVE;
+            });
         }
         this.data.currentProcess = null;
         this.data.x11Manager.setWaylandClient(null);
@@ -304,10 +344,14 @@ export default class DING extends Extension {
      * doesn't fail if it doesn't exist.
      */
     doKillAllOldDesktopProcesses() {
-        let procFolder = Gio.File.new_for_path('/proc');
+        const procFolder = Gio.File.new_for_path('/proc');
         if (!procFolder.query_exists(null)) {
             return;
         }
+
+        // The sweep can now run after enable(): never kill the instance this
+        // extension just launched.
+        const currentPid = this.data.currentProcess?.subprocess?.get_identifier?.() ?? null;
 
         let fileEnum = procFolder.enumerate_children('standard::*', Gio.FileQueryInfoFlags.NONE, null);
         let info;
@@ -339,7 +383,7 @@ export default class DING extends Extension {
                 // processes survive Shell restarts (two processes then race for
                 // the com.rastersoft.ding application name).
                 let path = GLib.build_filenamev([this.path, 'app', 'ding.js']);
-                if (contents.includes(path)) {
+                if (contents.includes(path) && filename !== currentPid) {
                     let proc = new Gio.Subprocess({ argv: ['/bin/kill', filename] });
                     proc.init(null);
                     proc.wait(null);
@@ -380,6 +424,12 @@ export default class DING extends Extension {
      * debug it.
      */
     launchDesktop() {
+        if (!this.data.procSweepDone) {
+            // The stale-instance sweep is still pending: starting a second
+            // instance now could let the old one win the application name.
+            this.data.launchPending = true;
+            return;
+        }
         console.log('Launching DING process');
         let argv = [];
         argv.push(GLib.build_filenamev([this.path, 'app', 'ding.js']));
@@ -397,6 +447,8 @@ export default class DING extends Extension {
         }
         this.data.x11Manager.setWaylandClient(this.data.currentProcess);
         this.data.launchTime = GLib.get_monotonic_time();
+        const launchedProcess = this.data.currentProcess;
+        launchedProcess.reaped = false;
 
         /*
         * If the desktop process dies, wait 100ms and relaunch it, unless the exit status is different than
@@ -404,6 +456,9 @@ export default class DING extends Extension {
         * too fast if it has a bug that makes it fail continuously, avoiding filling the journal too fast.
         */
         this.data.currentProcess.subprocess.wait_async(null, (obj, res) => {
+            // Reaped: the pid can be recycled from now on, so the SIGKILL
+            // escalation in killCurrentProcess() must not use it anymore.
+            launchedProcess.reaped = true;
             let delta = GLib.get_monotonic_time() - this.data.launchTime;
             if (delta < PROCESS_CRASH_WINDOW_US) {
                 // If the process is dying over and over again, ensure that it isn't respawn faster than once per second
@@ -439,6 +494,7 @@ class LaunchSubprocess {
         this.cancellable = new Gio.Cancellable();
         this._launcher = new Gio.SubprocessLauncher({ flags: flags | Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_MERGE });
         this.subprocess = null;
+        this.reaped = false;
         this.process_running = false;
         this._launch_timer = 0;
         this._waiting_for_windows = 0;
