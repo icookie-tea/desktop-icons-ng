@@ -39,6 +39,8 @@ import * as TestPendingDropFiles from './test-pending-drop-files.js';
 import * as TestDropPlaceSetting from './test-drop-place-setting.js';
 import * as TestDndManager from './test-dnd-manager.js';
 import * as TestPaintContainer from './test-paint-container.js';
+import * as TestFullDesktop from './test-full-desktop.js';
+import * as TestIconRemap from './test-icon-remap.js';
 
 const tests = [
     TestFileChangesQueue,
@@ -75,6 +77,8 @@ const tests = [
     TestDropPlaceSetting,
     TestDndManager,
     TestPaintContainer,
+    TestFullDesktop,
+    TestIconRemap,
 ];
 
 async function main() {

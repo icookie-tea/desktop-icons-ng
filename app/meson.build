@@ -18,6 +18,7 @@ install_data([
     'desktop-monitor.js',
     'ding.js',
     'grid-layout.js',
+    'icon-remap.js',
     'paint-container.js',
     'dnd-clipboard-utils.js',
     'dnd-manager.js',

@@ -2,6 +2,48 @@
 
 > 2026-08 及更早的条目已归档：[fixes-2026-08.md](archive/fixes-2026-08.md)、[fixes-2026-07.md](archive/fixes-2026-07.md)。
 
+## 2026-10-09
+
+### 新增“仅在主显示器上放置图标”开关 + 桌面放满时的处理
+
+**背景：** 多显示器下，DING 的图标位置是**全局逻辑坐标**（存于 `metadata::nautilus-icon-position`），主屏（`primaryIndex`）只决定“没有坐标的新图标落在哪”。因此切换主屏不会搬动已有图标；而外接屏断开时，位于其上的图标会被**投影**到最近的屏显示但**不落盘**（`PRESERVE`），插回来则回原位。这个机制本身有价值（可逆、不丢用户摆的位置），但它衍生出三类不可预测的行为：显示器数量变化与仅几何/缩放变化走同一条路径；排列（`sort-manager`）会清空并重写坐标从而跨屏搬图标；`keep-arranged` 会改变其含义。
+
+**本次实现（用户决策）：** 新增 `icons-only-on-primary`（boolean，默认 `false`），参考 macOS 的“桌面只属于一块屏”模型，但**保留副屏的交互能力**：
+
+| 行为 | 关闭（默认） | 打开 |
+|---|---|---|
+| 哪些网格可放图标 | 全部 | 仅主屏网格 |
+| 副屏窗口 / 右键菜单 / drop target | 保留 | **保留**（原样） |
+| 副屏的落点高亮预览 | 正常绘制 | **不绘制**（图标不会落在那里，画出来等于说谎） |
+| 原本在副屏的图标 | 原位 | 按**比例**重映射到主屏并**落盘** |
+| 切换主屏（显示器数量不变） | 位置数值不变，但视觉上会被压到新主屏边缘 | 按比例重映射 + 落盘，视觉上位置保持；切回原主屏可精确复原 |
+| 显示器被拔掉后 | `PRESERVE`，插回回原位 | 同上（重映射落到主屏） |
+
+**为什么最终选择落盘（推翻了实施中的初版）：** 初版把重映射结果只放在内存里（用 `_savedCoordinates` 直接赋值绕过 setter，不写盘），意图是「关掉开关或切回主屏后能自动回原位」。**实测证明不可行**：存储坐标始终停留在旧主屏坐标系，而每次刷新都会把 `_coordPrimaryArea` 更新为新主屏，于是第二次刷新就把「旧坐标系的坐标」喂给新网格 → 图标又被压回边缘，出现 2 个位置来回跳（`verify2.js` 复现：`[3040,324]` ↔ `[640,432]`）。
+
+根因是**坐标系混杂**：用户拖动某个图标会落盘（写入当前坐标系），于是「未拖动的图标在旧坐标系、已拖动的在新坐标系」并存，单个 `_coordPrimaryArea` 无法表达。要支持不落盘，必须逐图标记录其坐标系，复杂度不划算。
+
+落盘方案自洽（所有图标始终在同一坐标系），且**仍然可逆**——因为比例重映射精确可逆（`tests/test-icon-remap.js` 断言 A→B→A 回到原值，且初期版本用 `Math.round` 会导致小坐标不可逆，已改为返回浮点、由调用方取整）。
+
+**重映射用「比例」而非「格子」：** 实测 2560×1440（20×10 格）与 1920×1080（15×7 格）之间，格子映射会把图标最多移动 5 列（两块屏格数不同导致信息丢失）；比例映射只保留「距左上角的相对位置」，且往返 105/200 个格子完全精确、最大偏差 1 格。
+
+**关键实现点：** “能否寄宿”与“能否交互”在代码里本就是两个方法——`DesktopGrid.getDistance()`（只有 `GridLayout.findDesktopFor()` 一个调用方）与 `DesktopGrid.getGridAt()`（`dnd-manager.js:44`、`desktop-grid.js` 的 `highLightGridAt`/`refreshDrag`）。因此只需让非主屏网格的 `getDistance()` 返回 `-1`（复用现成的“满”语义），放置逻辑自动跳过它们，而窗口/菜单/拖放目标全部不动。`_hostable` 用 `=== false` 判定（fail-open）：原型级测试实例未设该字段时仍是可寄宿的。
+
+**同时修复的放满（桌面网格满）问题：**
+
+- `app/grid-layout.js` phase 2 的 `break` → `continue`。原逻辑在第一个放不下的图标处退出整个循环，其后的图标**全部不放置**。注：实测（`tests/test-full-desktop.js` 的等价场景）证明在原实现下 `break` 与 `continue` **等价**——`getDistance()` 的“满”判据是 `occupiedCount >= 容量`，而放置只会增加占用，所以“无网格可容纳”一旦成立就对该批次后续所有图标持续成立。改动是为了**不依赖这条单调性**，并为后续修复留出正确语义。
+- phase 3 原本 `if (desktop !== null)` **静默跳过**（连日志都没有），现计入 `_unplacedCount`。
+- 新增 `_reportUnplaced(count)`：通过现成的 `dbusManager.doNotify()` 告知用户，按 `UNPLACED_NOTIFY_COOLDOWN_US`（5 分钟）限流。**限流是必需的**：桌面满后每次刷新（文件事件、主题切换、图标尺寸变化）都会重跑放置逻辑，不限流会变成通知轰炸。
+- `_getEmptyPlaceClosestTo()` 的 `print("Not enough place at monitor")` 分支经分析**不可达**（与 `getDistance()` 的 `-1` 判据同源），本次未改动。
+
+**测试：** 新增 `tests/test-full-desktop.js`（8 组：满网格不牵连其余图标、全部满时计数、通知限流、零计数不通知、primary-only 的寄宿判定、无 `_primaryScreen` 时的回退锚点、断开显示器时的 `OVERWRITE` vs `PRESERVE`、关闭开关恢复原行为），已注册进 `tests/run.js`。`scripts/check.sh` 全绿（ESLint + `node --check` + 全部 GJS 单测 + smoke + 结构检查），`glib-compile-schemas --strict` 通过。
+
+**注意：** `schemas/gschemas.compiled` 是 gitignore 的构建产物；本次改动新增了 schema key，**构建前需重新 `glib-compile-schemas schemas/`**，否则运行时会报 `GSettings key icons-only-on-primary not found`（smoke test 已捕获过这个失败）。
+
+**位置不一致（本次未处理，已确认）：** `app/file-item-menu.js:661` 的“用选中项新建文件夹”读的是 `savedCoordinates`（存储坐标，可能是屏幕外的陈旧值），而同文件 `:562` 的“解压到此处”用的是 `getCoordinates()`（显示坐标）。投影状态下两者会不一致，影响“新文件夹落在哪”。未纳入本次改动范围。
+
+---
+
 ## 2026-10-07
 
 ### 图标轮廓淡阴影

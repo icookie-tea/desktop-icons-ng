@@ -42,6 +42,11 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
         this._desktopName = desktopName;
         this._asDesktop = asDesktop;
         this._desktopDescription = desktopDescription;
+        /* Whether this grid may host icons at all. Set by GridLayout: a full
+         * grid is discovered through its occupancy counter, but under
+         * 'icons-only-on-primary' the non-primary grids are marked
+         * non-hostable even while empty. See GridLayout._applyHostability(). */
+        this._hostable = true;
         this.updateWindowGeometry();
         this.updateUnscaledHeightWidthMargins();
 
@@ -296,6 +301,14 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
     }
 
     highLightGridAt(x, y) {
+        if (this._hostable === false) {
+            /* A non-hostable grid must not paint a drop preview: the icon
+             * would land on the primary grid instead, and promising a cell
+             * that will not be used is worse than showing nothing. The window
+             * keeps its drop target and right-click menu. */
+            this.unHighLightGrids();
+            return;
+        }
         let selected = this.getGridAt(x, y, false);
         this._paintContainer.selectedList = [selected];
     }
@@ -331,6 +344,12 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
 
     refreshDrag(selectedList, ox, oy) {
         if (selectedList === null) {
+            this._paintContainer.selectedList = null;
+            return;
+        }
+        /* Same reasoning as highLightGridAt: no preview of a placement this
+         * grid will not perform (see GridLayout._applyHostability). */
+        if (this._hostable === false) {
             this._paintContainer.selectedList = null;
             return;
         }
@@ -371,6 +390,13 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
 
         // O(1) full check: track the number of occupied cells instead of
         // scanning the whole _gridStatus array on every call.
+        //
+        // Only an explicit false disables hosting: a grid built without the
+        // flag (prototype-only instances in tests) must stay hostable, so this
+        // fails open rather than making an unset grid permanently full.
+        if (this._hostable === false) {
+            return -1;
+        }
         if (this._occupiedCount >= this._maxColumns * this._maxRows) {
             return -1;
         }

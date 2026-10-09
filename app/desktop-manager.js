@@ -71,6 +71,8 @@ export var DesktopManager = class {
         this._desktopMenu = new DesktopMenu.DesktopMenu(this, mainApp, dbusManager);
         this._initPremultipliedCheck();
         this.autoAr = new AutoAr.AutoAr(this);
+        /* The placement mode changes which grid may host icons, so it must
+         * re-evaluate hostability right after the grids are built. */
         this._initGridState(desktopList, primaryIndex, codePath, asDesktop);
         this._selectionManager = new SelectionManager.SelectionManager(this);
         this._dndManager = new DndManager.DndManager(this);
@@ -132,6 +134,13 @@ export var DesktopManager = class {
         } else {
             this._primaryScreen = null;
         }
+        /* Set by GridLayout when the monitor count shrinks (a display was
+         * unplugged): it tells the placement code that a parked icon's
+         * position may be persisted, because the monitor it referred to is
+         * gone for good. A mere geometry/scale change leaves it false, so
+         * undoing the change restores the previous layout. */
+        this._primaryGridRemovedIcons = false;
+        this._lastUnplacedNotify = 0;
         this._clickX = 0;
         this._clickY = 0;
         this.thumbnailLoader = new Thumbnails.ThumbnailLoader(this, codePath);
@@ -251,6 +260,13 @@ export var DesktopManager = class {
                 this._fileList.forEach(x => x.updateIcon());
                 this._placeAllFilesOnGrids();
                 this._updateDesktopSafe('icon size changed');
+                return;
+            // Switches which display may host icons: hostability and the
+            // fallback anchor must be recomputed before the repaint, or the
+            // icons would keep the previous layout until the next refresh.
+            case 'icons-only-on-primary':
+                this._gridLayout._applyHostability();
+                this._updateDesktopSafe('icons-only-on-primary changed');
                 return;
             case Enums.SortOrder.ORDER:
                 this.doSorts(true);
@@ -806,6 +822,10 @@ export var DesktopManager = class {
         } else {
             this._gridLayout.addFilesToDesktop(this._fileList, Enums.StoredCoordinates.PRESERVE);
         }
+        /* The removal flag describes a single placement pass; a later refresh
+         * (settings change, file event) must not keep persisting positions
+         * just because a monitor was unplugged at some earlier point. */
+        this._primaryGridRemovedIcons = false;
     }
 
     _addFilesToDesktop(fileList, storeMode) {

@@ -15,6 +15,7 @@ extension.js
 app/file-item.js
 app/file-item-menu.js
 app/file-utils.js
+app/grid-layout.js
 app/preferences.js
 prefs.js
 app/prefs-window.js

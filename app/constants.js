@@ -29,3 +29,7 @@ export var MOUNT_REMOVED_DELAY_MS = 500;        // delay before refreshing after
 export var MOUNT_RETRY_DELAY_MS = 1500;         // delay before a mount-query retry refresh
 export var MOUNT_QUERY_MAX_RETRIES = 3;         // consecutive failures before giving up on a mount
 export var THUMBNAIL_TIMEOUT_MS = 5000;         // thumbnail generation timeout
+/* A full desktop re-runs placement on every refresh (file events, theme
+ * change, icon-size change): without a cooldown the "Desktop is full"
+ * notification would fire on each one and spam the user. */
+export var UNPLACED_NOTIFY_COOLDOWN_US = 300000000; // 5 min between "desktop is full" notifications

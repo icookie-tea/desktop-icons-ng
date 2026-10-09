@@ -948,6 +948,30 @@ msgstr "保持图标排列"
 msgid "Always keep Icons Arranged by the last arranged order"
 msgstr "始终按上次排列的顺序保持图标排列"
 
+#: app/prefs-window.js:75 schemas/org.gnome.shell.extensions.ding.gschema.xml:80
+msgid "Place icons only on the primary display"
+msgstr "仅在主显示器上放置图标"
+
+#: app/prefs-window.js:75 schemas/org.gnome.shell.extensions.ding.gschema.xml:82
+msgid ""
+"Desktop icons live only on the primary display. Icons that were on another "
+"display are shown on the primary one, and dropping a file on another display "
+"places it on the primary display instead. Other displays keep the right-click "
+"menu. When disabled, every display has its own icons."
+msgstr ""
+"桌面图标只存在于主显示器上。原本在其他显示器上的图标会显示在主显示器上，在其"
+"他显示器上拖放文件也会放在主显示器上。其他显示器仍保留右键菜单。关闭时，每个"
+"显示器各有自己的图标。"
+
+#: app/grid-layout.js:322
+msgid "Desktop is full"
+msgstr "桌面已满"
+
+#: app/grid-layout.js:323
+msgid "{0} desktop icon could not be placed"
+msgid_plural "{0} desktop icons could not be placed"
+msgstr[0] "有 {0} 个桌面图标无法放置"
+
 #: schemas/org.gnome.shell.extensions.ding.gschema.xml:75
 msgid "Arrange Order"
 msgstr "排列顺序"

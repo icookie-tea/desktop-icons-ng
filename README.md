@@ -39,9 +39,12 @@ DING (`ding@rastersoft.com`). Key improvements:
 * **Terminal fallback** - added `ptyxis` to the terminal emulator fallback list
 * **Drag text/URLs to desktop** - drag text from editors or URLs into desktop creates `.txt` files, matching Nautilus behavior (handles Chinese, URL sanitization, filename deduplication)
 * **Stacked drag preview for multi-select** - shows stacked icon with count badge (e.g. "3") when dragging multiple selected items
+* **Icons only on the primary display** - new "Place icons only on the primary display" option (off by default), modelled on macOS: desktop icons live on one display only. Positions are re-mapped proportionally when the primary display changes, so the icons keep their place instead of collapsing to the new screen's edge, and switching back restores the previous layout exactly. The other displays keep their right-click menu and drag target, but per-cell drop previews are suppressed there since the icon lands on the primary display instead
+* **"Desktop is full" notification** - when icons cannot be placed because every grid is full, a desktop notification reports how many, at most once every 5 minutes
 
 ### Recent Fixes
 
+* **Full desktop no longer drops icons silently** - placement used to stop at the first icon that could not be placed and never showed the rest, and the coordinate-less path skipped failures without any log; every icon is now attempted and unplaceable ones are counted and reported
 * **Primary monitor switch icon placement** - new icons now appear on the correct screen after switching primary display in GNOME settings
 * **Folder self-drop routing** - prevents Nautilus "cannot move folder into itself" error and fixes drag-into-selected-folder edge cases
 * **Drag cursor/ghost icon** - ghost preview now follows mouse during drag (was showing default text-file placeholder)

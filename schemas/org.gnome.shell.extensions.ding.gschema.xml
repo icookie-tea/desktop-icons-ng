@@ -70,6 +70,11 @@
         <summary>Keep Icons Arranged</summary>
         <description>Always keep Icons Arranged by the last arranged order</description>
     </key>
+    <key type="b" name="icons-only-on-primary">
+        <default>false</default>
+        <summary>Place icons only on the primary display</summary>
+        <description>When enabled, desktop icons live only on the primary display. Icons that were on another display are shown on the primary one, and dropping a file on another display places it on the primary display instead. Other displays keep the right-click menu. When disabled, every display has its own icons.</description>
+    </key>
     <key name="arrangeorder" enum="org.gnome.shell.extension.ding.ArrangeOrder">
         <default>'NAME'</default>
         <summary>Arrange Order</summary>
