@@ -44,9 +44,16 @@ export var schemaGnomeDarkSettings = null;
  * @param path
  */
 export function init(path) {
-    const schemaSource = GioSSS.get_default();
-    const schemaGtk = schemaSource.lookup(Enums.SCHEMA_GTK, true);
-    gtkSettings = new Gio.Settings({settings_schema: schemaGtk});
+    // The desktop runs in its own process, whose schema source has no extension-local
+    // schemas; prepend our schemas/ dir so the extension settings always resolve.
+    const schemaDir = `${path}/../schemas`;
+    const schemaSource = Gio.File.new_for_path(schemaDir).query_exists(null)
+        ? GioSSS.new_from_directory(schemaDir, GioSSS.get_default(), false)
+        : GioSSS.get_default();
+    // GTK4 renamed this schema: org.gtk.gtk4.Settings.FileChooser (the GTK3 id is gone).
+    const schemaGtk = schemaSource.lookup(Enums.SCHEMA_GTK, true) ??
+        schemaSource.lookup('org.gtk.gtk4.Settings.FileChooser', true);
+    gtkSettings = schemaGtk ? new Gio.Settings({settings_schema: schemaGtk}) : null;
     const schemaObj = schemaSource.lookup(Enums.SCHEMA_NAUTILUS, true);
     if (!schemaObj) {
         nautilusSettings = null;
