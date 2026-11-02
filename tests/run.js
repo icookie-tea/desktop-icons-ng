@@ -41,6 +41,7 @@ import * as TestDndManager from './test-dnd-manager.js';
 import * as TestPaintContainer from './test-paint-container.js';
 import * as TestFullDesktop from './test-full-desktop.js';
 import * as TestIconRemap from './test-icon-remap.js';
+import * as TestPrimaryPosition from './test-primary-position.js';
 
 const tests = [
     TestFileChangesQueue,
@@ -79,6 +80,7 @@ const tests = [
     TestPaintContainer,
     TestFullDesktop,
     TestIconRemap,
+    TestPrimaryPosition,
 ];
 
 async function main() {
