@@ -144,7 +144,7 @@ positionFromCell(column, row, columns, rows) // => {u, v}；非法输入抛 Rang
 localPointForPosition(position, width, height) // => [localX, localY]；非法输入抛 RangeError
 ```
 
-- [ ] **1. 写失败测试并注册测试模块。** 测试模块导入命名空间，先断言接口存在，再运行行为测试，保证缺接口时有明确失败。核心断言：
+- [x] **1. 写失败测试并注册测试模块。** 测试模块导入命名空间，先断言接口存在，再运行行为测试，保证缺接口时有明确失败。核心断言：
 
 ```js
 const position = Remap.positionFromCell(5, 3, 20, 10);
@@ -157,11 +157,11 @@ assertEqual(Remap.readPrimaryPosition('{"version":2,"u":0.2,"v":0.3}').status,
     'unsupported', 'future format is not silently migrated');
 ```
 
-- [ ] **2. 执行红灯检查。** `gjs --module tests/run.js`，确认新增断言或接口缺失导致失败；不能只看 `tests/debug-one.js` 的进程退出码，该脚本打印失败但未保证非零退出。
-- [ ] **3. 实现纯函数。** 按 `column + 0.5` 的公式计算，不取整；解析严格验证版本、类型、有限性和范围。空字符串 / null 返回 missing，非法 JSON / 越界返回 invalid。
-- [ ] **4. 增加并执行边界用例。** 覆盖零行列、零尺寸、NaN、Infinity、负数、首末格；以 20×10 → 15×7 → 20×10 连续投影 100 次，断言原 position 对象与序列化字符串未变。
-- [ ] **5. 验证并形成任务交付。** `gjs --module tests/run.js` 全绿；删除其“调用方取整仍严格可逆”等失实注释。建议提交：`feat: define persistent primary desktop position anchors`。
-- [ ] **6. 不提前删除旧函数。** `remapPosition()` / `isInside()` 的唯一调用方是 Task 3 要移除的 `_remapStoredPositions()`，删除动作放在 Task 3（连同 `tests/test-icon-remap.js`）。Task 1 只新增纯函数，避免留下“测试删了、调用方还在”的中间态。
+- [x] **2. 执行红灯检查。** `gjs --module tests/run.js`，确认新增断言或接口缺失导致失败；不能只看 `tests/debug-one.js` 的进程退出码，该脚本打印失败但未保证非零退出。
+- [x] **3. 实现纯函数。** 按 `column + 0.5` 的公式计算，不取整；解析严格验证版本、类型、有限性和范围。空字符串 / null 返回 missing，非法 JSON / 越界返回 invalid。
+- [x] **4. 增加并执行边界用例。** 覆盖零行列、零尺寸、NaN、Infinity、负数、首末格；以 20×10 → 15×7 → 20×10 连续投影 100 次，断言原 position 对象与序列化字符串未变。
+- [x] **5. 验证并形成任务交付。** `gjs --module tests/run.js` 全绿；删除其“调用方取整仍严格可逆”等失实注释。建议提交：`feat: define persistent primary desktop position anchors`。
+- [x] **6. 不提前删除旧函数。** `remapPosition()` / `isInside()` 的唯一调用方是 Task 3 要移除的 `_remapStoredPositions()`，删除动作放在 Task 3（连同 `tests/test-icon-remap.js`）。Task 1 只新增纯函数，避免留下“测试删了、调用方还在”的中间态。
 
 ## Task 2：实现元数据读写与无写入的网格放置
 
@@ -181,10 +181,10 @@ addFileItemCloseTo(item, x, y, mode, {persistLegacy = true} = {}) // => boolean�
 getFileItemPrimaryPosition(item) // => {u, v} | null；从 _fileItems 中的真实行列计算
 ```
 
-- [ ] **1. 写红灯测试。** 用伪造 `Gio.FileInfo` 输入验证构造 / reload 能读有效、损坏和未知版本记录；用记录 `set_attributes_from_info()` 调用的 fake file 验证新旧属性在同一次提交中写入。
-- [ ] **2. 测试禁止自动写入。** 对 fake item 的 `savedCoordinates` setter 计数，调用 `addFileItemCloseTo(..., {persistLegacy:false})` 后应为零，包含 item 尚无旧坐标的情况。不能遗漏 `_addFileItemTo()` 的“旧坐标为空就自动保存”分支。
-- [ ] **3. 执行红灯检查。** `gjs --module tests/run.js`，确认新增契约尚未满足。
-- [ ] **4. 实现接口。** 在 `_addFileItemTo()` 中透传 persistLegacy；销毁 / 未成功放置返回 false，成功返回 true。读取真实 `_fileItems[item.uri]` 的 column / row 计算锚点，不根据图标 padding 后的左上角反推。
+- [x] **1. 写红灯测试。** 用伪造 `Gio.FileInfo` 输入验证构造 / reload 能读有效、损坏和未知版本记录；用记录 `set_attributes_from_info()` 调用的 fake file 验证新旧属性在同一次提交中写入。
+- [x] **2. 测试禁止自动写入。** 对 fake item 的 `savedCoordinates` setter 计数，调用 `addFileItemCloseTo(..., {persistLegacy:false})` 后应为零，包含 item 尚无旧坐标的情况。不能遗漏 `_addFileItemTo()` 的“旧坐标为空就自动保存”分支。
+- [x] **3. 执行红灯检查。** `gjs --module tests/run.js`，确认新增契约尚未满足。
+- [x] **4. 实现接口。** 在 `_addFileItemTo()` 中透传 persistLegacy；销毁 / 未成功放置返回 false，成功返回 true。读取真实 `_fileItems[item.uri]` 的 column / row 计算锚点，不根据图标 padding 后的左上角反推。
 
 ```js
 if (persistLegacy &&
@@ -195,9 +195,9 @@ if (persistLegacy &&
 
 **必须先修满网格路径。** `_getEmptyPlaceClosestTo()` 找不到空格时返回 `[null, null]`，而 `_addFileItemTo(item, null, null)` 会把 `localX` 算成 `0`：图标被塞到 (0,0)，`_setGridUse(null, null, item)` 的 key 也算成 `0`，覆盖掉真正占据 (0,0) 的格子记录。今天没有暴露，是因为所有调用都先经 `findDesktopFor()` 的 `getDistance() === -1`（满）拦截；`placePrimaryFiles()` 直连主屏网格会绕过这道拦截。因此 `addFileItemCloseTo()` 必须在 `[null, null]` 时直接返回 false，且不得调用 `_addFileItemTo()`。
 
-- [ ] **5. 接通所有读取路径。** 构造函数、`_refreshMetadataAsync()` 应用结果、`_refreshReusedFileItem()` 都同步新属性；不得在 reload 中调用保存 API。新增字段的初始化放在第一次调用 reload 之前。
-- [ ] **6. 测试写入失败和重建。** 写入异常返回 false、现有显示仍在；成功序列化后销毁 fake item，用同一份属性构造新对象，得到相同锚点。确认已有取消 / destroyed 测试继续通过。
-- [ ] **7. 验证并形成任务交付。** `gjs --module tests/run.js` 全绿。建议提交：`feat: persist primary positions independently of rendered coordinates`。
+- [x] **5. 接通所有读取路径。** 构造函数、`_refreshMetadataAsync()` 应用结果、`_refreshReusedFileItem()` 都同步新属性；不得在 reload 中调用保存 API。新增字段的初始化放在第一次调用 reload 之前。
+- [x] **6. 测试写入失败和重建。** 写入异常返回 false、现有显示仍在；成功序列化后销毁 fake item，用同一份属性构造新对象，得到相同锚点。确认已有取消 / destroyed 测试继续通过。
+- [x] **7. 验证并形成任务交付。** `gjs --module tests/run.js` 全绿。建议提交：`feat: persist primary positions independently of rendered coordinates`。
 
 ## Task 3：接通主屏投影、首次迁移与模式隔离
 
@@ -220,15 +220,15 @@ commitPrimaryPositions(fileItems, {onlyMissing = false} = {})
 // => void；只提交主屏上已经成功落位的对象。
 ```
 
-- [ ] **1. 写红灯回归。** 记录每个 item 的属性写入次数，覆盖同原点缩小再恢复、不同原点切主屏、负原点、相同主屏但副屏数量变化。自动显示后写入次数为零。
-- [ ] **2. 实现主屏专属路由。** 在 `addFilesToDesktop()` / `addSingleFileToDesktop()` 的主屏模式入口使用 placePrimaryFiles，普通模式仍走现有三阶段路径。
-- [ ] **3. 实现确定性放置。** 有位置记录者先处理、无记录者后处理；手动同批按 URI 字典序处理。通过 `localPointForPosition()` 和主屏 grid 的 `coordinatesLocalToGlobal()` 得到目标，以 `persistLegacy:false` 放置；有效锚点不能再走 isInside 过滤。
-- [ ] **4. 实现首次迁移。** 成功落位后只为 missing / invalid 对象初始化；记录本实例迁移失败，避免通知触发的刷新反复写入。unsupported 自动显示但跳过自动迁移。满屏未落位对象不提交、不丢记录。
-- [ ] **5. 删除旧主屏连续重映射。** 去掉 `_coordPrimaryArea` 与 `_remapStoredPositions()` 的主屏写盘路径；`_primaryGridRemovedIcons` 只供普通模式旧路径使用，不能覆盖主屏锚点。同步删除随之失去全部调用方的 `remapPosition()` / `isInside()` 与 `tests/test-icon-remap.js`，并从 `tests/run.js` 注销；`app/icon-remap.js` 的模块注释改为只描述比例锚点，不留“重映射结果落盘”的过时论证。
-- [ ] **6. 模式切换。** 保持主屏属性独立；关闭开关走旧坐标，重新打开读回锚点，不依据旧全局坐标进行第二次迁移。保留副屏 hostability 与交互实现。
-- [ ] **7. 显式 drop 优先。** 在消费 dropCoordinates 前保留操作对象集合，传入 targets；即使对象携带有效旧锚点，也以 drop 目标放置并提交。副屏落点投到可寄宿主屏后再确定锚点。
-- [ ] **8. 更新旧测试。** `tests/test-full-desktop.js` 中“主屏断开必须 OVERWRITE”改为“新主屏路径不覆盖锚点”；保留普通模式现状的独立断言，不能借更新测试扩大修复范围。
-- [ ] **9. 运行验证。** `gjs --module tests/run.js`；用不同枚举顺序重复相同输入，断言实际 URI → 格子映射相同；模拟重建 FileItem 后仍能恢复。建议提交：`fix: project primary icons from persistent anchors`。
+- [x] **1. 写红灯回归。** 记录每个 item 的属性写入次数，覆盖同原点缩小再恢复、不同原点切主屏、负原点、相同主屏但副屏数量变化。自动显示后写入次数为零。
+- [x] **2. 实现主屏专属路由。** 在 `addFilesToDesktop()` / `addSingleFileToDesktop()` 的主屏模式入口使用 placePrimaryFiles，普通模式仍走现有三阶段路径。
+- [x] **3. 实现确定性放置。** 有位置记录者先处理、无记录者后处理；手动同批按 URI 字典序处理。通过 `localPointForPosition()` 和主屏 grid 的 `coordinatesLocalToGlobal()` 得到目标，以 `persistLegacy:false` 放置；有效锚点不能再走 isInside 过滤。
+- [x] **4. 实现首次迁移。** 成功落位后只为 missing / invalid 对象初始化；记录本实例迁移失败，避免通知触发的刷新反复写入。unsupported 自动显示但跳过自动迁移。满屏未落位对象不提交、不丢记录。
+- [x] **5. 删除旧主屏连续重映射。** 去掉 `_coordPrimaryArea` 与 `_remapStoredPositions()` 的主屏写盘路径；`_primaryGridRemovedIcons` 只供普通模式旧路径使用，不能覆盖主屏锚点。同步删除随之失去全部调用方的 `remapPosition()` / `isInside()` 与 `tests/test-icon-remap.js`，并从 `tests/run.js` 注销；`app/icon-remap.js` 的模块注释改为只描述比例锚点，不留“重映射结果落盘”的过时论证。
+- [x] **6. 模式切换。** 保持主屏属性独立；关闭开关走旧坐标，重新打开读回锚点，不依据旧全局坐标进行第二次迁移。保留副屏 hostability 与交互实现。
+- [x] **7. 显式 drop 优先。** 在消费 dropCoordinates 前保留操作对象集合，传入 targets；即使对象携带有效旧锚点，也以 drop 目标放置并提交。副屏落点投到可寄宿主屏后再确定锚点。
+- [x] **8. 更新旧测试。** `tests/test-full-desktop.js` 中“主屏断开必须 OVERWRITE”改为“新主屏路径不覆盖锚点”；保留普通模式现状的独立断言，不能借更新测试扩大修复范围。
+- [x] **9. 运行验证。** `gjs --module tests/run.js`；用不同枚举顺序重复相同输入，断言实际 URI → 格子映射相同；模拟重建 FileItem 后仍能恢复。建议提交：`fix: project primary icons from persistent anchors`。
 
 ## Task 4：明确拖动、排列与新建文件夹的保存意图
 
@@ -241,8 +241,8 @@ commitPrimaryPositions(fileItems, {onlyMissing = false} = {})
 doSorts(cleargrids, {commitPrimaryLayout = false} = {})
 ```
 
-- [ ] **1. 写红灯测试。** 主屏 A / B / C 三个图标，小屏幕仅拖动 B 后，保存调用只包含 B；A、C 锚点不变。拖动未落位对象不提交。
-- [ ] **2. 实现主屏拖动分支。** 仍以 `getCoordinates()` 计算选中对象位移，移除选中对象后通过 targets 放置，再提交成功落位集合；普通模式保留旧 savedCoordinates / OVERWRITE 路径。
+- [x] **1. 写红灯测试。** 主屏 A / B / C 三个图标，小屏幕仅拖动 B 后，保存调用只包含 B；A、C 锚点不变。拖动未落位对象不提交。
+- [x] **2. 实现主屏拖动分支。** 仍以 `getCoordinates()` 计算选中对象位移，移除选中对象后通过 targets 放置，再提交成功落位集合；普通模式保留旧 savedCoordinates / OVERWRITE 路径。
 
 ```js
 const placed = layout.placePrimaryFiles(selectedItems, {targets});
@@ -251,13 +251,13 @@ layout.commitPrimaryPositions(placed);
 
 `keep-arranged` + `sort-special-folders` 时 `dnd-manager.js` 另有一条分支（特殊图标直接 `item.savedCoordinates = [x + deltaX, y + deltaY]` 再走 OVERWRITE）。这条分支同样要在主屏模式换成 targets + commitPrimaryPositions，否则拖特殊图标只写旧坐标、不写锚点，下一次刷新就被弹回。
 
-- [ ] **3. 写排列红灯测试。** 自动排序重复 5 次、几何变化后自动排序，都不得保存手动锚点；手动一次性排序只保存参与排序且放得下的对象；特殊图标不参与排序时不保存它们。
-- [ ] **4. 区分排序调用来源。** `arrangeorder` 设置变化且 `keepArranged=false` 时显式传 commitPrimaryLayout:true；开启保持排列、保持排列期间切排序规则以及 `_placeAllFilesOnGrids()` 都为 false。**桌面菜单的“整理图标”**（`desktop-menu.js` 的 `arrange-icons` → `sortAllFilesFromGridsByPosition()`）同样是用户明确的排序动作，必须走同一条提交路径：给该方法加 `{commitPrimaryLayout = false} = {}{BT} 并让菜单调用点传 true。漏掉它会让“整理图标”在主屏模式下刷新后弹回旧布局。
-- [ ] **5. 实现主屏排序放置。** `_reassignFilesToDesktop()` / PreserveSpecialFiles 分支在主屏模式调用 `placePrimaryFiles(...,{arranged:true})`，不清空 savedCoordinates 或 primaryPosition。两个 reassignment 方法返回成功参与排序的对象列表；每个 `_sortAllFilesFromGridsBy...()` 返回该列表，`doSorts()` 用本次局部变量接收并按显式选项提交，不新增跨刷新 pending 状态。特殊图标不参与排序时，从提交集合排除。
-- [ ] **6. 恢复手动布局。** `keep-arranged` 变为 false 时主动 `_updateDesktopSafe()`；有锚点者恢复，缺记录者首次落位后初始化。隐藏文件处理不清除主屏锚点。
-- [ ] **7. 排序并列稳定。** 现有比较器返回 0 时使用 URI 字典序，测试同大小 / 时间对象在不同枚举顺序下输出一致。
-- [ ] **8. 使用显示位置新建文件夹。** “用选中项新建文件夹”从 `clickedItem.getCoordinates()` 取前两项；测试保存坐标屏幕外而显示坐标在主屏时，新文件夹得到显示落点。原有创建失败恢复逻辑不变。
-- [ ] **9. 运行验证。** `gjs --module tests/run.js`，重点确认普通模式 DnD 和原有排序测试无回归。建议提交：`fix: save primary layout only for explicit placement changes`。
+- [x] **3. 写排列红灯测试。** 自动排序重复 5 次、几何变化后自动排序，都不得保存手动锚点；手动一次性排序只保存参与排序且放得下的对象；特殊图标不参与排序时不保存它们。
+- [x] **4. 区分排序调用来源。** `arrangeorder` 设置变化且 `keepArranged=false` 时显式传 commitPrimaryLayout:true；开启保持排列、保持排列期间切排序规则以及 `_placeAllFilesOnGrids()` 都为 false。**桌面菜单的“整理图标”**（`desktop-menu.js` 的 `arrange-icons` → `sortAllFilesFromGridsByPosition()`）同样是用户明确的排序动作，必须走同一条提交路径：给该方法加 `{commitPrimaryLayout = false} = {}{BT} 并让菜单调用点传 true。漏掉它会让“整理图标”在主屏模式下刷新后弹回旧布局。
+- [x] **5. 实现主屏排序放置。** `_reassignFilesToDesktop()` / PreserveSpecialFiles 分支在主屏模式调用 `placePrimaryFiles(...,{arranged:true})`，不清空 savedCoordinates 或 primaryPosition。两个 reassignment 方法返回成功参与排序的对象列表；每个 `_sortAllFilesFromGridsBy...()` 返回该列表，`doSorts()` 用本次局部变量接收并按显式选项提交，不新增跨刷新 pending 状态。特殊图标不参与排序时，从提交集合排除。
+- [x] **6. 恢复手动布局。** `keep-arranged` 变为 false 时主动 `_updateDesktopSafe()`；有锚点者恢复，缺记录者首次落位后初始化。隐藏文件处理不清除主屏锚点。
+- [x] **7. 排序并列稳定。** 现有比较器返回 0 时使用 URI 字典序，测试同大小 / 时间对象在不同枚举顺序下输出一致。
+- [x] **8. 使用显示位置新建文件夹。** “用选中项新建文件夹”从 `clickedItem.getCoordinates()` 取前两项；测试保存坐标屏幕外而显示坐标在主屏时，新文件夹得到显示落点。原有创建失败恢复逻辑不变。
+- [x] **9. 运行验证。** `gjs --module tests/run.js`，重点确认普通模式 DnD 和原有排序测试无回归。建议提交：`fix: save primary layout only for explicit placement changes`。
 
 ## Task 5：合并几何事件并清理定时器
 
@@ -271,22 +271,22 @@ export var GEOMETRY_UPDATE_DEBOUNCE_MS = 200;
 export var GEOMETRY_UPDATE_MAX_WAIT_MS = 1000;
 ```
 
-- [ ] **1. 写红灯测试。** 以 fake scheduler 验证 A → B → C 快照只应用 C；持续事件在 1000 ms 达到上限时应用最新有效快照；相同快照不重复重建；destroy 后不执行回调。
-- [ ] **2. 使调度可测试。** GridLayout 第三个可选构造参数注入 `{schedule, cancel, nowMs}`：`schedule(delayMs, callback)` 返回 timer id，`cancel(timerId)` 取消调度，`nowMs()` 返回单调毫秒数。生产默认使用 GLib；保留现有第二个 getPrimaryOnly 参数，不改变其测试语义。fake scheduler 的 `advance(ms)` 推进时间并依次执行到期回调，无需真实等待一秒。
-- [ ] **3. 实现排队状态。** 保存 `_pendingGeometry`、`_geometryTimerId`、`_geometryBatchStartedAt`；schedule 返回 timer id。每次替换快照，重设计时为 `min(200, max(0, 1000 - elapsed))`；应用时先清理 pending 状态。
-- [ ] **4. 补全校验。** 空列表、NaN / Infinity、宽高 / 缩放非正、负边距、边距总和大于等于尺寸、无可用主屏时拒绝更新；按 DesktopGrid 公式计算并取整后的局部可用宽高也必须大于零。保留现有桌面，无效快照不能覆盖队列中最后一个有效快照。
-- [ ] **5. 清理销毁与重复数据。** destroy 取消 timer 并清空 pending；超时回调先清零 timer id。沿用几何 diff 跳过相同数据，禁止回调在 disable 后继续触发布局。
-- [ ] **6. 首次几何立即应用。** `action-added` 分支是初次几何（`createGridWindows()` 与首次图标枚举都由它触发），排队会让桌面创建整体推后至少 200 ms。该分支保持直接调用 `updateGridWindows()`；只有 `action-state-changed`（运行期变化）进入合并队列。测试要分别断言这两条入口。
-- [ ] **7. 执行验证。** `gjs --module tests/run.js`，断言事件合并前后主屏锚点的保存次数都是零。建议提交：`fix: coalesce desktop geometry changes before relayout`。
+- [x] **1. 写红灯测试。** 以 fake scheduler 验证 A → B → C 快照只应用 C；持续事件在 1000 ms 达到上限时应用最新有效快照；相同快照不重复重建；destroy 后不执行回调。
+- [x] **2. 使调度可测试。** GridLayout 第三个可选构造参数注入 `{schedule, cancel, nowMs}`：`schedule(delayMs, callback)` 返回 timer id，`cancel(timerId)` 取消调度，`nowMs()` 返回单调毫秒数。生产默认使用 GLib；保留现有第二个 getPrimaryOnly 参数，不改变其测试语义。fake scheduler 的 `advance(ms)` 推进时间并依次执行到期回调，无需真实等待一秒。
+- [x] **3. 实现排队状态。** 保存 `_pendingGeometry`、`_geometryTimerId`、`_geometryBatchStartedAt`；schedule 返回 timer id。每次替换快照，重设计时为 `min(200, max(0, 1000 - elapsed))`；应用时先清理 pending 状态。
+- [x] **4. 补全校验。** 空列表、NaN / Infinity、宽高 / 缩放非正、负边距、边距总和大于等于尺寸、无可用主屏时拒绝更新；按 DesktopGrid 公式计算并取整后的局部可用宽高也必须大于零。保留现有桌面，无效快照不能覆盖队列中最后一个有效快照。
+- [x] **5. 清理销毁与重复数据。** destroy 取消 timer 并清空 pending；超时回调先清零 timer id。沿用几何 diff 跳过相同数据，禁止回调在 disable 后继续触发布局。
+- [x] **6. 首次几何立即应用。** `action-added` 分支是初次几何（`createGridWindows()` 与首次图标枚举都由它触发），排队会让桌面创建整体推后至少 200 ms。该分支保持直接调用 `updateGridWindows()`；只有 `action-state-changed`（运行期变化）进入合并队列。测试要分别断言这两条入口。
+- [x] **7. 执行验证。** `gjs --module tests/run.js`，断言事件合并前后主屏锚点的保存次数都是零。建议提交：`fix: coalesce desktop geometry changes before relayout`。
 
 ## Task 6：完成回归、文档与用户验收交接
 
 **Files:** Modify `docs/fixes.md`, `docs/architecture-analysis.md`；复查本计划涉及的全部源文件和测试。
 
-- [ ] **1. 补齐集成矩阵。** 在 `tests/test-primary-layout.js` 用真实纯函数和 fake 元数据后端串起：加载 → 迁移 → 小屏投影 → 重建对象 → 仅移动一个对象 → 大屏恢复。断言未移动对象锚点字节内容保持不变，移动对象恢复时使用新锚点。
-- [ ] **2. 验证双模式及显式落点。** 主屏 on → off → 普通模式拖动 → on；复制文件携带旧新属性 → 明确落点 → 刷新；保持排列 on → 几何变化 → off。分别检查落格结果和属性写入集合，避免只断言 setter 次数却不检查画面位置。
-- [ ] **3. 检查代码并更新文档。** 在 fixes 中记录已实施机制、迁移方式、旧版本回退限制、特殊 URI 写入限制和真机未验项目；修正 2026-10-09 条目中与新行为冲突的描述，保留其历史背景。在架构文档说明主屏锚点 / 普通全局坐标的职责。
-- [ ] **4. 执行开发检查。** 不构建、不安装、不刷新正在运行的扩展：
+- [x] **1. 补齐集成矩阵。** 在 `tests/test-primary-layout.js` 用真实纯函数和 fake 元数据后端串起：加载 → 迁移 → 小屏投影 → 重建对象 → 仅移动一个对象 → 大屏恢复。断言未移动对象锚点字节内容保持不变，移动对象恢复时使用新锚点。
+- [x] **2. 验证双模式及显式落点。** 主屏 on → off → 普通模式拖动 → on；复制文件携带旧新属性 → 明确落点 → 刷新；保持排列 on → 几何变化 → off。分别检查落格结果和属性写入集合，避免只断言 setter 次数却不检查画面位置。
+- [x] **3. 检查代码并更新文档。** 在 fixes 中记录已实施机制、迁移方式、旧版本回退限制、特殊 URI 写入限制和真机未验项目；修正 2026-10-09 条目中与新行为冲突的描述，保留其历史背景。在架构文档说明主屏锚点 / 普通全局坐标的职责。
+- [x] **4. 执行开发检查。** 不构建、不安装、不刷新正在运行的扩展：
 
 ```bash
 gjs --module tests/run.js
@@ -297,8 +297,8 @@ comm -3 <(ls app/*.js | xargs -n1 basename | sort) <(grep -oE "'[A-Za-z0-9-]+\.j
 
 预期：单测 / 检查退出码均为 0；安装清单比较无输出。check.sh 在有显示环境时会启动短暂独立 smoke 窗口，但不安装扩展。无显示环境跳过 smoke 时，交付中明确说明，不能声称真机通过。
 
-- [ ] **5. 完成代码审查与必要修正。** 重点检查自动写盘分支、复制文件的旧锚点、特殊图标、元数据刷新覆盖、主屏未就绪和定时器销毁；修正后仅重跑受影响测试及必要的全量检查。
-- [ ] **6. 更新任务状态并交接。** 只勾选已有证据的任务，记录开发检查输出摘要。建议最终文档提交：`docs: describe primary desktop position persistence and validation`。
+- [x] **5. 完成代码审查与必要修正。** 重点检查自动写盘分支、复制文件的旧锚点、特殊图标、元数据刷新覆盖、主屏未就绪和定时器销毁；修正后仅重跑受影响测试及必要的全量检查。
+- [x] **6. 更新任务状态并交接。** 只勾选已有证据的任务，记录开发检查输出摘要。建议最终文档提交：`docs: describe primary desktop position persistence and validation`。
 
 ### 用户手动构建后验收
 
@@ -336,6 +336,30 @@ comm -3 <(ls app/*.js | xargs -n1 basename | sort) <(grep -oE "'[A-Za-z0-9-]+\.j
 | 6 | Task 3 删掉 `_remapStoredPositions()` 后 `remapPosition()` / `isInside()` 与 `test-icon-remap.js` 成为死代码，Task 1 的“保留”与此冲突 | Task 1 / Task 3 |
 
 另有两处需要在实施中固定、不改结构：`arranged` 必须对应 `StoredCoordinates.ASSIGN`、按锚点投影必须对应 `PRESERVE`（`_getEmptyPlaceClosestTo()` 的两条语义不同）；主屏模式下隐藏文件跳过 `savedCoordinates = null` 会保留 legacy 坐标，需在 `docs/fixes.md` 说明。
+
+## 实施状态（2026-11-02）
+
+计划已实施完成，形成 6 个本地提交（分支 fix/primary-desktop-position）：
+
+| 提交 | 内容 |
+|---|---|
+| docs: plan for persistent primary desktop position anchors | 计划本体 + 复核修订 |
+| feat: define persistent primary desktop position anchors | Task 1 |
+| feat: persist primary positions independently of rendered coordinates | Task 2 |
+| fix: project primary icons from persistent anchors | Task 3 |
+| fix: save primary layout only for explicit placement changes | Task 4 |
+| fix: coalesce desktop geometry changes before relayout | Task 5 |
+| docs: describe primary desktop position persistence and validation | Task 6 |
+
+开发检查（最近一次全量）：`gjs --module tests/run.js` 全绿（约 970 条断言，37 组），`scripts/check.sh` 全绿（ESLint + `node --check` + 单测 + 结构检查；无显示环境时 smoke 跳过），`git diff --check` 无输出，`app/meson.build` 安装清单比对无输出（本轮未新增/移动/删除 `app/*.js`）。
+
+实施中据实调整的三处：
+
+1. `DesktopGrid` 增加 `_startCorner()` / `_addVolumesOpposite()` 两个实例方法作为测试接缝，使主屏投影能跑真实网格落格代码而不需要 GSettings schema；生产行为不变。
+2. `app/icon-remap.js` 的 `localPointForPosition()` 返回取整后的整数像素。计划原文的断言是 `[550, 350]`，而 `0.275*2000` 在双精度下是 `550.0000000000001`；取整是落格代码消费的坐标空间，且目标点是格心，半像素误差不可能跨格。
+3. 新增 `GridLayout.primaryOnly` getter 供 `DesktopManager` 判断隐藏文件分支，避免二次读取 GSettings。
+
+未验证（需真机）：热插拔、实际缩放与 Dock/顶栏边距、`keep-arranged` 与几何变化的交互、特殊 URI（回收站/挂载项）的元数据写入。单测不等同于这些结论，验收表见上。
 
 ## 完成判据
 

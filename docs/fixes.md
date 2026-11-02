@@ -2,6 +2,41 @@
 
 > 2026-08 及更早的条目已归档：[fixes-2026-08.md](archive/fixes-2026-08.md)、[fixes-2026-07.md](archive/fixes-2026-07.md)。
 
+## 2026-11-02
+
+### 仅主屏模式的位置改为“比例锚点”，几何变化不再落盘
+
+**背景：** 2026-10-09 的 `icons-only-on-primary` 把“主屏坐标系换算”的结果写回 `metadata::nautilus-icon-position`。实现时的假设是“所有图标始终停留在同一坐标系”，但这只在一次换算内成立：缩到更小的网格后，落在新屏外的图标被换算并落盘；再放大回来时该坐标已在新屏范围内，`isInside()` 直接跳过，于是每次几何变化都留下一次不可逆的偏移（`grid-layout.js` 的 `_remapStoredPositions()`）。同一条路径还让“副屏数量变化”和“仅缩放变化”共用 `_primaryGridRemovedIcons`，很难解释为什么改缩放也会写盘。
+
+**本次实现：主屏位置改用与显示器无关的比例锚点。**
+
+- 新元数据属性 `metadata::ding-primary-position`，内容 `{"version":1,"u":0.275,"v":0.35}`。`u/v` 是可用网格区域的比例，取值 `[0,1]`，保存已落位单元格的中心：`u=(column+0.5)/columns`。`floor(u*columns)` 精确回到原列，因此在形状相同的网格上往返不漂移；形状变化时按比例映射。
+- 显示坐标每次都从锚点重新投影（`IconRemap.localPointForPosition()` + `DesktopGrid.coordinatesLocalToGlobal()`），投影结果永不写回。`_remapStoredPositions()` 与 `_coordPrimaryArea` 已删除，`remapPosition()`/`isInside()` 随之删除（连同 `tests/test-icon-remap.js`）。
+- 写入只发生在明确动作：拖动（`dnd-manager` 的 `_movePrimaryIcons()`）、显式落点（粘贴/拖入/新建）、以及用户明确的排序（手动切换 `arrangeorder`、菜单“整理图标”）。`keep-arranged` 与几何刷新引发的自动排序不写。一次提交用同一个 `Gio.FileInfo` 同时写新属性和旧的 `nautilus-icon-position`（兼容镜像），两者不会出现中间状态。
+- 迁移：只有 `missing`/`invalid` 记录会在首次成功落位后初始化；`unsupported`（更高版本格式）只显示不覆盖；写失败只记日志并记住“本实例已尝试”，不使图标消失，也不每次刷新重试。
+- 确定性：手动模式按“显式落点 → 有锚点 → 无记录”分批，同批按 URI 字典序；排序比较器的最终 tie-break 也是 URI，因此相同输入在任何枚举顺序下得到同一布局。
+- 几何事件合并：`GridLayout.queueGridUpdate()` 对 `action-state-changed` 的几何快照做 200 ms 静默合并、最长等待 1000 ms，只应用最新有效快照；`action-added`（首次几何）仍然立即应用，避免首帧被推迟。校验覆盖非有限数值、非正宽高/缩放、负边距、边距吃光可用区域、无法解析的主屏索引。
+- 顺带修复：网格满时 `_getEmptyPlaceClosestTo()` 返回 `[null, null]`，`_addFileItemTo(null, null)` 会算成 (0,0) 并覆盖真实占位者的格子记录。此前靠 `findDesktopFor()` 的“满”判定挡住，主屏路径直连网格后会踩到；现在 `addFileItemCloseTo()` 在满网格时直接返回 false。
+- 顺带修复：`file-item-menu.js` 的“用选中项新建文件夹”改用 `getCoordinates()`（显示坐标），不再用可能是屏幕外陈旧值的存储坐标（即 2026-10-09 条目末尾记录的“位置不一致”）。
+- 顺带修复：`tests/run.js` 在测试模块抛异常时以非零码退出。此前 promise rejection 不改变进程退出码，整轮会被当成通过。
+
+**行为变化（与 2026-10-09 条目冲突之处，该条目作为历史记录保留）：**
+
+- 该条目称“按比例重映射到主屏并落盘”“切回原主屏可精确复原”。本次改为不落盘 + 锚点：主屏切换、分辨率/缩放变化、显示器拔插都不再改写位置元数据，恢复也不依赖内存里的上一块主屏矩形。
+- 该条目记录的“只放内存不可行”结论针对的是坐标方案（坐标系混杂）；比例锚点没有坐标系问题，所以“内存还是磁盘”这个取舍不再存在。
+- 隐藏文件：主屏模式下 `_doReadAsync()` 不再清空旧坐标（`savedCoordinates = null`）。否则每轮读到隐藏文件都会写盘，且 legacy 镜像会丢；主屏锚点本身不受影响。
+
+**限制：**
+
+- 不同网格配置不保存多套布局，也不识别显示器硬件身份；比例保持不等于像素不动，网格变小后可能碰撞、避让或放不下。
+- 副屏历史位置的精确还原缺少源坐标系信息，不作承诺。
+- 回收站、挂载项等 URI 的后端可能不支持元数据写入：本次允许进程内显示，日志明确记录保存失败；跨登录持久化以对应后端支持为前提。
+- 回退到旧版本只能读到最近一次明确提交时写入的 `nautilus-icon-position`；旧版本不理解比例锚点，不能保证在不同几何下还原同一主屏布局。
+
+**验证：** `gjs --module tests/run.js` 全绿（新增 `test-primary-position.js`、`test-primary-layout.js`、`test-geometry-updates.js`，并从 `tests/run.js` 注销已删除的 `test-icon-remap.js`）；`scripts/check.sh`（ESLint + `node --check` + 单测 + 结构检查）通过。真机验收项见实施计划（`docs/superpowers/plans/2026-11-02-primary-desktop-position.md`）：热插拔、实际缩放与 Dock 边距、`keep-arranged` 切换、特殊 URI 写入等尚未在真机上验证，单测不等同于这些结论。
+
+---
+
 ## 2026-10-09
 
 ### 新增“仅在主显示器上放置图标”开关 + 桌面放满时的处理

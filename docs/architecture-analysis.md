@@ -265,9 +265,14 @@ icookie 新增实例变量：
 GridLayout
   ├─→ createGridWindows()          // 每块屏幕创建一个 DesktopGrid
   │   └─→ 窗口标题 "Desktop Icons <n>"（与 emulate-x11-window-type.js 协议匹配）
-  ├─→ updateGridWindows(data)      // D-Bus 几何变更时重建/调整窗口
+  ├─→ updateGridWindows(data)      // 立即应用几何快照（启动 / 首次几何）
+  ├─→ queueGridUpdate(data)        // 运行期几何变更：200ms 静默合并，上限 1s
+  ├─→ placePrimaryFiles(list, {arranged, targets})
+  │   └─→ 仅主屏模式：按锚点投影落格，不写元数据
+  ├─→ commitPrimaryPositions(items, {onlyMissing})
+  │   └─→ 明确动作后提交锚点（一次 FileInfo 写新属性 + 旧坐标镜像）
   ├─→ dbusAdvertiseUpdate()        // 监听 extensionControl 的 action
-  └─→ 信号经 SignalManager 注册，destroy() 统一断开
+  └─→ 信号经 SignalManager 注册，destroy() 统一断开（含取消待应用几何）
 ```
 
 ### 5.3 桌面文件读取流程
@@ -550,13 +555,20 @@ icookie 修复链：
 
 ## 八、数据持久化
 
-图标位置存储在文件元数据属性中：
+图标位置存储在文件元数据属性中，两种坐标系各有明确职责：
+
 ```
-metadata::nautilus-icon-position → "x,y" 坐标
-metadata::nautilus-drop-position → icookie: 拖放临时坐标（用于新建文件夹定位）
+metadata::nautilus-icon-position  → "x,y" 全局逻辑坐标（普通多屏模式）
+metadata::ding-primary-position   → {"version":1,"u":..,"v":..} 主屏比例锚点
+metadata::nautilus-drop-position  → icookie: 拖放临时坐标（用于新建文件夹定位）
 ```
 
-桌面刷新时读取这些属性恢复图标位置。如果文件没有保存坐标，则自动分配空位。
+- **普通多屏模式**只读写 `nautilus-icon-position`：绝对坐标，属于所有显示器拼成的全局空间。
+- **仅主屏模式**（`icons-only-on-primary`）只读写 `ding-primary-position`：可用网格区域的比例（单元格中心），与显示器身份、分辨率、缩放无关。每次显示都从锚点投影，投影结果不写回；旧坐标只作为“首次迁移依据”和“切回普通模式时的兼容镜像”，且两者在同一个 `Gio.FileInfo` 中提交。
+- 两者必须通过不同 API 写入（`FileItem.savePrimaryPosition()` 与 `savedCoordinates` setter），不能在旧 setter 中暗中联动，否则会出现两个语义不同的写入源。
+- 桌面刷新时读取这些属性恢复图标位置。如果文件没有任何位置记录，则自动分配空位；仅主屏模式下分配成功后初始化锚点（`commitPrimaryPositions(..., {onlyMissing: true})`）。
+
+几何事件合并与位置元数据无关：`queueGridUpdate()` 只减少过渡期重建，不改变任何位置属性。
 
 ---
 

@@ -484,5 +484,96 @@ export function runTests() {
             'an explicit drop replaces an existing anchor');
     }
 
+    // 19. End to end: load -> migrate -> small grid -> rebuilt FileItems ->
+    //     move one icon -> restore. The icons that were not touched must come
+    //     back to their original cells with byte-identical anchors; the moved
+    //     one must use the cell it was moved to.
+    {
+        const big = makePlacementGrid(20, 10);
+        const legacyCoordinates = [[50, 50], [1000, 500], [1900, 950]];
+        const items = ['a', 'b', 'c'].map((name, index) => makePlacementItem(
+            'file:///' + name, { saved: legacyCoordinates[index] }));
+        makePrimaryLayout(big).layout.addFilesToDesktop(items, Enums.StoredCoordinates.PRESERVE);
+
+        assertDeepEqual(items.map(item => item.primaryPositionStatus), ['valid', 'valid', 'valid'],
+            'every icon gets an anchor on first sighting');
+        const migratedAnchors = items.map(item => IconRemap.writePrimaryPosition(item.primaryPosition));
+        const migratedCells = cellsOf(big, items);
+        assertDeepEqual(migratedCells, {
+            'file:///a': [0, 0], 'file:///b': [10, 5], 'file:///c': [19, 9],
+        }, 'the legacy coordinates decide the first cells');
+
+        /* A refresh rebuilds the items from the stored bytes. */
+        const rebuild = list => list.map(item => makePlacementItem(item.uri, {
+            saved: item.savedCoordinates,
+            anchor: IconRemap.readPrimaryPosition(
+                IconRemap.writePrimaryPosition(item.primaryPosition)).position,
+        }));
+
+        /* Smaller primary grid: proportional projection, nothing written. */
+        const small = makePlacementGrid(15, 7);
+        const rebuilt = rebuild(items);
+        makePrimaryLayout(small).layout.addFilesToDesktop(rebuilt, Enums.StoredCoordinates.PRESERVE);
+        assertEqual(rebuilt.map(item => item._saves.length).join(','), '0,0,0',
+            'a geometry change writes no anchor');
+
+        /* The user moves only the middle icon while the grid is small. */
+        const moved = rebuilt[1];
+        makePrimaryLayout(small).layout.commitPrimaryPositions([moved]);
+        assertEqual(moved._saves.length, 1, 'only the moved icon is committed');
+        const movedCell = small._fileItems[moved.uri].slice(0, 2);
+
+        /* Back to the original primary geometry, rebuilt again. */
+        const restoredItems = rebuild(rebuilt);
+        const bigAgain = makePlacementGrid(20, 10);
+        makePrimaryLayout(bigAgain).layout.addFilesToDesktop(restoredItems, Enums.StoredCoordinates.PRESERVE);
+        const restoredCells = cellsOf(bigAgain, restoredItems);
+
+        assertDeepEqual(restoredCells['file:///a'], migratedCells['file:///a'],
+            'an untouched icon returns to its original cell');
+        assertDeepEqual(restoredCells['file:///c'], migratedCells['file:///c'],
+            'and so does the last one');
+        assertEqual(IconRemap.writePrimaryPosition(restoredItems[0].primaryPosition), migratedAnchors[0],
+            'its stored anchor is byte-identical');
+        assertEqual(IconRemap.writePrimaryPosition(restoredItems[2].primaryPosition), migratedAnchors[2],
+            'also for the last one');
+        assertDeepEqual(restoredCells['file:///b'],
+            /* The anchor is the centre of the cell it was recorded from, so
+             * the projection is (cell + 0.5) scaled to the new grid. */
+            [Math.floor((movedCell[0] + 0.5) * 20 / 15), Math.floor((movedCell[1] + 0.5) * 10 / 7)],
+            'the moved icon follows its new anchor proportionally');
+        assert(IconRemap.writePrimaryPosition(restoredItems[1].primaryPosition) !== migratedAnchors[1],
+            'and its anchor is the one the move recorded');
+    }
+
+    // 20. Mode isolation: the normal (multi-monitor) path never touches the
+    //     anchor, and turning primary-only back on uses the anchor again --
+    //     whatever the normal mode wrote to the legacy coordinate is ignored.
+    {
+        const normalGrid = makePlacementGrid(10, 5);
+        const normalDm = makePlacementDM([normalGrid]);
+        const normal = new GridLayout(normalDm, () => false);
+        normal._applyHostability();
+        const item = makePlacementItem('file:///x', {
+            anchor: IconRemap.positionFromCell(8, 4, 10, 5),
+            saved: [50, 50],
+        });
+        normal.addFilesToDesktop([item], Enums.StoredCoordinates.PRESERVE);
+        assertEqual(item._saves.length, 0, 'the normal path does not write the anchor');
+        assertDeepEqual(cellsOf(normalGrid, [item])['file:///x'], [0, 0],
+            'the normal path follows the legacy coordinate');
+
+        /* Something in normal mode moves the icon (the legacy coordinate is
+         * what that mode stores). */
+        item._savedCoordinates = [500, 250];
+
+        const primaryGrid = makePlacementGrid(10, 5);
+        makePrimaryLayout(primaryGrid).layout.addFilesToDesktop([item],
+            Enums.StoredCoordinates.PRESERVE);
+        assertDeepEqual(cellsOf(primaryGrid, [item])['file:///x'], [8, 4],
+            'primary mode still follows the anchor, not the newer legacy coordinate');
+        assertEqual(item._saves.length, 0, 'and rewrites nothing');
+    }
+
     return summary('primary-layout');
 }

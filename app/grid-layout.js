@@ -669,12 +669,11 @@ export var GridLayout = class {
                 this._unplacedCount++;
                 continue;
             }
-            /* With 'icons-only-on-primary' the icon is parked on the primary
-             * grid. When the monitor it used to live on is gone for good the
-             * new position is persisted (OVERWRITE); on a mere geometry or
-             * scale change the stored position is left alone (PRESERVE), so
-             * undoing the change -- or switching the setting off -- restores
-             * the previous layout. */
+            /* Multi-monitor mode: when the monitor an icon lived on is gone
+             * for good the new position is persisted (OVERWRITE); on a mere
+             * geometry or scale change it is left alone (PRESERVE), so undoing
+             * the change restores the previous layout. Primary-only mode does
+             * not come through here (see placePrimaryFiles). */
             const moveMode = this._dm._primaryGridRemovedIcons ? Enums.StoredCoordinates.OVERWRITE : storeMode;
             if (newDesktop.addFileItemCloseTo(fileItem, itemX, itemY, moveMode) !== false) {
                 placedItems.push(fileItem);
