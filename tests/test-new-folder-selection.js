@@ -36,8 +36,13 @@ export function runTests() {
     {
         const menu = Object.create(FileItemMenu.prototype);
         let removed = false;
+        let requested = null;
         const clicked = {
-            savedCoordinates: [10, 20],
+            /* Stale legacy coordinate (e.g. from the monitor the icon used to
+             * live on) while the icon is rendered on the primary screen: the
+             * new folder must appear where the icon actually is. */
+            savedCoordinates: [9000, 9000],
+            getCoordinates: () => [640, 480, 700, 560, null],
             removeFromGrid: () => {
                 removed = true;
             },
@@ -45,11 +50,16 @@ export function runTests() {
         menu._desktopManager = {
             getCurrentSelection: () => ['file:///a'],
             unselectAll: () => {},
-            doNewFolder: () => null,
+            doNewFolder: position => {
+                requested = position;
+                return null;
+            },
         };
         menu._doNewFolderFromSelection(clicked);
         assertEqual(removed, false,
             'failed folder creation must not destroy the clicked icon');
+        assertEqual(JSON.stringify(requested), '[640,480]',
+            'the new folder uses the rendered position, not the stored coordinate');
     }
 
     return summary('new-folder-selection');

@@ -7,7 +7,7 @@
  * ASCII names across locales.
  */
 import { SortManager } from '../app/sort-manager.js';
-import { assertDeepEqual, summary } from './harness.js';
+import { assert, assertDeepEqual, assertEqual, summary } from './harness.js';
 
 function mockItem(name, contentType) {
     return {
@@ -111,6 +111,120 @@ export function runTests() {
     dm.keepArranged = true;
     sm2.sortAllFilesFromGridsByPosition(); // must not throw
 
+
+    // 5. Commit intent in primary-only mode. An automatic reflow (keep
+    //    arranged, geometry change, refresh) must never record a manual
+    //    layout; only an explicit sort does, and only for the icons that got a
+    //    cell.
+    {
+        const makeSortDm = () => {
+            const fileList = ['c', 'a', 'b'].map(name => ({
+                uri: 'file:///' + name,
+                _x1: 0,
+                _y1: 0,
+                _label: { get_text: () => name },
+                isSpecial: false,
+                removeFromGrid: () => {},
+            }));
+            const layout = {
+                primaryOnly: true,
+                arranged: [],
+                commits: [],
+                placePrimaryFiles(list, opts) {
+                    layout.arranged.push(opts);
+                    return list;
+                },
+                commitPrimaryPositions(list) {
+                    layout.commits.push(list.map(item => item.uri));
+                },
+            };
+            return { dm: { keepArranged: false, sortSpecialFolders: true, _fileList: fileList, _gridLayout: layout }, layout };
+        };
+
+        const automatic = makeSortDm();
+        const automaticSorter = new SortManager(automatic.dm);
+        for (let i = 0; i < 5; i++) {
+            automaticSorter._reassignFilesToDesktop();
+        }
+        assertEqual(automatic.layout.commits.length, 0,
+            'five automatic reflows record no manual layout');
+        assertEqual(automatic.layout.arranged.length, 5, 'each reflow still places the icons');
+        assertEqual(automatic.layout.arranged[0].arranged, true, 'as a sorted layout');
+
+        const explicit = makeSortDm();
+        const explicitSorter = new SortManager(explicit.dm);
+        explicitSorter.sortAllFilesFromGridsByPosition([false, false], { commitPrimaryLayout: true });
+        assertEqual(explicit.layout.commits.length, 1, 'arrange-icons commits once');
+        assertDeepEqual([...explicit.layout.commits[0]].sort(),
+            ['file:///a', 'file:///b', 'file:///c'], 'and commits every placed icon');
+        assertEqual(explicit.dm._fileList[0].uri, 'file:///a',
+            'the list was sorted before being placed');
+
+        const keepArranged = makeSortDm();
+        keepArranged.dm.keepArranged = true;
+        const blocked = new SortManager(keepArranged.dm).sortAllFilesFromGridsByPosition(null,
+            { commitPrimaryLayout: true });
+        assertDeepEqual(blocked, [], 'keep-arranged ignores the manual arrange action');
+        assertEqual(keepArranged.layout.commits.length, 0, 'and commits nothing');
+    }
+
+    // 6. A partly placed sort commits only what fit: an icon the grid could
+    //    not host must keep the anchor it had.
+    {
+        const fileList = ['a', 'b'].map(name => ({
+            uri: 'file:///' + name, _x1: 0, _y1: 0, _label: { get_text: () => name },
+            isSpecial: false, removeFromGrid: () => {}, _placeable: name !== 'b',
+        }));
+        const commits = [];
+        const dm = {
+            keepArranged: false,
+            sortSpecialFolders: true,
+            _fileList: fileList,
+            _gridLayout: {
+                primaryOnly: true,
+                placePrimaryFiles: list => list.filter(item => item._placeable),
+                commitPrimaryPositions: list => commits.push(list.map(item => item.uri)),
+            },
+        };
+        new SortManager(dm)._reassignFilesToDesktop();
+        dm._gridLayout.commitPrimaryPositions([fileList[0]]);
+        assertDeepEqual(commits[0], ['file:///a'], 'only the placed icon is committed');
+    }
+
+    // 7. Ties are broken by URI, so two icons with the same size or time never
+    //    swap cells depending on directory enumeration order.
+    {
+        const makeTies = () => [
+            { uri: 'file:///z', fileSize: 10, _modifiedTime: 5, _label: { get_text: () => 'same' } },
+            { uri: 'file:///a', fileSize: 10, _modifiedTime: 5, _label: { get_text: () => 'same' } },
+        ];
+        const dm = {
+            keepArranged: false,
+            sortSpecialFolders: true,
+            _fileList: makeTies(),
+            _gridLayout: { primaryOnly: false },
+        };
+        const sorter = new SortManager(dm);
+        sorter._reassignFilesToDesktop = () => {};
+        sorter._sortAllFilesFromGridsByModifiedTime();
+        assertDeepEqual(dm._fileList.map(i => i.uri), ['file:///a', 'file:///z'],
+            'equal modification times fall back to URI order');
+        dm._fileList = makeTies().reverse();
+        sorter._sortAllFilesFromGridsBySize();
+        assertDeepEqual(dm._fileList.map(i => i.uri), ['file:///a', 'file:///z'],
+            'equal sizes fall back to URI order');
+
+        const cells = [
+            { _x1: 10, _y1: 10, uri: 'file:///b' },
+            { _x1: 10, _y1: 10, uri: 'file:///a' },
+        ];
+        assertDeepEqual(
+            [...cells].sort(SortManager._positionComparator([false, false])).map(i => i.uri),
+            ['file:///a', 'file:///b'],
+            'icons in the same cell fall back to URI order');
+        assert(SortManager._byUri({ uri: 'file:///a' }, { uri: 'file:///b' }) < 0,
+            'the URI comparator is ascending');
+    }
 
     return summary('SortManager');
 }

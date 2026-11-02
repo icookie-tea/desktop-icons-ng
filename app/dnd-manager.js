@@ -50,6 +50,10 @@ export var DndManager = class {
         }
         let deltaX = xDestination - xOrigin;
         let deltaY = yDestination - yOrigin;
+        if (this._dm._gridLayout.primaryOnly) {
+            this._movePrimaryIcons(deltaX, deltaY, keepArranged);
+            return;
+        }
         let fileItems = [];
         for (let item of this._dm._fileList) {
             if (item.isSelected) {
@@ -74,6 +78,40 @@ export var DndManager = class {
         this._dm._gridLayout.addFilesToDesktop(fileItems, Enums.StoredCoordinates.OVERWRITE);
         fileItems = undefined;
         if (this._dm.keepArranged) {
+            this._dm._updateDesktopSafe('move with drag and drop (keep arranged)');
+        }
+    }
+
+    /* Primary-only drag.
+     *
+     * The icons keep their relative offset, but the result is stored as an
+     * anchor and only for the icons that actually got a cell: an icon that
+     * could not be placed keeps the anchor it had. The legacy coordinate is
+     * written by the same single FileInfo commit, never through the item
+     * setters, so a failed placement cannot leave a coordinate behind.
+     */
+    _movePrimaryIcons(deltaX, deltaY, keepArranged) {
+        const layout = this._dm._gridLayout;
+        const selected = [];
+        const targets = new Map();
+        for (let item of this._dm._fileList) {
+            if (!item.isSelected) {
+                continue;
+            }
+            if (keepArranged && !item.isSpecial) {
+                continue;
+            }
+            const [x, y] = item.getCoordinates();
+            item.removeFromGrid(false);
+            selected.push(item);
+            targets.set(item.uri, [x + deltaX, y + deltaY]);
+        }
+        if (selected.length === 0) {
+            return;
+        }
+        const placed = layout.placePrimaryFiles(selected, {targets});
+        layout.commitPrimaryPositions(placed);
+        if (keepArranged) {
             this._dm._updateDesktopSafe('move with drag and drop (keep arranged)');
         }
     }

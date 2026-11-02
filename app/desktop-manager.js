@@ -269,12 +269,19 @@ export var DesktopManager = class {
                 this._updateDesktopSafe('icons-only-on-primary changed');
                 return;
             case Enums.SortOrder.ORDER:
-                this.doSorts(true);
+                /* Choosing a sort order by hand is an explicit layout change;
+                 * while 'keep-arranged' is on the layout is automatic, so the
+                 * manual anchors must survive. */
+                this.doSorts(true, { commitPrimaryLayout: !this.keepArranged });
                 return;
             case 'keep-arranged':
                 this.keepArranged = Prefs.desktopSettings.get_boolean('keep-arranged');
                 if (this.keepArranged) {
                     this.doSorts(true);
+                } else {
+                    /* Turning it off must bring the manual layout back now,
+                     * not at the next unrelated refresh. */
+                    this._updateDesktopSafe('keep arranged disabled');
                 }
                 return;
             default:
@@ -839,7 +846,7 @@ export var DesktopManager = class {
     }
 
     _addFilesToDesktop(fileList, storeMode) {
-        this._gridLayout.addFilesToDesktop(fileList, storeMode);
+        return this._gridLayout.addFilesToDesktop(fileList, storeMode);
     }
 
     _addSingleFileToDesktop(fileItem) {
@@ -960,11 +967,11 @@ export var DesktopManager = class {
     }
 
 
-    sortAllFilesFromGridsByPosition() {
-        this._sortManager.sortAllFilesFromGridsByPosition();
+    sortAllFilesFromGridsByPosition(opts = {}) {
+        this._sortManager.sortAllFilesFromGridsByPosition(null, opts);
     }
 
-    doSorts(cleargrids) {
-        this._sortManager.doSorts(cleargrids);
+    doSorts(cleargrids, opts = {}) {
+        return this._sortManager.doSorts(cleargrids, opts);
     }
 };

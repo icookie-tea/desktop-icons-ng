@@ -658,7 +658,11 @@ export var FileItemMenu = class extends MenuHelper.MenuHelper {
         if (!clickedItem) {
             return;
         }
-        let position = clickedItem.savedCoordinates;
+        /* Rendered position, not the stored one: in primary-only mode the
+         * stored coordinate is a legacy mirror that may be stale or off the
+         * primary screen, and the new folder must appear where the icon is. */
+        const [renderedX, renderedY] = clickedItem.getCoordinates();
+        let position = [renderedX, renderedY];
         let newFolderFileItems = this._desktopManager.getCurrentSelection(true);
         this._desktopManager.unselectAll();
         // Create the folder BEFORE removing the icon: if creation fails
