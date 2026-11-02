@@ -1,232 +1,72 @@
-# DING Desktop Icons New Generation
+# Desktop Icons Next (DING)
 
-## What is it
+[中文](README.md) | [English](README.en.md)
 
-Desktop Icons NG for GNOME Shell. It is a fork/rewrite of the official 'Desktop Icons' extension,
-with these advantages:
+GNOME Shell 的桌面图标：文件、文件夹、挂载卷、主目录、垃圾桶直接显示在桌面上，支持拖拽、多选、右键菜单、
+剪贴板、键盘操作和搜索。DING 即 Desktop Icons NG。
 
-* Drag'n'Drop, both inside the desktop, between desktop and applications, and nautilus windows
-* Allows to use "Open with..." option with several files
-* When hovering or clicking on an icon with a name too large to fit, it shows the full name
-* Doesn't hang the compositor when there is too much activity in the desktop folder
-* And much more...
+> **声明**：本项目由 LLM 开发（代码主要由 AI 编写与调试），仅供个人使用，不保证稳定性，也不提供对外支持。
 
----
+![桌面截图](docs/images/desktop-icons.png)
 
-## Changes from Upstream
-
-This branch maintains fixes and enhancements not yet merged to the upstream repository
-(<https://gitlab.com/rastersoft/desktop-icons-ng>). It installs as an independent extension under
-its own UUID (`desktop-icons-ng@icookie-tea.github.io`), so it no longer replaces the original
-DING (`ding@rastersoft.com`). Key improvements:
-
-### Bug Fixes
-
-* **Wayland clipboard paste** - desktop context menu paste is now functional (was always grayed out due to cross-process clipboard format detection failure)
-* **Context menu position & behavior** - removed arrow, aligned to mouse position, fixed grab/close behavior so clicking outside closes the menu
-* **Context menu memory leak** - popover is now properly cleaned up using GTK4/Nautilus deferred cleanup pattern, preventing memory accumulation over long sessions
-* **Unhandled promise rejection** - removed unnecessary `async` on `showDesktopMenu` / `_createDesktopBackgroundMenu`
-* **`connectSignal is not a function`** - fixed pre-existing bug in `DesktopMenu`
-* **Clipboard error log spam** - removed console.log from clipboard read error catch block
-* **Image thumbnail overflow** - constrained thumbnail dimensions to `icon_size`, preventing rounded-corner container widening and icon overlap
-* **Dead code removal** - removed unused `_parseClipboardText` / `_getClipboardText` methods
-
-### New Features
-
-* **Accent color toggle** - new "Use the accent color for selection" option: when off, selection box/rubberband/drop preview use a fixed grey like Nautilus; when on, they follow the system accent (preset or user-level overrides like Chromaleon)
-* **Accent shade scheme-follow option** - "Follow the color scheme for the accent shade": off by default (always the brighter dark-mode shade, since the wallpaper does not change with the color scheme); on matches Nautilus's light/dark shade switching
-* **Overview transition sync** - desktop icons fade in/out frame-synchronized with Shell overview transitions via Clutter.Clone + OverviewAdjustment (replaces old post-hoc ease animation)
-* **Terminal fallback** - added `ptyxis` to the terminal emulator fallback list
-* **Drag text/URLs to desktop** - drag text from editors or URLs into desktop creates `.txt` files, matching Nautilus behavior (handles Chinese, URL sanitization, filename deduplication)
-* **Stacked drag preview for multi-select** - shows stacked icon with count badge (e.g. "3") when dragging multiple selected items
-* **Icons only on the primary display** - new "Place icons only on the primary display" option (off by default), modelled on macOS: desktop icons live on one display only. Positions are re-mapped proportionally when the primary display changes, so the icons keep their place instead of collapsing to the new screen's edge, and switching back restores the previous layout exactly. The other displays keep their right-click menu and drag target, but per-cell drop previews are suppressed there since the icon lands on the primary display instead
-* **"Desktop is full" notification** - when icons cannot be placed because every grid is full, a desktop notification reports how many, at most once every 5 minutes
-
-### Recent Fixes
-
-* **Full desktop no longer drops icons silently** - placement used to stop at the first icon that could not be placed and never showed the rest, and the coordinate-less path skipped failures without any log; every icon is now attempted and unplaceable ones are counted and reported
-* **Primary monitor switch icon placement** - new icons now appear on the correct screen after switching primary display in GNOME settings
-* **Folder self-drop routing** - prevents Nautilus "cannot move folder into itself" error and fixes drag-into-selected-folder edge cases
-* **Drag cursor/ghost icon** - ghost preview now follows mouse during drag (was showing default text-file placeholder)
-* **Accent color refresh on theme change** - selection colors update immediately when the accent color changes (GNOME preset or user-level overrides like Chromaleon), no longer requires restart
-* **Ghost preview size fix** - ghost rectangle now matches actual icon container size instead of full grid cell
-* **Drop target box-shadow suppression** - removed 1px green outline from Adwaita `:drop(active)` on desktop window during drag
+*实际截图：主目录徽标、图片缩略图、中文长标签换行、标签阴影。*
 
 ---
 
-## Requirements
+## 运行要求
 
-* GNOME Shell >= 3.38
-* Nautilus >= 3.38
-* File-roller >= 3.38 or Gnome AutoAr (including gir1.2 files)
-* Desktop folder already created
+GNOME Shell 50 / 51（见 `metadata.json` 的 `shell-version`）、GJS + GTK4 + Libadwaita、Nautilus。
+构建需要 `meson`、`ninja`、`xgettext`、`glib-compile-schemas`。
 
-## Manual installation
-
-The easiest way of installing DING is to run the `scripts/local_install.sh` script. It performs the build steps
-specified in the next section.
-
-In Ubuntu, the distro bundles its own desktop-icons-ng under `ding@rastersoft.com`. Because this
-fork installs under its own UUID (`desktop-icons-ng@icookie-tea.github.io`), the two no longer
-clash: run `scripts/local_install.sh` and disable the bundled extension in the "Extensions" app.
-If you prefer the upstream version, you can find .deb packages for Ubuntu in the oficial page:
-
-<https://www.rastersoft.com/programas/ding.html>
-
-If you still want to use the upstream extension from source code, the only way is to install the
-package "gnome-session" to be able to use the standard gnome shell session, and there install the
-following extensions from extensions.gnome.org:
-
-* Desktop icons ng
-* Dash to dock
-* Appindicator and KstatusNotifierItem support
-* Tiling assistant
-
-That will allow to have the same experience than the original Ubuntu desktop, but with the most recent
-versions of the extensions.
-
-## Internal architecture
-
-The code is divided in two parts: a classic Gtk3 program that manages the whole desktop, and a little
-extension (comprised only by the files 'extension.js', 'visible-area.js' and
-'emulate-x11-window-type.js') that have these roles:
-
-* Launch the desktop program at startup, relaunch it if it dies, and kill it if the extension is disabled
-* Identify the desktop windows and keep it at the bottom of the windows stack, in all desktops
-* Detect changes in the desktop/monitors geometry and notify the main desktop program of them
-
-These two last items are paramount in Wayland systems, because there an application can neither set its
-role as freely as in X11, nor get that information.
-
-Of course, to avoid breaking the security model of Wayland, it is paramount to ensure that no other
-program can pose as DING. In old versions, the process for identifying the window was quite convoluted,
-passing an UUID through STDIN and putting it in the window title. But since Gnome Shell 3.38 there is
-a new API that allows to check whether a window belongs to an specific process launched from an
-extension, which makes the code much cleaner and straightforward.
-
-The extension monitors all 'map' signals, and when a window from the DING process previously
-launched is mapped, it knows that it is the desktop window. It stores that window object, sends it to
-the bottom of the stack, and connects to three signals:
-
-* raised: it is called every time the window is sent to the front, so in the callback, the extension
-sends it again to the bottom.
-* position-changed: although the window doesn't have titlebar, it still is possible to move it using
-Alt+F7, or pressing Super and dragging it with the mouse, so this callback returns the window to the
-right possition every time the user tries to move it.
-* unmanaged: called when the window disappears. It deletes the UUID, and waits for the desktop program
-to be killed (it will be relaunched again by the extension, and, of course, a new UUID will be used).
-
-It also monitors other signals to ensure that the desktop receives the focus only when there are no
-other windows in the current desktop, and to keep the icons in the right screen, no matter if the
-user changes to another virtual desktop.
-
-The extension also intercepts three Gnome Shell system calls, in order to hide the desktop windows
-from the tab switcher and the Activities mode. These are 'Meta.Display.get_tab_list()',
-'Shell.Global.get_window_actors()', and 'Meta.Workspace.list_windows()'.
-
-## Launching the Desktop Icons application stand-alone
-
-It is possible to launch the desktop icons application in stand-alone mode to do debugging and
-testing, but, of course, it will behave as a classic Gtk program: there will be a window with its
-titlebar, and the background won't be transparent (it could be, but since the idea is to do debug,
-it is better this way). To do so, just launch './ding.js' from the repository directory. If it can't
-find the schemas file, just enter the 'schemas' folder and type 'glib-compile-schemas .', and retry.
-
-It accepts the following command line parameters:
-
-* -P: specifies the working path. If not set, it will default to './', which means that all the other
-files must be in the current path.
-* -D: specifies a monitor. It is followed by another parameter in the form: X:Y:W:H:Z being each letter
-      a number with, respectively:
-  * X: the X coordinate of this monitor
-  * Y: the Y coordinate of this monitor
-  * W: the width in pixels of this monitor
-  * H: the height in pixels of this monitor
-  * Z: the zoom value for this monitor
-  you can set several -D parameters in the same command line, one for each monitor. A single window
-  will be created for each monitor. If no -D parameter is specified, it will create a single monitor
-  with a size of 1280x720 pixels.
-* -M: specifies which monitor is the primary index, to add there any new file icon.
-
-## Build with Meson
-
-The project uses a build system called [Meson](https://mesonbuild.com/). You can install
-in most Linux distributions as "meson". You also need "ninja" and xgettext.
-
-It's possible to read more information in the Meson docs to tweak the configuration if needed.
-
-For a regular use and local development these are the steps to build the
-project and install it:
+## 安装
 
 ```bash
-meson --prefix=$HOME/.local/ --localedir=share/gnome-shell/extensions/desktop-icons-ng@icookie-tea.github.io/locale .build
-ninja -C .build install
+bash scripts/local_install.sh                    # 装到 ~/.local/
+gnome-extensions enable desktop-icons-ng@icookie-tea.github.io
 ```
 
-It is strongly recommended to delete the destination folder
-($HOME/.local/share/gnome-shell/extensions/desktop-icons-ng@icookie-tea.github.io) before doing this, to ensure that no old
-data is kept.
+X11 下 `Alt`+`F2` 输入 `r` 重载 Shell；Wayland 需注销登录。系统级安装用 `bash scripts/global_install.sh`
+（装到 `/usr`，需 sudo），多台机器部署见 [docs/deployment.md](docs/deployment.md)。
 
-If you previously installed this project (or upstream DING) under the old UUID, remove the stale copy
-too, otherwise both extensions will load at once:
+与发行版自带的 `ding@rastersoft.com` 使用不同 UUID，可以共存但只会显示一套图标，请在扩展应用中只启用一个。
+
+## 使用
+
+- 拖拽：桌面内自由拖动，也可与 Nautilus 窗口互拖；从编辑器拖一段文本到桌面会生成 `.txt`
+- 右键：桌面与图标的完整菜单（新建、粘贴、排序、属性、在终端中打开…），支持多个文件"打开方式"
+- 外观：选框/框选/拖放预览跟随系统强调色；图标与标签带阴影，浅色壁纸上也清晰；长名称悬停或点击看全文
+- 多显示器：默认在所有显示器铺开图标；开启"仅主显示器"后图标只存在于主屏，位置按比例锚点保存，
+  切换主屏、改分辨率或缩放、热插拔都不会改变已保存位置
+- 键盘：`Ctrl`+`F` 搜索，`Ctrl`+`H` 显示隐藏文件，`Ctrl`+`C/X/V` 复制/剪切/粘贴，`Ctrl`+`+`/`-` 调整图标大小
+
+设置项清单（16 项 gsettings 键与默认值）和完整快捷键表见
+[docs/settings-and-shortcuts.md](docs/settings-and-shortcuts.md)。
+点击扩展的齿轮打开的是桌面进程自己的设置窗口（`prefs.js:24-28` 通过 D-Bus 唤起后关闭扩展偏好窗口），
+这是有意为之。
+
+## 开发
 
 ```bash
-rm -rf ~/.local/share/gnome-shell/extensions/ding@rastersoft.com
+npm install              # ESLint，仅需一次
+bash scripts/check.sh    # lint + 语法 + gjs 单元测试 + 独立进程冒烟 + 结构守卫
+bash scripts/refresh_extension.sh
 ```
 
-## Installing with Puppet
+架构：Shell 扩展（根目录 JS）负责窗口类型、桌面区域计算与进程生死；GTK4 桌面进程（`app/`）负责图标、
+网格布局、拖放、菜单、剪贴板、缩略图与设置窗口，两者通过 D-Bus 通信。Wayland 下应用无法自行设定窗口角色、
+也无法获知监视器与窗口堆栈信息，这正是双层设计的由来。详见
+[docs/architecture-analysis.md](docs/architecture-analysis.md)。
 
-If you want to install it in several machines using puppet, you must first create an installation folder
-in your local machine using:
+新增 / 移动 / 删除 JS 文件时必须同步更新 `meson.build` 安装清单，否则构建能过但运行时报
+`No JS module ... found`。脚本清单见 [scripts/README.md](scripts/README.md)，文档索引见
+[docs/README.md](docs/README.md)，修 bug 后按约定更新 [docs/fixes.md](docs/fixes.md)。
 
-```bash
-mkdir install_folder
-meson --prefix=`pwd`/install_folder --localedir=share/locale .build
-ninja -C .build
-ninja -C .build install
-rm -f install_folder/share/glib-2.0/schemas/gschemas.compiled
-```
+## 许可与致谢
 
-The content of the `install_folder` folder is what you must copy in the destination computers at /usr. After
-doing that, you must run in each computer `sudo glib-compile-schemas /usr/share/glib-2.0/schemas` to update
-the schemas in the system.
+GPL-3，见 [COPYING](COPYING)。本仓库由 Desktop Icons NG（DING，原作者 Sergio Costas，
+<https://gitlab.com/rastersoft/desktop-icons-ng>）的 GPL-3 代码演进而来。
 
-## Export extension ZIP file for extensions.gnome.org
+## 联系
 
-To create a ZIP file with the extension, just run:
-
-```bash
-./scripts/export-zip.sh
-```
-
-This will create the file `desktop-icons-ng@icookie-tea.github.io.zip` with the extension, following the rules for publishing at extensions.gnome.org.
-
-## .desktop files limitations
-
-To guarantee security, .desktop files can only be launched when several requisites are fullfilled:
-
-* the desktop folder (the folder that contains the desktop files) is writable ONLY by the user
-* the .desktop file (the launcher) is writable ONLY by the user
-* the .desktop file has been manually enabled by right-clicking on it and selecting "Allow Launching"
-
-If any of these items is false, .desktop files won't work.
-
-## Documentation
-
-* [Architecture Analysis](docs/architecture-analysis.md) - DING dual-layer architecture, startup flow, D-Bus communication
-* [Maintainability Refactor](docs/archive/maintainability-refactor.md) - 2026 refactor summary: stages, ESM migration notes, key decisions, verification
-* [Fixes Log](docs/fixes.md) - detailed bug fix history with root cause analysis
-* [Overview Animation](docs/overview-animation.md) - overview mode fade in/out implementation using Clutter.Clone + OverviewAdjustment
-
-External references: [GNOME Shell Extension Best Practices (EGO)](https://wiki.gnome.org/Projects/GnomeShell/Extensions/BestPractices) - official guidelines for extension development
-
-## Source code and contacting the author
-
-Sergio Costas (upstream author)
-<https://gitlab.com/rastersoft/desktop-icons-ng>
-<rastersoft@gmail.com>
-
-icookie (this branch maintainer, for personal use)
-<1024494987@qq.com>
-
-*This branch was developed with assistance from LLMs: DeepSeek V4 Pro and Qwen3-27B.*
+icookie（维护者）<1024494987@qq.com>
+<https://github.com/icookie-tea/desktop-icons-ng>
