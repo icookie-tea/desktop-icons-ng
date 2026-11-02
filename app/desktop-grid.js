@@ -499,6 +499,21 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
         }
     }
 
+    /* Start corner for the empty-cell search. Through the instance so tests
+     * can exercise the real placement code without a GSettings schema (the
+     * suite runs headless); production reads the preference. */
+    _startCorner() {
+        return Prefs.get_start_corner();
+    }
+
+    /* 'add-volumes-opposite': drives removable volumes to the opposite corner.
+     * Same testability seam as _startCorner(), with the same defensive default
+     * for the window before Prefs.init(). */
+    _addVolumesOpposite() {
+        const settings = Prefs.desktopSettings;
+        return settings ? settings.get_boolean('add-volumes-opposite') : false;
+    }
+
     /* Places fileItem in the empty cell closest to (x, y).
      *
      * A full grid must be refused here, before a cell is computed:
@@ -519,7 +534,7 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
             DebugLog.debugLog(`[place] grid#${this._monitor} is full, refusing "${fileItem.fileName}"`);
             return false;
         }
-        let addVolumesOpposite = Prefs.desktopSettings.get_boolean('add-volumes-opposite');
+        let addVolumesOpposite = this._addVolumesOpposite();
         let [column, row] = this._getEmptyPlaceClosestTo(x,
             y,
             coordinatesAction,
@@ -582,7 +597,7 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
         let placeX = Math.floor(x / this._elementWidth);
         let placeY = Math.floor(y / this._elementHeight);
 
-        let cornerInversion = Prefs.get_start_corner();
+        let cornerInversion = this._startCorner();
         if (reverseHorizontal) {
             cornerInversion[0] = !cornerInversion[0];
         }

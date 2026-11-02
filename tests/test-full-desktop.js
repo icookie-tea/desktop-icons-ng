@@ -36,8 +36,22 @@ function makeGrid(monitor, x, y, w, h, { hostable = true } = {}) {
             const dy = Math.max(y - py, 0, py - (y + h));
             return Math.hypot(dx, dy);
         },
-        addFileItemCloseTo(fileItem, px, py, storeMode) {
-            this.placed.push({ fileItem, x: px, y: py, storeMode });
+        _width: w,
+        _height: h,
+        /* Primary-only placement projects an anchor through the container
+         * space; this double keeps that mapping linear so the assertion can
+         * compute the expected point by hand. */
+        coordinatesLocalToGlobal(lx, ly) {
+            return [Math.floor(lx + x), Math.floor(ly + y)];
+        },
+        /* The primary path records an anchor only for cells it really owns;
+         * these doubles do not model cells, so nothing is committed. */
+        getFileItemPrimaryPosition() {
+            return null;
+        },
+        addFileItemCloseTo(fileItem, px, py, storeMode, options = {}) {
+            this.placed.push({ fileItem, x: px, y: py, storeMode, persistLegacy: options.persistLegacy });
+            return true;
         },
     };
 }
@@ -48,17 +62,25 @@ let seq = 0;
  * metadata-writing setter), so a mock without the backing field would silently
  * hide the remap — and the real setter would persist to disk, which is exactly
  * the bug the split exists to prevent. */
-function makeItem(savedCoordinates, dropCoordinates) {
+function makeItem(savedCoordinates, dropCoordinates, { anchor = null } = {}) {
     seq += 1;
     const item = {
         _savedCoordinates: savedCoordinates,
-        _storedBeforePrimaryRemap: null,
-        dropCoordinates,
-        file: { get_basename: () => `item-${seq}` },
+        _dropCoordinates: dropCoordinates,
+        uri: 'file:///item-' + seq,
+        isSpecial: false,
+        primaryPosition: anchor,
+        primaryPositionStatus: anchor ? 'valid' : 'missing',
+        _setterCalls: 0,
+        file: { get_basename: () => 'item-' + seq },
     };
     Object.defineProperty(item, 'savedCoordinates', {
         get() { return this._savedCoordinates; },
-        set(value) { this._savedCoordinates = value; },
+        set(value) { this._setterCalls += 1; this._savedCoordinates = value; },
+    });
+    Object.defineProperty(item, 'dropCoordinates', {
+        get() { return this._dropCoordinates; },
+        set(value) { this._dropCoordinates = value; },
     });
     return item;
 }
@@ -161,13 +183,13 @@ export function runTests() {
             'primary-only fallback uses the primary grid origin even without _primaryScreen');
     }
 
-    // 7. primary-only + a removed monitor persists the new position
-    //    (OVERWRITE) so the icons stay on the primary screen for good;
-    //    without a removal the stored position is preserved, so switching
-    //    the setting off restores the previous layout.
+    // 7. primary-only never persists a placement: a repaint, a monitor
+    //    removal or a geometry change must not rewrite the stored layout --
+    //    that write-back is exactly what used to make the layout drift. The
+    //    anchor is committed only by an explicit user action (see
+    //    tests/test-primary-layout.js).
     {
-        for (const [removed, expected] of [[true, Enums.StoredCoordinates.OVERWRITE],
-            [false, Enums.StoredCoordinates.PRESERVE]]) {
+        for (const removed of [true, false]) {
             const primary = makeGrid(0, 0, 0, 100, 100);
             const dm = makeMockDM({ desktops: [primary] });
             const layout = new GridLayout(dm, () => true);
@@ -175,12 +197,16 @@ export function runTests() {
             layout._primaryGrid = primary;
             layout._applyHostability();
             dm._primaryGridRemovedIcons = removed;
-            // An icon parked off-screen (its monitor is gone) migrates onto
-            // the only grid there is.
-            layout.addFilesToDesktop([makeItem([500, 500], null)], Enums.StoredCoordinates.PRESERVE);
-            assertEqual(primary.placed[0].storeMode, expected,
-                removed ? 'primary-only with a removed monitor persists the new position'
-                    : 'primary-only without a removal keeps the stored position');
+            const item = makeItem([500, 500], null);
+            layout.addFilesToDesktop([item], Enums.StoredCoordinates.PRESERVE);
+            assertEqual(primary.placed.length, 1, 'the icon is still placed on the primary grid');
+            assertEqual(primary.placed[0].storeMode, Enums.StoredCoordinates.PRESERVE,
+                'the placement is a projection, never an overwrite');
+            assertEqual(primary.placed[0].persistLegacy, false,
+                'and the grid is told not to write the legacy coordinate');
+            assertDeepEqual(item.savedCoordinates, [500, 500],
+                'the stored coordinate is left exactly as it was');
+            assertEqual(item._setterCalls, 0, 'the legacy setter is never used');
         }
     }
 
@@ -199,101 +225,40 @@ export function runTests() {
             'with the setting off a saved position on the secondary grid is honoured');
     }
 
-    // 9. Primary monitor change: stored positions on the old primary are
-    //    reinterpreted relative to the new one, so the icons keep their place
-    //    instead of collapsing to the new screen's edge. The new position is
-    //    persisted, because keeping it in memory only would leave the stored
-    //    coordinate in the old monitor's space and every later refresh would
-    //    collapse the icon to the edge (see _remapStoredPositions).
+    // 9. Switching the primary monitor does not reinterpret or rewrite the
+    //    legacy coordinate any more: the anchor decides the cell, so nothing
+    //    accumulates across geometry changes. The old implementation re-mapped
+    //    the stored coordinate and persisted it, which drifted a little on
+    //    every switch (the icon could not return to its original cell).
     {
         const laptop = makeGrid(0, 0, 0, 2560, 1440);
-        const external = makeGrid(1, 2560, 0, 1920, 1080);
+        const external = makeGrid(1, 2560, 0, 1920, 1080, { hostable: false });
         const dm = makeMockDM({ desktops: [laptop, external] });
         const layout = new GridLayout(dm, () => true);
-        // First pass: primary is the laptop. This records the reference area.
+
         dm._primaryScreen = { monitorIndex: 0, x: 0, y: 0, width: 2560, height: 1440 };
         layout._applyHostability();
-        const item = makeItem([640, 432], null); // laptop cell (5,3)
-        layout.addFilesToDesktop([item], Enums.StoredCoordinates.PRESERVE);
-        assertEqual(laptop.placed.length, 1, 'first pass places on the laptop grid');
-        assertDeepEqual(item.savedCoordinates, [640, 432], 'an unchanged primary leaves the coordinate alone');
-
-        // Primary switches to the external display (same monitors, no removal).
-        dm._primaryScreen = { monitorIndex: 1, x: 2560, y: 0, width: 1920, height: 1080 };
-        dm._primaryGridRemovedIcons = false;
-        layout._applyHostability();
-        laptop.placed = []; external.placed = [];
-        const item2 = makeItem([640, 432], null);
-        layout.addFilesToDesktop([item2], Enums.StoredCoordinates.PRESERVE);
-        assertEqual(external.placed.length, 1, 'after the switch the icon is hosted by the external grid');
-        // 640/2560 = 0.25 -> 2560 + 0.25*1920 = 3040
-        assertDeepEqual(item2.savedCoordinates, [3040, 324],
-            'the position is re-mapped by fraction, not clamped to the edge');
-
-        // A second refresh sees the persisted coordinate and must place the
-        // icon in the same spot (no oscillation back to the old space).
-        external.placed = [];
-        const item3 = makeItem([3040, 324], null);
-        layout.addFilesToDesktop([item3], Enums.StoredCoordinates.PRESERVE);
-        assertEqual(external.placed.length, 1,
-            'a later refresh still places the icon on the external grid');
-        assertDeepEqual([item3.savedCoordinates], [[3040, 324]],
-            'the persisted position stays in the new coordinate space');
-    }
-
-    // 9b. Switching the primary monitor back restores the original position,
-    //     because the fractional re-map is exactly reversible.
-    {
-        const laptop = makeGrid(0, 0, 0, 2560, 1440);
-        const external = makeGrid(1, 2560, 0, 1920, 1080);
-        const dm = makeMockDM({ desktops: [laptop, external] });
-        const layout = new GridLayout(dm, () => true);
-        dm._primaryScreen = { monitorIndex: 0, x: 0, y: 0, width: 2560, height: 1440 };
-        layout._applyHostability();
-        const step1 = makeItem([640, 432], null);
-        layout.addFilesToDesktop([step1], Enums.StoredCoordinates.PRESERVE);
-        assertDeepEqual(step1.savedCoordinates, [640, 432], 'origin on the laptop');
+        assertEqual(layout._primaryGrid, laptop, 'the laptop hosts first');
 
         dm._primaryScreen = { monitorIndex: 1, x: 2560, y: 0, width: 1920, height: 1080 };
         layout._applyHostability();
-        const step2 = makeItem([...step1.savedCoordinates], null);
-        layout.addFilesToDesktop([step2], Enums.StoredCoordinates.PRESERVE);
-        assertDeepEqual(step2.savedCoordinates, [3040, 324], 'moved to the external display');
+        assertEqual(layout._primaryGrid, external, 'after the switch the external display hosts');
 
-        dm._primaryScreen = { monitorIndex: 0, x: 0, y: 0, width: 2560, height: 1440 };
-        layout._applyHostability();
-        const step3 = makeItem([...step2.savedCoordinates], null);
-        layout.addFilesToDesktop([step3], Enums.StoredCoordinates.PRESERVE);
-        assertDeepEqual(step3.savedCoordinates, [640, 432],
-            'switching the primary monitor back restores the original position');
-    }
-
-    // 10. The re-map must not fire when the primary did not actually change,
-    //     and not at all with the setting off.
-    {
-        const laptop = makeGrid(0, 0, 0, 100, 100);
-        const dm = makeMockDM({ desktops: [laptop] });
-        dm._primaryScreen = { monitorIndex: 0, x: 0, y: 0, width: 100, height: 100 };
-        const layout = new GridLayout(dm, () => true);
-        layout._applyHostability();
-        const item = makeItem([10, 10], null);
+        const item = makeItem([640, 432], null, { anchor: { u: 0.25, v: 0.3 } });
         layout.addFilesToDesktop([item], Enums.StoredCoordinates.PRESERVE);
-        assertDeepEqual(item.savedCoordinates, [10, 10],
-            'an unchanged primary monitor leaves positions alone');
-
-        const dmOff = makeMockDM({ desktops: [makeGrid(0, 0, 0, 100, 100)] });
-        dmOff._primaryScreen = { monitorIndex: 0, x: 0, y: 0, width: 100, height: 100 };
-        const layoutOff = new GridLayout(dmOff, () => false);
-        layoutOff._applyHostability();
-        const itemOff = makeItem([50, 50], null);
-        layoutOff.addFilesToDesktop([itemOff], Enums.StoredCoordinates.PRESERVE);
-        assertDeepEqual(itemOff.savedCoordinates, [50, 50],
-            'with the setting off no re-mapping happens');
+        assertEqual(external.placed.length, 1, 'the icon is placed on the new primary grid');
+        /* 0.25 * 1920 = 480 -> 2560 + 480; 0.3 * 1080 = 324 */
+        assertEqual(external.placed[0].x, 3040, 'the anchor, not the old coordinate, decides x');
+        assertEqual(external.placed[0].y, 324, 'and y');
+        assertDeepEqual(item.savedCoordinates, [640, 432],
+            'the legacy coordinate is left untouched (no write-back, no drift)');
+        assertEqual(layout._coordPrimaryArea, undefined,
+            'the previous-primary-area tracking is gone');
     }
 
-    // 11. A primary change with no geometry change must still trigger a
-    //     refresh: the grid diff is empty, so without this the positions would
-    //     never be re-expressed and the icons would collapse to the new edge.
+    // 10. A primary change with no geometry change must still trigger a
+    //     refresh: the grid diff is empty, so without this the hostable grid
+    //     and the anchor projection would keep using the previous primary.
     {
         const AREA0 = { x: 0, y: 0, width: 2560, height: 1440, scaleFactor: 1,
             monitorIndex: 0, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0,
@@ -319,7 +284,7 @@ export function runTests() {
         assertEqual(dm._primaryIndex, 1, 'the new primary index is recorded');
     }
 
-    // 12. An unchanged primary with identical geometry must NOT refresh (the
+    // 11. An unchanged primary with identical geometry must NOT refresh (the
     //     previous behavior of skipping the redundant repaint is preserved).
     {
         const AREA0 = { x: 0, y: 0, width: 2560, height: 1440, scaleFactor: 1,

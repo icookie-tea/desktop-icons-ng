@@ -52,13 +52,18 @@ export var GridLayout = class {
         });
         this._unplacedCount = 0;
         this._primaryGrid = null;
-        /* Tracks the primary monitor the stored icon coordinates were last
-         * interpreted against. When the primary monitor changes, positions are
-         * reinterpreted relative to the new one (see _remapStoredPositions) so
-         * the icons keep their place instead of collapsing to the new screen's
-         * edge. Kept separate from _primaryScreen because that is overwritten
-         * on every geometry update. */
-        this._coordPrimaryArea = null;
+        /* Items whose automatic anchor migration already failed once. Keyed by
+         * the FileItem instance, so a rebuilt item (a new instance) gets a
+         * fresh attempt while a failing backend is not retried on every
+         * refresh of the same icon. */
+        this._primaryMigrationAttempted = new WeakSet();
+    }
+
+    /* Whether 'icons-only-on-primary' is active. Exposed so the desktop
+     * manager can take primary-mode decisions (hidden files) without reading
+     * the setting a second time. */
+    get primaryOnly() {
+        return this._getPrimaryOnly();
     }
 
     destroy() {
@@ -282,12 +287,235 @@ export var GridLayout = class {
         return chosen;
     }
 
-    addFilesToDesktop(fileList, storeMode) {
-        if (this._dm._desktops.length == 0) {
+    /* Grid that may host icons in primary-only mode.
+     *
+     * _primaryGrid is resolved by _applyHostability(); the fallbacks cover the
+     * window between a geometry update and the first _applyHostability() call
+     * (and a stale primary index), so a placement never silently does nothing
+     * while a hostable grid exists. */
+    _hostablePrimaryGrid() {
+        if (this._primaryGrid) {
+            return this._primaryGrid;
+        }
+        if (this._dm._primaryScreen) {
+            const byMonitor = this._dm._desktops.find(g => g._monitor === this._dm._primaryScreen.monitorIndex);
+            if (byMonitor) {
+                return byMonitor;
+            }
+        }
+        return this._dm._desktops.find(g => g._hostable !== false) ?? null;
+    }
+
+    /* Global point an anchor projects to, in this grid's coordinate space. The
+     * anchor is a fraction of the usable container area, so margins and the
+     * scale factor are already accounted for by _width/_height. */
+    _primaryAnchorTarget(grid, anchor) {
+        const [localX, localY] = IconRemap.localPointForPosition(anchor, grid._width, grid._height);
+        return grid.coordinatesLocalToGlobal(localX, localY);
+    }
+
+    /* Explicit placement intent for an item: the caller's targets map (a drag
+     * that already computed the destination), then the drop coordinate
+     * recorded by a paste/copy. Both beat a stored anchor: the user action is
+     * newer than the file metadata. */
+    _primaryExplicitTarget(item, targets) {
+        if (targets && targets.has(item.uri)) {
+            return targets.get(item.uri);
+        }
+        if (item.dropCoordinates) {
+            return item.dropCoordinates;
+        }
+        return null;
+    }
+
+    /* Drops the recorded drop coordinate without writing metadata: the icon is
+     * about to be placed, and a repaint must not produce attribute writes. The
+     * field is assigned directly on purpose (the setter writes to disk). */
+    _consumePrimaryDrop(item) {
+        if (item.dropCoordinates) {
+            item._dropCoordinates = null;
+        }
+    }
+
+    /* Places one item on the primary grid, choosing the placement semantics:
+     *  - explicit target (drag/paste) -> PRESERVE at that point,
+     *  - compact (a sort)             -> ASSIGN (first free cell in order),
+     *  - stored anchor                -> PRESERVE at the projected cell,
+     *  - legacy coordinate            -> PRESERVE there (first migration),
+     *  - nothing at all               -> PRESERVE around the fallback origin.
+     * PRESERVE keeps the requested cell when it is free and otherwise takes the
+     * nearest free one, which is what reproduces an unchanged grid exactly. */
+    _placePrimaryItem(grid, item, targets, arranged) {
+        const explicit = this._primaryExplicitTarget(item, targets);
+        if (explicit) {
+            this._consumePrimaryDrop(item);
+            if (grid.addFileItemCloseTo(item, explicit[0], explicit[1],
+                Enums.StoredCoordinates.PRESERVE, {persistLegacy: false}) === false) {
+                this._unplacedCount++;
+                return false;
+            }
+            return true;
+        }
+        if (arranged && (!item.isSpecial || this._dm.sortSpecialFolders)) {
+            /* Sorted layout: fill the grid in the order the caller produced. */
+            const target = item.savedCoordinates ?? this.getFallbackPosition();
+            if (grid.addFileItemCloseTo(item, target[0], target[1],
+                Enums.StoredCoordinates.ASSIGN, {persistLegacy: false}) === false) {
+                this._unplacedCount++;
+                return false;
+            }
+            return true;
+        }
+        let target = null;
+        if ((item.primaryPositionStatus === 'valid') && item.primaryPosition) {
+            target = this._primaryAnchorTarget(grid, item.primaryPosition);
+        } else if (item.savedCoordinates) {
+            target = item.savedCoordinates;
+        }
+        if (target === null) {
+            target = this.getFallbackPosition();
+        }
+        if (grid.addFileItemCloseTo(item, target[0], target[1],
+            Enums.StoredCoordinates.PRESERVE, {persistLegacy: false}) === false) {
+            this._unplacedCount++;
+            return false;
+        }
+        return true;
+    }
+
+    /* Places fileList on the primary grid; returns the items that got a cell.
+     *
+     * Writes no metadata: commitPrimaryPositions() is the explicit step.
+     *
+     * Manual mode runs in three deterministic batches -- explicit drops, items
+     * with a stored anchor, then everything else (a legacy coordinate, or the
+     * fallback cell) -- and each batch is ordered by URI, so the result does
+     * not depend on directory enumeration order. A sorted layout (arranged)
+     * keeps the caller's order instead, because that order IS the layout.
+     */
+    placePrimaryFiles(fileList, {arranged = false, targets = null} = {}) {
+        const grid = this._hostablePrimaryGrid();
+        if (grid === null) {
+            this._unplacedCount += fileList.length;
+            return [];
+        }
+        const placed = [];
+        if (arranged) {
+            for (const item of fileList) {
+                if (this._placePrimaryItem(grid, item, targets, true)) {
+                    placed.push(item);
+                }
+            }
+            return placed;
+        }
+        const batches = [[], [], []];
+        for (const item of fileList) {
+            if (this._primaryExplicitTarget(item, targets)) {
+                batches[0].push(item);
+            } else if ((item.primaryPositionStatus === 'valid') && item.primaryPosition) {
+                batches[1].push(item);
+            } else {
+                batches[2].push(item);
+            }
+        }
+        const byUri = (a, b) => {
+            const ua = a.uri ?? '';
+            const ub = b.uri ?? '';
+            return (ua < ub) ? -1 : ((ua > ub) ? 1 : 0);
+        };
+        for (const batch of batches) {
+            batch.sort(byUri);
+            for (const item of batch) {
+                if (this._placePrimaryItem(grid, item, targets, false)) {
+                    placed.push(item);
+                }
+            }
+        }
+        return placed;
+    }
+
+    /* Writes the anchor of items that are on the primary grid right now.
+     *
+     * onlyMissing is the automatic migration: it fills in the anchor of an icon
+     * that has none (or whose record is corrupt) and never rewrites a valid
+     * one, because a repaint must not become a user edit. An 'unsupported'
+     * record belongs to a newer DING and is left untouched. A failed write is
+     * remembered per item, so a read-only backend is not hammered on every
+     * refresh (an explicit user move always retries).
+     */
+    commitPrimaryPositions(fileItems, {onlyMissing = false} = {}) {
+        const grid = this._hostablePrimaryGrid();
+        if (grid === null) {
             return;
         }
+        for (const item of fileItems) {
+            if (!item || (typeof item.savePrimaryPosition !== 'function')) {
+                continue;
+            }
+            if (onlyMissing) {
+                const status = item.primaryPositionStatus;
+                if ((status === 'valid') || (status === 'unsupported')) {
+                    continue;
+                }
+                if (this._primaryMigrationAttempted.has(item)) {
+                    continue;
+                }
+            }
+            const anchor = grid.getFileItemPrimaryPosition(item);
+            if (!anchor) {
+                /* Not on the primary grid: there is no cell to record. */
+                continue;
+            }
+            const [x, y] = item.getCoordinates();
+            if (!item.savePrimaryPosition(anchor, [x, y]) && onlyMissing) {
+                this._primaryMigrationAttempted.add(item);
+            }
+        }
+    }
+
+    addFilesToDesktop(fileList, storeMode) {
+        if (this._dm._desktops.length == 0) {
+            return [];
+        }
         this._unplacedCount = 0;
-        this._remapStoredPositions(fileList);
+        if (this._getPrimaryOnly()) {
+            /* 'icons-only-on-primary' does not use absolute coordinates at
+             * all: the stored anchor decides, and nothing is written back
+             * unless the caller asks for it explicitly. ASSIGN is what the
+             * sorting paths pass, which is the one case where the placement
+             * is a compact fill of the grid instead of a projection. */
+            const arranged = storeMode === Enums.StoredCoordinates.ASSIGN;
+            /* Explicit drops are collected before placement consumes them: a
+             * file that arrives with a coordinate (paste, drag from another
+             * monitor) may also carry a stale anchor from its old location,
+             * and the drop must replace it. */
+            const explicitItems = new Set();
+            for (const item of fileList) {
+                if (this._primaryExplicitTarget(item, null)) {
+                    explicitItems.add(item);
+                }
+            }
+            const placed = this.placePrimaryFiles(fileList, {arranged});
+            if (!arranged) {
+                if (explicitItems.size > 0) {
+                    this.commitPrimaryPositions(placed.filter(item => explicitItems.has(item)));
+                }
+                /* First sighting of an icon: give it an anchor, but never
+                 * rewrite one it already has (a repaint is not a user move). */
+                this.commitPrimaryPositions(placed, {onlyMissing: true});
+            }
+            this._reportUnplaced(this._unplacedCount);
+            return placed;
+        }
+        const placed = this._addFilesToLegacyDesktops(fileList, storeMode);
+        this._reportUnplaced(this._unplacedCount);
+        return placed;
+    }
+
+    /* The historical placement path: absolute coordinates against every
+     * monitor's grid. Used by plain multi-monitor mode and kept unchanged. */
+    _addFilesToLegacyDesktops(fileList, storeMode) {
+        let placedItems = [];
         let outOfDesktops = [];
         let notAssignedYet = [];
 
@@ -303,7 +531,11 @@ export var GridLayout = class {
             let [itemX, itemY] = fileItem.savedCoordinates;
             const desktop = this.findDesktopFor(itemX, itemY, { exactOnly: true });
             if (desktop !== null) {
-                desktop.addFileItemCloseTo(fileItem, itemX, itemY, storeMode);
+                if (desktop.addFileItemCloseTo(fileItem, itemX, itemY, storeMode) !== false) {
+                    placedItems.push(fileItem);
+                } else {
+                    this._unplacedCount++;
+                }
             } else {
                 outOfDesktops.push(fileItem);
             }
@@ -328,7 +560,11 @@ export var GridLayout = class {
              * undoing the change -- or switching the setting off -- restores
              * the previous layout. */
             const moveMode = this._dm._primaryGridRemovedIcons ? Enums.StoredCoordinates.OVERWRITE : storeMode;
-            newDesktop.addFileItemCloseTo(fileItem, itemX, itemY, moveMode);
+            if (newDesktop.addFileItemCloseTo(fileItem, itemX, itemY, moveMode) !== false) {
+                placedItems.push(fileItem);
+            } else {
+                this._unplacedCount++;
+            }
         }
         // Finally, assign those icons that still don't have coordinates
         for (let fileItem of notAssignedYet) {
@@ -344,12 +580,16 @@ export var GridLayout = class {
             // designated desktop first, any other hostable desktop as fallback
             const desktop = this.findDesktopFor(x, y);
             if (desktop !== null) {
-                desktop.addFileItemCloseTo(fileItem, x, y, storeMode);
+                if (desktop.addFileItemCloseTo(fileItem, x, y, storeMode) !== false) {
+                    placedItems.push(fileItem);
+                } else {
+                    this._unplacedCount++;
+                }
             } else {
                 this._unplacedCount++;
             }
         }
-        this._reportUnplaced(this._unplacedCount);
+        return placedItems;
     }
 
     /* Tell the user when icons could not be placed, at most once per cooldown.
@@ -379,55 +619,25 @@ export var GridLayout = class {
         }
     }
 
-    /* Reinterpret stored positions when the primary monitor changed.
-     *
-     * Positions on the desktop are absolute screen coordinates, so a position
-     * that was meaningful on the old primary monitor falls outside the new one
-     * and the grid placement would collapse it to the nearest edge. Instead,
-     * the fractional position within the old primary area is re-applied to the
-     * new one, which is what "the icon did not move" means to the user.
-     *
-     * The result IS persisted (OVERWRITE). Keeping it in memory only was tried
-     * and does not work: the stored coordinate would stay in the old monitor's
-     * coordinate space while every later refresh assumes the current one, so
-     * the next pass would feed an old-space coordinate to the new grid and the
-     * icon collapsed to the edge again (2-position oscillation, reproduced).
-     * Persisting keeps every icon in one coordinate space, which is what makes
-     * the placement deterministic. Reversibility is preserved by the remap
-     * being exact: switching the primary monitor back maps the position to the
-     * original one (tests/test-icon-remap.js asserts the round trip). */
-    _remapStoredPositions(fileList) {
-        const area = this._dm._primaryScreen;
-        const previous = this._coordPrimaryArea;
-        this._coordPrimaryArea = area;
-        if (!this._getPrimaryOnly() || !area || !previous) {
-            return;
-        }
-        if ((area.monitorIndex === previous.monitorIndex) &&
-            (area.x === previous.x) && (area.y === previous.y) &&
-            (area.width === previous.width) && (area.height === previous.height)) {
-            return;
-        }
-        let remapped = 0;
-        for (const fileItem of fileList) {
-            const stored = fileItem.savedCoordinates;
-            if (!stored || IconRemap.isInside(stored, area)) {
-                // No position, or already meaningful on the current primary.
-                continue;
+    addSingleFileToDesktop(fileItem) {
+        if (this._getPrimaryOnly()) {
+            this._unplacedCount = 0;
+            /* An explicit drop (paste, new file, drag from another monitor) is
+             * a user action and records the resulting cell; a plain first
+             * sighting only fills in a missing anchor. */
+            const hadExplicitTarget = !!this._primaryExplicitTarget(fileItem, null);
+            const placed = this.placePrimaryFiles([fileItem]);
+            if (placed.length === 0) {
+                this._reportUnplaced(this._unplacedCount || 1);
+                return null;
             }
-            const moved = IconRemap.remapPosition(stored, previous, area).map(Math.round);
-            /* Write through the public setter this time: the new coordinate is
-             * in the current monitor's space and must survive the refresh, so
-             * every icon ends up expressed in one coordinate system. */
-            fileItem.savedCoordinates = moved;
-            remapped++;
+            this.commitPrimaryPositions(placed, {onlyMissing: !hadExplicitTarget});
+            return placed[0];
         }
-        if (remapped > 0) {
-            DebugLog.debugLog(`[place] primary monitor changed (${previous.monitorIndex}->${area.monitorIndex}): re-mapped ${remapped} icon position(s)`);
-        }
+        return this._addSingleFileToLegacyDesktop(fileItem);
     }
 
-    addSingleFileToDesktop(fileItem) {
+    _addSingleFileToLegacyDesktop(fileItem) {
         // Explicit drop intent wins over any stored position: a stale
         // nautilus-icon-position (e.g. copied or leftover metadata) must
         // not pull a freshly created/pasted icon onto another monitor.
@@ -437,9 +647,10 @@ export var GridLayout = class {
             fileItem.dropCoordinates = null;
             const desktop = this.findDesktopFor(x, y);
             if (desktop !== null) {
-                desktop.addFileItemCloseTo(fileItem, x, y,
-                    Enums.StoredCoordinates.OVERWRITE);
-                return;
+                if (desktop.addFileItemCloseTo(fileItem, x, y,
+                    Enums.StoredCoordinates.OVERWRITE) !== false) {
+                    return fileItem;
+                }
             }
         }
         if (fileItem.savedCoordinates) {
@@ -447,20 +658,24 @@ export var GridLayout = class {
             DebugLog.debugLog(`[place] ${fileItem.file.get_basename()} saved=(${x},${y})`);
             const desktop = this.findDesktopFor(x, y, { exactOnly: true });
             if (desktop !== null) {
-                desktop.addFileItemCloseTo(fileItem, x, y,
-                    Enums.StoredCoordinates.PRESERVE);
-                return;
+                if (desktop.addFileItemCloseTo(fileItem, x, y,
+                    Enums.StoredCoordinates.PRESERVE) !== false) {
+                    return fileItem;
+                }
             }
         }
         DebugLog.debugLog(`[place] ${fileItem.file.get_basename()} FALLBACK primary=${!!this._dm._primaryScreen}`);
+        this._unplacedCount = 0;
         const [x, y] = this.getFallbackPosition();
         const desktop = this.findDesktopFor(x, y);
         if (desktop !== null) {
-            desktop.addFileItemCloseTo(fileItem, x, y,
-                Enums.StoredCoordinates.ASSIGN);
-        } else {
-            this._unplacedCount = 1;
-            this._reportUnplaced(1);
+            if (desktop.addFileItemCloseTo(fileItem, x, y,
+                Enums.StoredCoordinates.ASSIGN) !== false) {
+                return fileItem;
+            }
         }
+        this._unplacedCount = 1;
+        this._reportUnplaced(1);
+        return null;
     }
 };

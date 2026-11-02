@@ -40,7 +40,6 @@ import * as TestDropPlaceSetting from './test-drop-place-setting.js';
 import * as TestDndManager from './test-dnd-manager.js';
 import * as TestPaintContainer from './test-paint-container.js';
 import * as TestFullDesktop from './test-full-desktop.js';
-import * as TestIconRemap from './test-icon-remap.js';
 import * as TestPrimaryPosition from './test-primary-position.js';
 import * as TestPrimaryLayout from './test-primary-layout.js';
 
@@ -80,7 +79,6 @@ const tests = [
     TestDndManager,
     TestPaintContainer,
     TestFullDesktop,
-    TestIconRemap,
     TestPrimaryPosition,
     TestPrimaryLayout,
 ];

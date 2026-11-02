@@ -16,95 +16,36 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* Icon-position remapping between two monitor areas.
+/* Primary-desktop position anchors ('icons-only-on-primary').
  *
- * DING stores desktop icon positions as absolute screen coordinates
- * (metadata::nautilus-icon-position). Switching the primary monitor without
- * moving the monitors themselves therefore leaves those coordinates pointing
- * at the old screen: the icons keep their numeric position but visually jump
- * to the edge of the new primary monitor, because the old coordinates fall
- * outside it (see docs/fixes.md).
+ * Plain DING stores icon positions as absolute screen coordinates
+ * (metadata::nautilus-icon-position). Those are only meaningful against one
+ * monitor geometry: changing the primary monitor, the resolution or the scale
+ * factor either pushes the stored point outside the new screen (the icon
+ * collapses to an edge) or leaves a coordinate that no longer describes the
+ * same place. Re-deriving a coordinate from the previous coordinate also
+ * accumulates error, so the layout drifts a little on every change.
  *
- * With 'icons-only-on-primary' the desktop is defined by the primary monitor,
- * so a position is only meaningful relative to it. This module maps a position
- * from one monitor area to another while preserving the *fractional* position
- * (0..1 of the usable area), which is the property users perceive as "where
- * the icon is".
+ * This module implements the store used by primary-only mode instead: a
+ * *fraction* of the usable grid area.
  *
- * Why fractional and not cell-based: mapping cell indices between grids of
- * different column counts loses information and changes the perceived layout
- * far more (verified: cell mapping moved icons by up to 5 columns on a real
- * 2560x1440 + 1920x1080 pair, because the two grids have different cell
- * counts). The fractional target is clamped by the ordinary grid placement
- * afterwards, so no clamping is done here.
+ *     u = (column + 0.5) / columns      v = (row + 0.5) / rows
  *
- * Properties (verified in tests/test-icon-remap.js):
- *  - Idempotent: remapping an already-remapped position within the same target
- *    returns the same position, so a placement pass can be re-run on every
- *    refresh without drifting. This is what lets the result stay unpersisted.
- *  - Reversible: A -> B -> A returns the original position, so switching the
- *    primary monitor back restores the previous layout exactly. This is why
- *    the result is NOT rounded: rounding loses up to one pixel per leg and
- *    makes the round trip inexact for small coordinates. The grid placement
- *    floors to a cell anyway, and the caller rounds before persisting.
- *  - Pure: no GObject state, so it is unit-testable without a compositor.
+ * The fraction is the centre of the occupied cell, so
+ * floor(u * columns) === column for every grid shape (asserted over many
+ * shapes in tests/test-primary-position.js). That is what makes a projection
+ * into an unchanged grid return to the very same cell instead of drifting,
+ * and lets a projection into a different grid land proportionally.
+ *
+ * Two invariants the rest of the code relies on:
+ *  - Pure: nothing here has GObject state, so it is testable without a
+ *    compositor, and projecting never mutates the stored anchor.
+ *  - Strict: a corrupt record is reported as such ('invalid') and an
+ *    out-of-range/non-finite input throws. A NaN silently clamped to the
+ *    origin would place an icon in the corner with no diagnostic.
  */
 
-/**
- * Maps a point from one monitor area to another, preserving the fractional
- * position within the area.
- *
- * Returns fractional coordinates on purpose (see the reversibility note
- * above); callers that write the value to disk must round it first, because
- * the metadata attribute holds integers.
- *
- * @param {number[]} position [x, y] in the `from` area's coordinate space
- * @param {object} from source area: {x, y, width, height}
- * @param {object} to target area: {x, y, width, height}
- * @returns {number[]} [x, y] in the `to` area's coordinate space
- */
-export function remapPosition(position, from, to) {
-    const [x, y] = position;
-    /* A degenerate source area would make the fraction 0/0: fall back to the
-     * target origin rather than emitting NaN, which would poison the grid
-     * placement (getDistance() would return NaN and the icon would be dropped). */
-    const fx = from.width > 0 ? clamp01((x - from.x) / from.width) : 0;
-    const fy = from.height > 0 ? clamp01((y - from.y) / from.height) : 0;
-    return [to.x + fx * to.width, to.y + fy * to.height];
-}
-
-function clamp01(value) {
-    if (!Number.isFinite(value)) {
-        return 0;
-    }
-    return Math.min(1, Math.max(0, value));
-}
-
-/** True when the point lies inside the area (edges inclusive of the origin). */
-export function isInside(position, area) {
-    const [x, y] = position;
-    return (x >= area.x) && (x < area.x + area.width) &&
-           (y >= area.y) && (y < area.y + area.height);
-}
-
-/* Persistent primary-desktop anchor.
- * --------------------------------------------------------------
- * Screen coordinates are only meaningful against one monitor geometry, so
- * 'icons-only-on-primary' stores a *fraction* of the usable grid area
- * instead: u = (column + 0.5) / columns, v = (row + 0.5) / rows. The value is
- * the centre of an occupied cell, not its index, so a changed column/row
- * count maps proportionally and an unchanged grid returns to the same cell
- * (floor(u * columns) === column, asserted in tests/test-primary-position.js).
- *
- * The projection is never written back: the anchor is the single source of
- * truth and display coordinates are derived from it on every pass. That is
- * what makes the layout survive resolution/scale changes without drifting --
- * re-deriving a coordinate from a coordinate would accumulate error.
- *
- * Values are deliberately NOT clamped: an out-of-range or non-finite anchor
- * is a corrupt record, reported as such, rather than silently moved to a
- * corner where it would collide with a real icon.
- */
+const CELL_CENTRE_OFFSET = 0.5;
 
 /* Format version of the stored anchor. A record with another version is
  * reported as 'unsupported' so a future DING can migrate it knowingly
@@ -128,7 +69,7 @@ function isFraction(value) {
 function assertPosition(position, caller) {
     if (!position || (typeof position !== 'object') ||
         !isFraction(position.u) || !isFraction(position.v)) {
-        throw new RangeError(`${caller}: a primary position needs finite u and v in [0, 1]`);
+        throw new RangeError(caller + ': a primary position needs finite u and v in [0, 1]');
     }
 }
 
@@ -199,7 +140,10 @@ export function positionFromCell(column, row, columns, rows) {
         !Number.isInteger(row) || (row < 0) || (row >= rows)) {
         throw new RangeError('positionFromCell: cell must be a valid cell of a columns x rows grid');
     }
-    return { u: (column + 0.5) / columns, v: (row + 0.5) / rows };
+    return {
+        u: (column + CELL_CENTRE_OFFSET) / columns,
+        v: (row + CELL_CENTRE_OFFSET) / rows,
+    };
 }
 
 /**

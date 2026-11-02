@@ -725,7 +725,12 @@ export var DesktopManager = class {
                                     show them, remove the coordinates. This ensures that if the user enables
                                     showing them, they won't fight with other icons for the same place
                                 */
-                                if (fileItem.savedCoordinates) {
+                                /* Primary-only mode is the exception: its layout lives
+                                 * in metadata::ding-primary-position, which is not
+                                 * touched here, so clearing the legacy mirror would only
+                                 * lose the fallback for non-primary mode without
+                                 * protecting anything. */
+                                if (fileItem.savedCoordinates && !this._gridLayout.primaryOnly) {
                                     // only overwrite them if needed
                                     fileItem.savedCoordinates = null;
                                 }
