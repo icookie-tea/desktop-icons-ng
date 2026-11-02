@@ -554,6 +554,11 @@ export var DesktopManager = class {
 
     /* True when both lists hold exactly the same files (same URIs, same
      * count), so icons can be refreshed in place instead of rebuilt. */
+    /* Refreshes a reused FileItem in place instead of rebuilding it.
+     *
+     * The primary anchor is re-read here too: it happens inside
+     * _updateMetadataFromFileInfo(), which this path already calls, so the
+     * reused item cannot keep an anchor that the file no longer has. */
     _refreshReusedFileItem(old, newItem) {
         // The GMount behind the same URI may be a *new* object (an
         // unmount/remount inside the refresh window): keeping the stale one

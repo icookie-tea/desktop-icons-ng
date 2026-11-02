@@ -31,6 +31,7 @@ import * as DBusUtils from './dbus-utils.js';
 import * as dndClipboardUtils from './dnd-clipboard-utils.js';
 import * as DebugLog from './log.js';
 
+import * as IconRemap from './icon-remap.js';
 import * as Signals from './signals.js';
 import Gettext from 'gettext';
 
@@ -45,8 +46,12 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
         this._file = file;
         this._realizeId = 0;
 
-        this._savedCoordinates = this._readCoordinatesFromAttribute(fileInfo, 'metadata::nautilus-icon-position');
+        this._savedCoordinates = this._readCoordinatesFromAttribute(fileInfo, Enums.LEGACY_POSITION_ATTRIBUTE);
         this._dropCoordinates = this._readCoordinatesFromAttribute(fileInfo, 'metadata::nautilus-drop-position');
+        /* Must be initialised before the first reload: _updateMetadataFromFileInfo()
+         * below (and every later metadata refresh) re-reads the anchor. */
+        this._primaryPosition = null;
+        this._primaryPositionStatus = 'missing';
 
         this._createIconActor(Gtk.AccessibleRole.LABEL);
 
@@ -277,6 +282,64 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
         this.setAccessibleName(text);
     }
 
+    /* Reads the primary-desktop anchor from fileInfo into memory.
+     *
+     * Read-only by contract: it runs on construction, on every incremental
+     * metadata refresh and on the reused-item fast path, so a write here
+     * would turn a repaint into a disk write (and destroy the guarantee that
+     * only explicit user actions change the stored layout). */
+    reloadPrimaryPosition(fileInfo) {
+        const stored = fileInfo.get_attribute_as_string(Enums.PRIMARY_POSITION_ATTRIBUTE);
+        const { status, position } = IconRemap.readPrimaryPosition(stored);
+        this._primaryPositionStatus = status;
+        this._primaryPosition = position;
+    }
+
+    /* Stores a primary anchor (and, when given, the legacy coordinate that
+     * mirrors it) in a single Gio.FileInfo.
+     *
+     * One write keeps the two attributes consistent: a crash between two
+     * writes would leave the legacy coordinate describing a layout the anchor
+     * does not. Returns false on failure -- a read-only or metadata-less
+     * backend (mounts, some URIs) must not make the icon disappear, so the
+     * rendered state is left untouched.
+     *
+     * @param {{u: number, v: number}|null} position
+     * @param {number[]|null} legacyCoordinates [x, y] or null to clear
+     * @returns {boolean} whether the attributes were written
+     * @throws {RangeError} for an invalid position (programming error)
+     */
+    savePrimaryPosition(position, legacyCoordinates) {
+        /* Serialized before the try: an invalid anchor is a bug in the
+         * caller, not a backend failure, and must not be mistaken for one. */
+        const text = position == null ? '' : IconRemap.writePrimaryPosition(position);
+        const legacyText = legacyCoordinates == null
+            ? ''
+            : legacyCoordinates[0] + ',' + legacyCoordinates[1];
+        try {
+            const info = new Gio.FileInfo();
+            info.set_attribute_string(Enums.PRIMARY_POSITION_ATTRIBUTE, text);
+            info.set_attribute_string(Enums.LEGACY_POSITION_ATTRIBUTE, legacyText);
+            this.file.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
+        } catch (e) {
+            print('Failed to store the primary desktop position for ' + this.uri + ': ' + e.message);
+            return false;
+        }
+        if (position == null) {
+            this._primaryPosition = null;
+            this._primaryPositionStatus = 'missing';
+        } else {
+            this._primaryPosition = { u: position.u, v: position.v };
+            this._primaryPositionStatus = 'valid';
+        }
+        /* Direct assignment on purpose: the public setter writes the legacy
+         * attribute again, and the value has just been written above. */
+        this._savedCoordinates = legacyCoordinates == null
+            ? null
+            : [legacyCoordinates[0], legacyCoordinates[1]];
+        return true;
+    }
+
     _readCoordinatesFromAttribute(fileInfo, attribute) {
         let savedCoordinates = fileInfo.get_attribute_as_string(attribute);
         if ((savedCoordinates != null) && (savedCoordinates != '')) {
@@ -357,6 +420,10 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
         this._unixmode = fileInfo.get_attribute_uint32('unix::mode');
         this._writableByOthers = (this._unixmode & Enums.S_IWOTH) != 0;
         this._trusted = fileInfo.get_attribute_as_string('metadata::trusted') == 'true';
+        /* Single sync point for the primary anchor: the constructor, the
+         * incremental metadata refresh and the reused-item fast path all go
+         * through this method, and none of them may write. */
+        this.reloadPrimaryPosition(fileInfo);
         this._attributeContentType = fileInfo.get_content_type();
         this._isDesktopFile = this._attributeContentType == 'application/x-desktop';
 
@@ -934,6 +1001,19 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
 
     get path() {
         return this._file.get_path();
+    }
+
+    /* Anchor used by 'icons-only-on-primary': a fraction of the usable grid,
+     * or null when the file has none (never seen on a primary desktop yet). */
+    get primaryPosition() {
+        return this._primaryPosition;
+    }
+
+    /* missing | valid | invalid | unsupported (see IconRemap.readPrimaryPosition).
+     * 'unsupported' means a newer DING wrote the record: display it from the
+     * legacy coordinate, do not migrate it automatically. */
+    get primaryPositionStatus() {
+        return this._primaryPositionStatus;
     }
 
     get savedCoordinates() {

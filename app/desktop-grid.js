@@ -22,6 +22,7 @@ import GLib from 'gi://GLib';
 import * as Prefs from './preferences.js';
 import * as Enums from './enums.js';
 import * as DesktopIconsUtil from './desktop-icons-util.js';
+import * as IconRemap from './icon-remap.js';
 import * as SignalManager from './signal-manager.js';
 import * as dndClipboardUtils from './dnd-clipboard-utils.js';
 import * as DebugLog from './log.js';
@@ -418,9 +419,19 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
         return [Math.floor(X + this._x), Math.floor(Y + this._y)];
     }
 
-    _addFileItemTo(fileItem, column, row, coordinatesAction) {
+    /* Places fileItem in a specific cell.
+     *
+     * persistLegacy:false is the primary-only projection path: it renders and
+     * registers the cell but never writes metadata, because a repaint, a
+     * geometry change or a refresh must not alter the stored layout. The
+     * caller commits the anchor explicitly (FileItem.savePrimaryPosition).
+     *
+     * @returns {boolean} false when the grid is being destroyed (nothing was
+     *          rendered), true once the cell holds the item.
+     */
+    _addFileItemTo(fileItem, column, row, coordinatesAction, persistLegacy = true) {
         if (this._destroying) {
-            return;
+            return false;
         }
         let localX = Math.floor(this._width * column / this._maxColumns);
         let localY = Math.floor(this._height * row / this._maxRows);
@@ -442,9 +453,29 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
          * Also store the new possition if it has been moved by the user,
          * and not triggered by a screen change.
          */
-        if ((fileItem.savedCoordinates == null) || (coordinatesAction == Enums.StoredCoordinates.OVERWRITE)) {
+        if (persistLegacy &&
+            ((fileItem.savedCoordinates == null) || (coordinatesAction == Enums.StoredCoordinates.OVERWRITE))) {
             fileItem.savedCoordinates = [x, y];
         }
+        return true;
+    }
+
+    /* Anchor of the cell fileItem currently occupies, as a fraction of this
+     * grid (see IconRemap.positionFromCell). null when this grid does not
+     * hold the item -- an icon that could not be placed must not be given an
+     * anchor it never got. */
+    getFileItemPrimaryPosition(fileItem) {
+        const entry = this._fileItems[fileItem.uri];
+        if (!Array.isArray(entry) || (entry.length < 2)) {
+            return null;
+        }
+        const [column, row] = entry;
+        if (!Number.isInteger(column) || !Number.isInteger(row) ||
+            (column < 0) || (column >= this._maxColumns) ||
+            (row < 0) || (row >= this._maxRows)) {
+            return null;
+        }
+        return IconRemap.positionFromCell(column, row, this._maxColumns, this._maxRows);
     }
 
     removeItem(fileItem) {
@@ -468,14 +499,38 @@ export var DesktopGrid = class extends SignalManager.SignalManager {
         }
     }
 
-    addFileItemCloseTo(fileItem, x, y, coordinatesAction) {
+    /* Places fileItem in the empty cell closest to (x, y).
+     *
+     * A full grid must be refused here, before a cell is computed:
+     * _getEmptyPlaceClosestTo() returns [null, null] when nothing is free, and
+     * _addFileItemTo(null, null) would place the icon at cell 0 -- stacking it
+     * on the real occupant and overwriting that cell's bookkeeping, so the
+     * occupant would later free a cell it never held. The O(1) occupancy check
+     * also keeps the full path from reading the settings, which makes it
+     * testable headless.
+     *
+     * @returns {boolean} whether the icon was placed (see _addFileItemTo)
+     */
+    addFileItemCloseTo(fileItem, x, y, coordinatesAction, { persistLegacy = true } = {}) {
+        if (this._destroying) {
+            return false;
+        }
+        if (this._occupiedCount >= (this._maxColumns * this._maxRows)) {
+            DebugLog.debugLog(`[place] grid#${this._monitor} is full, refusing "${fileItem.fileName}"`);
+            return false;
+        }
         let addVolumesOpposite = Prefs.desktopSettings.get_boolean('add-volumes-opposite');
         let [column, row] = this._getEmptyPlaceClosestTo(x,
             y,
             coordinatesAction,
             fileItem.isDrive && addVolumesOpposite);
+        if ((column == null) || (row == null)) {
+            /* Defensive: occupancy said there was room, the search disagreed. */
+            DebugLog.debugLog(`[place] grid#${this._monitor} found no free cell for "${fileItem.fileName}"`);
+            return false;
+        }
         DebugLog.debugLog(`[place] grid#${this._monitor} add "${fileItem.fileName}" target=(${x},${y}) -> cell(${column},${row}) action=${coordinatesAction}`);
-        this._addFileItemTo(fileItem, column, row, coordinatesAction);
+        return this._addFileItemTo(fileItem, column, row, coordinatesAction, persistLegacy);
     }
 
     _isEmptyAt(x, y) {

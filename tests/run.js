@@ -42,6 +42,7 @@ import * as TestPaintContainer from './test-paint-container.js';
 import * as TestFullDesktop from './test-full-desktop.js';
 import * as TestIconRemap from './test-icon-remap.js';
 import * as TestPrimaryPosition from './test-primary-position.js';
+import * as TestPrimaryLayout from './test-primary-layout.js';
 
 const tests = [
     TestFileChangesQueue,
@@ -81,6 +82,7 @@ const tests = [
     TestFullDesktop,
     TestIconRemap,
     TestPrimaryPosition,
+    TestPrimaryLayout,
 ];
 
 async function main() {
@@ -95,4 +97,9 @@ async function main() {
 
 main().then(code => {
     System.exit(code);
+}, e => {
+    /* A module that throws (rather than reporting a failed assertion) used to
+     * leave the process exiting 0: the run looked green from the shell. */
+    print('TEST RUNNER ERROR: ' + e + '\n' + (e.stack ?? ''));
+    System.exit(1);
 });

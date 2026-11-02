@@ -99,6 +99,15 @@ export var MIME_TYPES = [DndTargetInfo.DING_ICON_LIST,
                   DndTargetInfo.TEXT_PLAIN];
 
 export var DEFAULT_ATTRIBUTES = 'metadata::*,standard::*,access::*,time::modified,unix::mode';
+
+/* Position attributes. The legacy one holds absolute screen coordinates and
+ * is still what plain multi-monitor mode reads and writes. The primary one
+ * holds a monitor-independent anchor ({version, u, v}) and is only used by
+ * 'icons-only-on-primary'. They are written through separate APIs on purpose:
+ * the anchor is never derived from the legacy coordinate, except once, when a
+ * legacy position is migrated. */
+export var LEGACY_POSITION_ATTRIBUTE = 'metadata::nautilus-icon-position';
+export var PRIMARY_POSITION_ATTRIBUTE = 'metadata::ding-primary-position';
 export var TERMINAL_SCHEMA = 'org.gnome.desktop.default-applications.terminal';
 export var SCHEMA_NAUTILUS = 'org.gnome.nautilus.preferences';
 export var SCHEMA_NAUTILUS_COMPRESSION = 'org.gnome.nautilus.compression';
