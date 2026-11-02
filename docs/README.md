@@ -9,6 +9,12 @@
 | [`overview-animation.md`](overview-animation.md) | 概览模式桌面图标淡入淡出动画的实现分析（Clutter.Clone + OverviewAdjustment） |
 | [`volume-mount-issues.md`](volume-mount-issues.md) | 外部/网络驱动器问题清单（V-1 ~ V-9）及修复状态 |
 
+## 实施计划
+
+| 文档 | 说明 |
+|---|---|
+| [`superpowers/plans/2026-11-02-primary-desktop-position.md`](superpowers/plans/2026-11-02-primary-desktop-position.md) | 仅主屏模式位置稳定性：比例锚点持久化、旧坐标迁移、明确保存意图和几何事件合并；尚未实施 |
+
 ## 存档（历史时点产物，不再更新）
 
 | 文档 | 说明 |
