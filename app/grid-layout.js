@@ -35,7 +35,7 @@ const ngettext = Gettext.domain('ding').ngettext;
  * DesktopGrid windows and keeps _primaryScreen up to date. State lives on
  * the DesktopManager (this._dm). */
 export var GridLayout = class {
-    constructor(desktopManager, getPrimaryOnly = null) {
+    constructor(desktopManager, getPrimaryOnly = null, scheduler = null) {
         this._dm = desktopManager;
         this._signalManager = new SignalManager.SignalManager();
         /* Injected so the placement logic stays testable without GSettings
@@ -57,6 +57,21 @@ export var GridLayout = class {
          * fresh attempt while a failing backend is not retried on every
          * refresh of the same icon. */
         this._primaryMigrationAttempted = new WeakSet();
+        /* Geometry coalescing (see queueGridUpdate). The scheduler is injected
+         * so the timing rules are testable without waiting real time; the
+         * defaults use GLib, which is what production runs. */
+        this._scheduleGeometry = scheduler?.schedule ?? ((delayMs, callback) => GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT, delayMs, () => {
+                callback();
+                return GLib.SOURCE_REMOVE;
+            }));
+        this._cancelGeometryTimer = scheduler?.cancel ?? (timerId => GLib.source_remove(timerId));
+        this._nowMs = scheduler?.nowMs ?? (() => Math.floor(GLib.get_monotonic_time() / 1000));
+        this._pendingGeometry = null;
+        this._geometryTimerId = null;
+        /* null (not 0) means "no burst in progress": a monotonic clock may
+         * legitimately report 0 at the first event. */
+        this._geometryBatchStartedAt = null;
     }
 
     /* Whether 'icons-only-on-primary' is active. Exposed so the desktop
@@ -67,22 +82,70 @@ export var GridLayout = class {
     }
 
     destroy() {
+        this._cancelPendingGeometry();
         this._signalManager.disconnectAllSignals();
     }
 
-    updateGridWindows(newdesktoplist) {
-        /* Reject invalid monitor descriptions (zero/negative width, height or
-         * scale). They are transient artifacts of the compositor's
-         * monitors-changed / workarea recalculation and must not be applied:
-         * a zero-sized grid makes every getDistance() return -1 ("full"), so
-         * _addFilesToDesktop drops every icon and the desktop appears empty
-         * with no way to recover short of restarting the process. Keep the
-         * last valid layout instead. */
-        for (const area of newdesktoplist) {
-            if (!(area.width > 0) || !(area.height > 0) || !(area.scaleFactor > 0)) {
-                DebugLog.debugLog(`[grid] updateGridWindows REJECTED invalid monitor ${area.monitorIndex}: ${area.width}x${area.height} scale=${area.scaleFactor}`);
-                return;
+    /* Rejects monitor descriptions that must not be applied.
+     *
+     * A zero-sized grid makes every getDistance() return -1 ("full"), so
+     * _addFilesToDesktop drops every icon and the desktop appears empty with
+     * no way to recover short of restarting the process; the compositor emits
+     * such snapshots transiently while it recalculates monitors and
+     * workareas. A margin set that consumes the whole area has the same
+     * effect on the usable grid, so it is rejected the same way.
+     *
+     * @returns the snapshot when it is usable, null otherwise
+     */
+    _isValidGeometry(desktopList) {
+        if (!Array.isArray(desktopList) || (desktopList.length === 0)) {
+            return null;
+        }
+        for (const area of desktopList) {
+            if (!area || (typeof area !== 'object')) {
+                return null;
             }
+            for (const key of ['x', 'y', 'width', 'height', 'scaleFactor']) {
+                if (!Number.isFinite(area[key])) {
+                    return null;
+                }
+            }
+            if (!(area.width > 0) || !(area.height > 0) || !(area.scaleFactor > 0)) {
+                return null;
+            }
+            for (const key of ['marginTop', 'marginBottom', 'marginLeft', 'marginRight',
+                'windowMarginTop', 'windowMarginBottom', 'windowMarginLeft', 'windowMarginRight']) {
+                const value = area[key] ?? 0;
+                if (!Number.isFinite(value) || (value < 0)) {
+                    return null;
+                }
+            }
+            const horizontalMargins = (area.marginLeft ?? 0) + (area.marginRight ?? 0);
+            const verticalMargins = (area.marginTop ?? 0) + (area.marginBottom ?? 0);
+            if ((horizontalMargins >= area.width) || (verticalMargins >= area.height)) {
+                return null;
+            }
+            /* Same computation DesktopGrid does: the grid only exists inside
+             * what the margins leave, in logical pixels. */
+            const usableWidth = Math.floor((area.width - horizontalMargins) / area.scaleFactor);
+            const usableHeight = Math.floor((area.height - verticalMargins) / area.scaleFactor);
+            if (!(usableWidth > 0) || !(usableHeight > 0)) {
+                return null;
+            }
+            if (('primaryMonitor' in area) &&
+                (!Number.isInteger(area.primaryMonitor) || (area.primaryMonitor < 0))) {
+                return null;
+            }
+        }
+        return desktopList;
+    }
+
+    /* Applies a geometry snapshot immediately (startup, and the tests). */
+    updateGridWindows(newdesktoplist) {
+        if (!this._isValidGeometry(newdesktoplist)) {
+            DebugLog.debugLog('[grid] updateGridWindows REJECTED invalid monitor description: ' +
+                JSON.stringify(newdesktoplist));
+            return;
         }
         let newPrimaryIndex = -1;
         const oldPrimaryIndex = this._dm._primaryIndex;
@@ -213,15 +276,68 @@ export var GridLayout = class {
         }
         this._applyHostability();
     }
+    /* Queues a geometry snapshot, coalescing a burst into one relayout.
+     *
+     * The compositor reports every intermediate state while it settles (scale
+     * change, dock autohide, monitor hotplug), and each one used to rebuild
+     * every grid. Only the newest valid snapshot is kept and applied once the
+     * burst goes quiet, with the first event of a burst never held back longer
+     * than GEOMETRY_UPDATE_MAX_WAIT_MS. A relayout driven by this path never
+     * writes an icon position: the anchor decides the layout.
+     */
+    queueGridUpdate(desktopList) {
+        if (!this._isValidGeometry(desktopList)) {
+            /* Keep the last valid layout (and any valid snapshot already
+             * queued): an invalid intermediate state must not replace it. */
+            DebugLog.debugLog('[grid] queueGridUpdate IGNORED invalid monitor description');
+            return;
+        }
+        this._pendingGeometry = desktopList;
+        const now = this._nowMs();
+        if (this._geometryBatchStartedAt === null) {
+            this._geometryBatchStartedAt = now;
+        }
+        if (this._geometryTimerId !== null) {
+            this._cancelGeometryTimer(this._geometryTimerId);
+            this._geometryTimerId = null;
+        }
+        const elapsed = now - this._geometryBatchStartedAt;
+        const delay = Math.min(Constants.GEOMETRY_UPDATE_DEBOUNCE_MS,
+            Math.max(0, Constants.GEOMETRY_UPDATE_MAX_WAIT_MS - elapsed));
+        this._geometryTimerId = this._scheduleGeometry(delay, () => {
+            /* Cleared first: the callback must not leave a timer id behind
+             * that destroy() or a later event would cancel a second time. */
+            this._geometryTimerId = null;
+            this._geometryBatchStartedAt = null;
+            const pending = this._pendingGeometry;
+            this._pendingGeometry = null;
+            if (pending !== null) {
+                this.updateGridWindows(pending);
+            }
+        });
+    }
+
+    _cancelPendingGeometry() {
+        if (this._geometryTimerId !== null) {
+            this._cancelGeometryTimer(this._geometryTimerId);
+            this._geometryTimerId = null;
+        }
+        this._pendingGeometry = null;
+        this._geometryBatchStartedAt = null;
+    }
+
     dbusAdvertiseUpdate() {
         this._signalManager.connectSignal(DBusUtils.extensionControl, 'action-state-changed', (actionGroup, actionName, data) => {
             if (actionName == 'desktopGeometry') {
-                this.updateGridWindows(data.recursiveUnpack());
+                this.queueGridUpdate(data.recursiveUnpack());
             }
         });
         this._signalManager.connectSignal(DBusUtils.extensionControl, 'action-added', (actionGroup, actionName) => {
             // this signal allows us to know when the action is available and we can read the initial value
             if (actionName == 'desktopGeometry') {
+                /* The initial snapshot is applied immediately: queueing it
+                 * would delay the first grid windows (and therefore the first
+                 * frame of the desktop) by a whole debounce window. */
                 let data = DBusUtils.extensionControl.get_action_state('desktopGeometry');
                 this.updateGridWindows(data.recursiveUnpack());
             }

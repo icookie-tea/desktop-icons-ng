@@ -33,3 +33,9 @@ export var THUMBNAIL_TIMEOUT_MS = 5000;         // thumbnail generation timeout
  * change, icon-size change): without a cooldown the "Desktop is full"
  * notification would fire on each one and spam the user. */
 export var UNPLACED_NOTIFY_COOLDOWN_US = 300000000; // 5 min between "desktop is full" notifications
+/* Monitor geometry arrives as a burst while the compositor settles (scale
+ * change, dock autohide, resolution switch): each snapshot meant a full grid
+ * rebuild and a relayout, which the user saw as flicker. Coalesce the burst,
+ * but never delay a settled change for longer than the cap. */
+export var GEOMETRY_UPDATE_DEBOUNCE_MS = 200;   // quiet window before applying a geometry snapshot
+export var GEOMETRY_UPDATE_MAX_WAIT_MS = 1000;  // longest a snapshot may be held back

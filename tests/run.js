@@ -42,6 +42,7 @@ import * as TestPaintContainer from './test-paint-container.js';
 import * as TestFullDesktop from './test-full-desktop.js';
 import * as TestPrimaryPosition from './test-primary-position.js';
 import * as TestPrimaryLayout from './test-primary-layout.js';
+import * as TestGeometryUpdates from './test-geometry-updates.js';
 
 const tests = [
     TestFileChangesQueue,
@@ -81,6 +82,7 @@ const tests = [
     TestFullDesktop,
     TestPrimaryPosition,
     TestPrimaryLayout,
+    TestGeometryUpdates,
 ];
 
 async function main() {
