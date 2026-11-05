@@ -402,8 +402,8 @@ export var DesktopManager = class {
         return this._themeManager.accentColor;
     }
 
-    clearFileCoordinates(fileList, dropCoordinates) {
-        this._fileOps.clearFileCoordinates(fileList, dropCoordinates);
+    clearFileCoordinates(fileList, dropCoordinates, options = {}) {
+        this._fileOps.clearFileCoordinates(fileList, dropCoordinates, options);
     }
 
     doMoveWithDragAndDrop(xOrigin, yOrigin, xDestination, yDestination) {

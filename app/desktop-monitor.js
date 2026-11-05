@@ -302,8 +302,9 @@ export var DesktopMonitor = class {
         return true;
     }
     applyDropCoordinates(fileItem) {
+        this.prunePendingDropFiles();
         const basename = fileItem.file.get_basename();
-        const key = FileUtils.matchPendingDropEntry(this._dm._pendingDropFiles, basename);
+        const key = FileUtils.matchPendingDropEntry(this._dm._pendingDropFiles, basename, fileItem.uri);
         if (key !== null) {
             const entry = this._dm._pendingDropFiles[key];
             DebugLog.debugLog(`[dropmatch] ${key === basename ? 'HIT' : 'FUZZY'} ${basename} -> (${entry[0]},${entry[1]})`);
@@ -312,14 +313,17 @@ export var DesktopMonitor = class {
         } else {
             DebugLog.debugLog(`[dropmatch] miss ${basename} pending=[${Object.keys(this._dm._pendingDropFiles).join(', ')}]`);
         }
-        this.prunePendingDropFiles();
     }
     /* Single entry point for _pendingDropFiles: enforces the TTL and the size
      * cap at insertion time too. Pruning only when a later drop matched a new
      * desktop file left the entries of failed copies behind for the whole
      * session (audit 2026-09-11). */
-    addPendingDropFile(name, coordinates) {
-        this._dm._pendingDropFiles[name] = [coordinates[0], coordinates[1], Date.now()];
+    addPendingDropFile(name, coordinates, { excludeUris = [] } = {}) {
+        const entry = [coordinates[0], coordinates[1], Date.now()];
+        if (excludeUris.length > 0) {
+            entry.push([...excludeUris]);
+        }
+        this._dm._pendingDropFiles[name] = entry;
         this.prunePendingDropFiles();
     }
     prunePendingDropFiles() {

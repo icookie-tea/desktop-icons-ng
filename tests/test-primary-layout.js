@@ -5,8 +5,8 @@
  * {"version":1,"u":..,"v":..} as a fraction of the usable grid. The rules
  * asserted here are what keep it trustworthy:
  *  - reading is free of side effects (a refresh must never write),
- *  - a save writes the new attribute and the legacy coordinate in ONE
- *    Gio.FileInfo (no intermediate state on disk),
+ *  - a save writes the anchor, legacy coordinate and consumed drop in ONE
+ *    Gio.FileInfo (no separate drop-clear write),
  *  - the legacy setter is never used to write the new attribute (the two
  *    attributes have different meanings and must not be coupled),
  *  - a failed write reports failure and leaves the rendered position alone.
@@ -17,15 +17,19 @@ import Gdk from 'gi://Gdk';
 import { FileItem } from '../app/file-item.js';
 import { DesktopGrid } from '../app/desktop-grid.js';
 import { GridLayout } from '../app/grid-layout.js';
+import { DndManager } from '../app/dnd-manager.js';
+import { SortManager } from '../app/sort-manager.js';
 import * as Enums from '../app/enums.js';
 import * as IconRemap from '../app/icon-remap.js';
 import { assert, assertDeepEqual, assertEqual, summary } from './harness.js';
 
 const PRIMARY = Enums.PRIMARY_POSITION_ATTRIBUTE;
 const LEGACY = Enums.LEGACY_POSITION_ATTRIBUTE;
+const DROP = 'metadata::nautilus-drop-position';
 
 function makeFileInfo(attributes = {}) {
     const info = new Gio.FileInfo();
+    info.set_name('a.txt');
     for (const [name, value] of Object.entries(attributes)) {
         info.set_attribute_string(name, value);
     }
@@ -39,6 +43,8 @@ function makeItem(fileInfo, { writeThrows = false, uri = 'file:///home/u/Desktop
     const item = Object.create(FileItem.prototype);
     item._destroyed = false;
     item._writes = [];
+    item._fileInfo = fileInfo;
+    item._storedInfo = fileInfo.dup();
     item._file = {
         get_uri: () => uri,
         set_attributes_from_info: info => {
@@ -48,13 +54,18 @@ function makeItem(fileInfo, { writeThrows = false, uri = 'file:///home/u/Desktop
             item._writes.push({
                 primary: info.get_attribute_as_string(PRIMARY),
                 legacy: info.get_attribute_as_string(LEGACY),
+                drop: info.get_attribute_as_string(DROP),
             });
+            for (const name of info.list_attributes(null)) {
+                item._storedInfo.set_attribute_string(name, info.get_attribute_as_string(name));
+            }
         },
     };
     item._primaryPosition = null;
     item._primaryPositionStatus = 'missing';
     /* Same read the real constructor does, so a rebuild is faithful. */
     item._savedCoordinates = item._readCoordinatesFromAttribute(fileInfo, LEGACY);
+    item._dropCoordinates = item._readCoordinatesFromAttribute(fileInfo, DROP);
     item._setterCalls = 0;
     Object.defineProperty(item, 'savedCoordinates', {
         configurable: true,
@@ -87,7 +98,7 @@ function makePlacementGrid(columns, rows, { x = 0, y = 0, cell = 100 } = {}) {
     grid._gridStatus = {};
     grid._fileItems = {};
     grid._destroying = false;
-    grid._container = { put: () => {} };
+    grid._container = { put: () => {}, remove: () => {} };
     grid.gridGlobalRectangle = new Gdk.Rectangle({ x, y, width: grid._width, height: grid._height });
     grid.coordinatesLocalToGlobal = (px, py) => [Math.floor(px + x), Math.floor(py + y)];
     grid.coordinatesGlobalToLocal = (X, Y) => [Math.floor(X - x), Math.floor(Y - y)];
@@ -136,6 +147,7 @@ function makePlacementItem(uri, { saved = null, anchor = null, status = null, sp
                 item.primaryPositionStatus = 'valid';
             }
             item._savedCoordinates = legacyCoordinates == null ? null : [...legacyCoordinates];
+            item._dropCoordinates = null;
             return true;
         },
     };
@@ -179,6 +191,22 @@ function cellsOf(grid, items) {
         map[item.uri] = entry ? entry.slice(0, 2) : null;
     }
     return map;
+}
+
+/* Real persistence and cell placement; only the GTK widget and metadata
+ * backend are stubbed. _storedInfo includes every attribute, so rebuilding
+ * from it models restart with pending drops as well as saved positions. */
+function makePersistentPlacementItem(info, options = {}) {
+    const item = makeItem(info, options);
+    item.container = {};
+    item.setCoordinates = (x, y) => {
+        item._point = [x, y];
+        item._x1 = x;
+        item._y1 = y;
+    };
+    item.getCoordinates = () => item._point;
+    item.removeFromGrid = () => item._testGrid.removeItem(item);
+    return item;
 }
 
 export function runTests() {
@@ -428,7 +456,7 @@ export function runTests() {
         assertDeepEqual(item.primaryPosition, IconRemap.positionFromCell(9, 4, 10, 5),
             'the new anchor records the drop cell');
         assertEqual(item.dropCoordinates, null, 'the drop coordinate is consumed');
-        assertEqual(item._dropSetterCalls, 0, 'without a metadata write');
+        assertEqual(item._dropSetterCalls, 0, 'without a separate drop-attribute write');
     }
 
     // 16. A sorted layout is a compact fill in the caller's order and writes
@@ -574,6 +602,98 @@ export function runTests() {
             'primary mode still follows the anchor, not the newer legacy coordinate');
         assertEqual(item._saves.length, 0, 'and rewrites nothing');
     }
+
+    // 21. Drop -> manual drag -> restart: old drop metadata must never beat
+    //     the newly saved anchor (the lock/unlock regression).
+    {
+        const grid = makePlacementGrid(20, 11, { x: 2560 });
+        const { dm, layout } = makePrimaryLayout(grid);
+        const item = makePersistentPlacementItem(makeFileInfo({ [DROP]: '3099,324' }));
+        item._testGrid = grid;
+        layout.addFilesToDesktop([item], Enums.StoredCoordinates.PRESERVE);
+        assertEqual(item._writes[0].drop, '', 'initial drop consumption is in the anchor commit');
+        assertEqual(item._storedInfo.get_attribute_as_string(DROP), '', 'disk drop is cleared');
+        // Simulate residue already consumed in memory by the buggy version.
+        item._storedInfo.set_attribute_string(DROP, '3099,324');
+        item._dropCoordinates = null;
+        item._isSelected = true;
+        dm._fileList = [item];
+        dm._gridLayout = layout;
+        const [x, y] = item.getCoordinates();
+        new DndManager(dm)._movePrimaryIcons(4510 - x, 250 - y, false);
+        const expected = cellsOf(grid, [item]);
+        assertEqual(item._storedInfo.get_attribute_as_string(DROP), '', 'manual drag removes old disk residue');
+        const restored = makePersistentPlacementItem(item._storedInfo);
+        const again = makePlacementGrid(20, 11, { x: 2560 });
+        makePrimaryLayout(again).layout.addFilesToDesktop([restored], Enums.StoredCoordinates.PRESERVE);
+        assertDeepEqual(cellsOf(again, [restored]), expected, 'restart restores the manually dragged cell');
+        assertEqual(restored.dropCoordinates, null, 'no pending drop after restart');
+        assertEqual(restored._writes.length, 0, 'restoring a committed anchor writes no metadata');
+    }
+
+    // 22. Full grids preserve unplaced drops for the next attempt.
+    {
+        const grid = makePlacementGrid(1, 1);
+        const { layout } = makePrimaryLayout(grid);
+        layout.addFilesToDesktop([makePlacementItem('file:///occupant')], Enums.StoredCoordinates.PRESERVE);
+        const item = makePersistentPlacementItem(makeFileInfo({ [DROP]: '50,50' }));
+        assertEqual(layout.addSingleFileToDesktop(item), null, 'full grid refuses a drop');
+        assertDeepEqual(item.dropCoordinates, [50, 50], 'unplaced drop remains pending');
+        assertEqual(item._writes.length, 0, 'unplaced drops issue no write');
+        makePrimaryLayout(makePlacementGrid(2, 2)).layout.addSingleFileToDesktop(item);
+        assertEqual(item.dropCoordinates, null, 'successful retry consumes the drop');
+        assertEqual(item._storedInfo.get_attribute_as_string(DROP), '', 'retry clears disk drop');
+    }
+
+    // 23. Save failures retain drop intent, without an immediate second
+    //     attempt through the missing-anchor migration in the same pass.
+    {
+        const { layout } = makePrimaryLayout(makePlacementGrid(4, 2));
+        const item = makePlacementItem('file:///failed', { drop: [350, 150] });
+        item._saveFails = true;
+        layout.addFilesToDesktop([item], Enums.StoredCoordinates.PRESERVE);
+        assertEqual(item._saves.length, 1, 'failed drop save attempted once per pass');
+        assertDeepEqual(item.dropCoordinates, [350, 150], 'save failure retains the drop');
+        const failing = makePersistentPlacementItem(makeFileInfo({ [DROP]: '350,150' }), { writeThrows: true });
+        makePrimaryLayout(makePlacementGrid(4, 2)).layout.addSingleFileToDesktop(failing);
+        assertDeepEqual(failing.dropCoordinates, [350, 150], 'real FileItem failure retains pending drop');
+        assertEqual(failing._storedInfo.get_attribute_as_string(DROP), '350,150', 'failed write leaves disk untouched');
+    }
+
+    // 24. Sorted cells override historical drop targets. Automatic reflow
+    //     commits only incoming drops, preserving other manual anchors.
+    for (const explicit of [false, true]) {
+        const grid = makePlacementGrid(4, 2);
+        const { dm, layout } = makePrimaryLayout(grid);
+        const dropped = makePersistentPlacementItem(makeFileInfo({ [DROP]: '350,150' }));
+        const other = makePlacementItem('file:///other', { anchor: IconRemap.positionFromCell(3, 1, 4, 2) });
+        dm._fileList = [dropped, other];
+        dm._gridLayout = layout;
+        dm.keepArranged = false;
+        dropped._x1 = 0;
+        dropped._y1 = 0;
+        other._x1 = 400;
+        other._y1 = 100;
+        dropped.removeFromGrid = () => {};
+        other.removeFromGrid = () => {};
+        new SortManager(dm).sortAllFilesFromGridsByPosition([false, false], { commitPrimaryLayout: explicit });
+        assertDeepEqual(cellsOf(grid, [dropped])[dropped.uri], [0, 0], 'drop does not override sorted order');
+        assertEqual(dropped._storedInfo.get_attribute_as_string(DROP), '', 'sorting consumes disk drop');
+        assertEqual(other._saves.length, explicit ? 1 : 0, 'only explicit sorting rewrites other manual anchors');
+        const restored = makePersistentPlacementItem(dropped._storedInfo);
+        const again = makePlacementGrid(4, 2);
+        makePrimaryLayout(again).layout.addSingleFileToDesktop(restored);
+        assertDeepEqual(cellsOf(again, [restored])[restored.uri], [0, 0], 'sorted drop cell survives restart');
+    }
+
+    // 25. Non-finite or empty coordinates must never reach nearest-cell math.
+    for (const value of ['Infinity,1', '1,-Infinity', '1e309,2', ',2', '1, ', 'NaN,2', '1']) {
+        const item = makeItem(makeFileInfo({ [LEGACY]: value, [DROP]: value }));
+        assertEqual(item.savedCoordinates, null, 'invalid legacy coordinate ignored: ' + value);
+        assertEqual(item.dropCoordinates, null, 'invalid drop coordinate ignored: ' + value);
+    }
+    assertDeepEqual(makeItem(makeFileInfo({ [LEGACY]: '-10.5, 20' })).savedCoordinates, [-10.5, 20],
+        'negative origins and fractional coordinates remain valid');
 
     return summary('primary-layout');
 }

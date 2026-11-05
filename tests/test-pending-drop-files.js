@@ -6,8 +6,10 @@
  * filename that never appeared) left its entry behind for the rest of the
  * session, and the map could keep growing between two matching drops.
  * Entries are now pruned on insertion as well (audit 2026-09-11). */
+import Gio from 'gi://Gio';
 import { DesktopMonitor } from '../app/desktop-monitor.js';
-import { assert, assertEqual, summary } from './harness.js';
+import { FileOperations } from '../app/file-operations.js';
+import { assert, assertDeepEqual, assertEqual, summary } from './harness.js';
 
 function makeMonitor(pending = {}) {
     const monitor = Object.create(DesktopMonitor.prototype);
@@ -21,8 +23,8 @@ export function runTests() {
         return summary('pending-drop-files');
     }
 
-    // 1. the stored shape is [x, y, timestamp] (matchPendingDropEntry and the
-    //    drop-coordinate consumers expect exactly that)
+    // 1. Entries start with [x, y, timestamp]; an optional fourth field lists
+    //    pre-existing URIs which must not consume this pending drop.
     {
         const monitor = makeMonitor();
         monitor.addPendingDropFile('a.txt', [12, 34]);
@@ -63,6 +65,68 @@ export function runTests() {
         assert(keys.length <= 64, `the map stays capped (got ${keys.length})`);
         assert(keys.includes('newest.txt'), 'the newest entry is kept');
         assert(!keys.includes('old0.txt'), 'the oldest entry is dropped first');
+    }
+
+    // Copying seeds the destination's pending drop without changing source
+    // metadata. A move still clears the position that follows the source.
+    for (const copy of [true, false]) {
+        const monitor = makeMonitor();
+        const writes = [];
+        const source = {
+            is_native: () => true,
+            query_exists: () => true,
+            get_basename: () => 'source.txt',
+            set_attributes_from_info: info => writes.push(info.dup()),
+        };
+        const originalNewForUri = Gio.File.new_for_uri;
+        try {
+            Gio.File.new_for_uri = () => source;
+            const dm = {
+                _monitor: monitor,
+                _pendingDropFiles: monitor._dm._pendingDropFiles,
+                _fileList: [{ uri: 'file:///Desktop/source.txt' }],
+            };
+            new FileOperations(dm).clearFileCoordinates(['file:///source.txt'], [12, 34], { copy });
+        } finally {
+            Gio.File.new_for_uri = originalNewForUri;
+        }
+        assertEqual(writes.length, copy ? 0 : 1, 'only moving modifies source position metadata');
+        assertDeepEqual(monitor._dm._pendingDropFiles['source.txt'].slice(0, 2), [12, 34],
+            'both copying and moving seed the destination drop');
+        if (!copy) {
+            assertEqual(writes[0].get_attribute_as_string('metadata::nautilus-icon-position'), '',
+                'moving clears the previous legacy position');
+        }
+        const existing = {
+            uri: 'file:///Desktop/source.txt',
+            file: { get_basename: () => 'source.txt' },
+            dropCoordinates: null,
+        };
+        monitor.applyDropCoordinates(existing);
+        assertEqual(existing.dropCoordinates, null, 'enumerating existing icons does not steal a drop');
+        assert('source.txt' in monitor._dm._pendingDropFiles, 'the new destination still has a pending drop');
+        if (copy) {
+            monitor.applyDropCoordinates({
+                ...existing,
+                uri: 'file:///source.txt',
+            });
+            assert('source.txt' in monitor._dm._pendingDropFiles, 'a copied source cannot consume the drop either');
+        }
+        const destination = {
+            uri: 'file:///Desktop/source%20(copy).txt',
+            file: { get_basename: () => 'source (copy).txt' },
+            dropCoordinates: null,
+        };
+        monitor.applyDropCoordinates(destination);
+        assertDeepEqual(destination.dropCoordinates.slice(0, 2), [12, 34], 'conflict-renamed destination receives its drop');
+        assertEqual(Object.keys(monitor._dm._pendingDropFiles).length, 0, 'destination consumes the pending entry once');
+    }
+
+    {
+        const monitor = makeMonitor({ 'expired.txt': [12, 34, Date.now() - 6 * 60 * 1000] });
+        const fileItem = { file: { get_basename: () => 'expired.txt' }, dropCoordinates: null };
+        monitor.applyDropCoordinates(fileItem);
+        assertEqual(fileItem.dropCoordinates, null, 'expired drop is pruned before it can move a file');
     }
 
     return summary('pending-drop-files');

@@ -31,13 +31,22 @@ export var FileOperations = class {
         this._isCut = false;
     }
 
-    clearFileCoordinates(fileList, dropCoordinates) {
+    clearFileCoordinates(fileList, dropCoordinates, { copy = false } = {}) {
+        /* Full enumeration also visits old icons. None of those icons (or a
+         * copied source) may consume a pending drop meant for a new file. */
+        const excludeUris = (this._dm._fileList ?? []).map(item => item.uri);
+        if (copy) {
+            excludeUris.push(...fileList);
+        }
         for (let element of fileList) {
             let file = Gio.File.new_for_uri(element);
-            if (!file.is_native() || !file.query_exists(null)) {
+            /* Copying must not relocate the source icon on its next refresh.
+             * Only a moved file needs its old metadata cleared; a copy's
+             * destination is positioned through the pending-drop map. */
+            if (copy || !file.is_native() || !file.query_exists(null)) {
                 if (dropCoordinates != null) {
-                    this._dm._monitor.addPendingDropFile(file.get_basename(), dropCoordinates);
-                    DebugLog.debugLog(`[dropcoords] non-native ${file.get_basename()} -> (${dropCoordinates[0]},${dropCoordinates[1]}) pending=${Object.keys(this._dm._pendingDropFiles).length}`);
+                    this._dm._monitor.addPendingDropFile(file.get_basename(), dropCoordinates, { excludeUris });
+                    DebugLog.debugLog(`[dropcoords] pending ${file.get_basename()} -> (${dropCoordinates[0]},${dropCoordinates[1]}) pending=${Object.keys(this._dm._pendingDropFiles).length}`);
                 }
                 continue;
             }
@@ -58,7 +67,7 @@ export var FileOperations = class {
                  * also record it here keyed by basename. FileItem creation
                  * (_applyDropCoordinates) will match it and place the new
                  * icon on the requested grid cell. */
-                this._dm._monitor.addPendingDropFile(file.get_basename(), dropCoordinates);
+                this._dm._monitor.addPendingDropFile(file.get_basename(), dropCoordinates, { excludeUris });
                 DebugLog.debugLog(`[dropcoords] ${file.get_basename()} -> (${dropCoordinates[0]},${dropCoordinates[1]}) pending=${Object.keys(this._dm._pendingDropFiles).length}`);
             }
         }
@@ -134,7 +143,7 @@ export var FileOperations = class {
             // deleted after copying) are intentionally NOT filtered here:
             // Nautilus reports them natively, which is better feedback than
             // a silent no-op.
-            this.clearFileCoordinates(this._clipboardFiles, [this._dm._clickX, this._dm._clickY]);
+            this.clearFileCoordinates(this._clipboardFiles, [this._dm._clickX, this._dm._clickY], { copy: true });
             DBusUtils.RemoteFileOperations.CopyURIsRemote(this._clipboardFiles, desktopDir);
         }
     }

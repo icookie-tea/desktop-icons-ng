@@ -85,8 +85,11 @@ export var SortManager = class {
         const placed = this._reassignFilesToDesktop();
         /* "Arrange icons" is an explicit user action, so the resulting layout
          * is the one to keep (the caller says so; the automatic paths do not). */
-        if (commitPrimaryLayout && this._dm._gridLayout.primaryOnly) {
-            this._dm._gridLayout.commitPrimaryPositions(placed);
+        if (this._dm._gridLayout?.primaryOnly) {
+            const toCommit = commitPrimaryLayout ? placed : placed.filter(item => item.dropCoordinates);
+            if (toCommit.length > 0) {
+                this._dm._gridLayout.commitPrimaryPositions(toCommit);
+            }
         }
         return placed;
     }
@@ -192,8 +195,8 @@ export var SortManager = class {
     }
 
     /* commitPrimaryLayout is true only for an explicit user sort (changing
-     * 'arrangeorder' by hand, "Arrange icons"): keep-arranged and the refresh
-     * paths leave the manual anchors alone. */
+     * 'arrangeorder' by hand, "Arrange icons"). An automatic reflow commits
+     * only incoming drops, leaving every other manual anchor alone. */
     doSorts(cleargrids, { commitPrimaryLayout = false } = {}) {
         if (cleargrids) {
             this._dm._fileList.forEach(f => f.removeFromGrid(false));
@@ -219,8 +222,11 @@ export var SortManager = class {
                 placed = this._dm._addFilesToDesktop(this._dm._fileList, Enums.StoredCoordinates.PRESERVE);
                 break;
         }
-        if (commitPrimaryLayout && this._dm._gridLayout.primaryOnly) {
-            this._dm._gridLayout.commitPrimaryPositions(placed);
+        if (this._dm._gridLayout?.primaryOnly) {
+            const toCommit = commitPrimaryLayout ? placed : placed.filter(item => item.dropCoordinates);
+            if (toCommit.length > 0) {
+                this._dm._gridLayout.commitPrimaryPositions(toCommit);
+            }
         }
         return placed;
     }

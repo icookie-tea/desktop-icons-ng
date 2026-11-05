@@ -296,7 +296,7 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
     }
 
     /* Stores a primary anchor (and, when given, the legacy coordinate that
-     * mirrors it) in a single Gio.FileInfo.
+     * mirrors it) and consumes any pending drop in a single Gio.FileInfo.
      *
      * One write keeps the two attributes consistent: a crash between two
      * writes would leave the legacy coordinate describing a layout the anchor
@@ -320,6 +320,10 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
             const info = new Gio.FileInfo();
             info.set_attribute_string(Enums.PRIMARY_POSITION_ATTRIBUTE, text);
             info.set_attribute_string(Enums.LEGACY_POSITION_ATTRIBUTE, legacyText);
+            /* Drops are one-shot requests. Clearing only the in-memory value
+             * replays an old drop after restart, overriding the saved anchor.
+             * Clear disk residue even if this instance already consumed it. */
+            info.set_attribute_string('metadata::nautilus-drop-position', '');
             this.file.set_attributes_from_info(info, Gio.FileQueryInfoFlags.NONE, null);
         } catch (e) {
             print('Failed to store the primary desktop position for ' + this.uri + ': ' + e.message);
@@ -337,6 +341,7 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
         this._savedCoordinates = legacyCoordinates == null
             ? null
             : [legacyCoordinates[0], legacyCoordinates[1]];
+        this._dropCoordinates = null;
         return true;
     }
 
@@ -345,8 +350,9 @@ export var FileItem = class extends desktopIconItem.desktopIconItem {
         if ((savedCoordinates != null) && (savedCoordinates != '')) {
             savedCoordinates = savedCoordinates.split(',');
             if (savedCoordinates.length >= 2) {
-                if (!isNaN(savedCoordinates[0]) && !isNaN(savedCoordinates[1])) {
-                    return [Number(savedCoordinates[0]), Number(savedCoordinates[1])];
+                const coordinates = savedCoordinates.slice(0, 2);
+                if (coordinates.every(value => value.trim() !== '' && Number.isFinite(Number(value)))) {
+                    return coordinates.map(Number);
                 }
             }
         }

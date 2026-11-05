@@ -307,5 +307,24 @@ export function runTests() {
         assertEqual(refreshed.length, 0, 'an identical geometry update does not force a repaint');
     }
 
+    // A failed legacy placement must not consume the intended drop location.
+    // Cover both startup enumeration and incremental file creation.
+    for (const incremental of [false, true]) {
+        const full = makeGrid(0, 0, 0, 100, 100, { hostable: false });
+        const layout = new GridLayout(makeMockDM({ desktops: [full] }), () => false);
+        const item = makeItem(null, [50, 50]);
+        if (incremental) {
+            layout.addSingleFileToDesktop(item);
+        } else {
+            layout.addFilesToDesktop([item], Enums.StoredCoordinates.PRESERVE);
+        }
+        assertDeepEqual(item.dropCoordinates, [50, 50], 'legacy full grid preserves pending drop');
+        full._hostable = true;
+        layout.addSingleFileToDesktop(item);
+        assertEqual(item.dropCoordinates, null, 'legacy successful placement consumes pending drop');
+        assertEqual(full.placed[0].x, 50, 'legacy retry uses the requested x');
+        assertEqual(full.placed[0].y, 50, 'legacy retry uses the requested y');
+    }
+
     return summary('full-desktop');
 }

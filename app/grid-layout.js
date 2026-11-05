@@ -444,15 +444,6 @@ export var GridLayout = class {
         return null;
     }
 
-    /* Drops the recorded drop coordinate without writing metadata: the icon is
-     * about to be placed, and a repaint must not produce attribute writes. The
-     * field is assigned directly on purpose (the setter writes to disk). */
-    _consumePrimaryDrop(item) {
-        if (item.dropCoordinates) {
-            item._dropCoordinates = null;
-        }
-    }
-
     /* Places one item on the primary grid, choosing the placement semantics:
      *  - explicit target (drag/paste) -> PRESERVE at that point,
      *  - compact (a sort)             -> ASSIGN (first free cell in order),
@@ -462,21 +453,22 @@ export var GridLayout = class {
      * PRESERVE keeps the requested cell when it is free and otherwise takes the
      * nearest free one, which is what reproduces an unchanged grid exactly. */
     _placePrimaryItem(grid, item, targets, arranged) {
-        const explicit = this._primaryExplicitTarget(item, targets);
-        if (explicit) {
-            this._consumePrimaryDrop(item);
-            if (grid.addFileItemCloseTo(item, explicit[0], explicit[1],
-                Enums.StoredCoordinates.PRESERVE, {persistLegacy: false}) === false) {
-                this._unplacedCount++;
-                return false;
-            }
-            return true;
-        }
         if (arranged && (!item.isSpecial || this._dm.sortSpecialFolders)) {
             /* Sorted layout: fill the grid in the order the caller produced. */
             const target = item.savedCoordinates ?? this.getFallbackPosition();
             if (grid.addFileItemCloseTo(item, target[0], target[1],
                 Enums.StoredCoordinates.ASSIGN, {persistLegacy: false}) === false) {
+                this._unplacedCount++;
+                return false;
+            }
+            return true;
+        }
+        const explicit = this._primaryExplicitTarget(item, targets);
+        if (explicit) {
+            /* Keep pending drops until the cell is committed. A full grid
+             * or failed metadata save must not discard the destination. */
+            if (grid.addFileItemCloseTo(item, explicit[0], explicit[1],
+                Enums.StoredCoordinates.PRESERVE, {persistLegacy: false}) === false) {
                 this._unplacedCount++;
                 return false;
             }
@@ -601,24 +593,16 @@ export var GridLayout = class {
              * sorting paths pass, which is the one case where the placement
              * is a compact fill of the grid instead of a projection. */
             const arranged = storeMode === Enums.StoredCoordinates.ASSIGN;
-            /* Explicit drops are collected before placement consumes them: a
-             * file that arrives with a coordinate (paste, drag from another
-             * monitor) may also carry a stale anchor from its old location,
-             * and the drop must replace it. */
-            const explicitItems = new Set();
-            for (const item of fileList) {
-                if (this._primaryExplicitTarget(item, null)) {
-                    explicitItems.add(item);
-                }
-            }
             const placed = this.placePrimaryFiles(fileList, {arranged});
+            const explicitItems = new Set(placed.filter(item => item.dropCoordinates));
+            /* Incoming drops are explicit even during an automatic sort;
+             * consume them with the resulting cell, not a historical target. */
+            this.commitPrimaryPositions([...explicitItems]);
             if (!arranged) {
-                if (explicitItems.size > 0) {
-                    this.commitPrimaryPositions(placed.filter(item => explicitItems.has(item)));
-                }
                 /* First sighting of an icon: give it an anchor, but never
-                 * rewrite one it already has (a repaint is not a user move). */
-                this.commitPrimaryPositions(placed, {onlyMissing: true});
+                 * rewrite one it already has. Exclude explicit saves so a
+                 * failed one is not retried as migration in the same pass. */
+                this.commitPrimaryPositions(placed.filter(item => !explicitItems.has(item)), {onlyMissing: true});
             }
             this._reportUnplaced(this._unplacedCount);
             return placed;
@@ -629,7 +613,7 @@ export var GridLayout = class {
     }
 
     /* The historical placement path: absolute coordinates against every
-     * monitor's grid. Used by plain multi-monitor mode and kept unchanged. */
+     * monitor's grid. Consume pending drops only after successful placement. */
     _addFilesToLegacyDesktops(fileList, storeMode) {
         let placedItems = [];
         let outOfDesktops = [];
@@ -641,13 +625,13 @@ export var GridLayout = class {
                 notAssignedYet.push(fileItem);
                 continue;
             }
-            if (fileItem.dropCoordinates != null) {
-                fileItem.dropCoordinates = null;
-            }
             let [itemX, itemY] = fileItem.savedCoordinates;
             const desktop = this.findDesktopFor(itemX, itemY, { exactOnly: true });
             if (desktop !== null) {
                 if (desktop.addFileItemCloseTo(fileItem, itemX, itemY, storeMode) !== false) {
+                    if (fileItem.dropCoordinates != null) {
+                        fileItem.dropCoordinates = null;
+                    }
                     placedItems.push(fileItem);
                 } else {
                     this._unplacedCount++;
@@ -676,6 +660,9 @@ export var GridLayout = class {
              * not come through here (see placePrimaryFiles). */
             const moveMode = this._dm._primaryGridRemovedIcons ? Enums.StoredCoordinates.OVERWRITE : storeMode;
             if (newDesktop.addFileItemCloseTo(fileItem, itemX, itemY, moveMode) !== false) {
+                if (fileItem.dropCoordinates != null) {
+                    fileItem.dropCoordinates = null;
+                }
                 placedItems.push(fileItem);
             } else {
                 this._unplacedCount++;
@@ -689,13 +676,15 @@ export var GridLayout = class {
                 storeMode = Enums.StoredCoordinates.ASSIGN;
             } else {
                 [x, y] = fileItem.dropCoordinates;
-                fileItem.dropCoordinates = null;
                 storeMode = Enums.StoredCoordinates.OVERWRITE;
             }
             // designated desktop first, any other hostable desktop as fallback
             const desktop = this.findDesktopFor(x, y);
             if (desktop !== null) {
                 if (desktop.addFileItemCloseTo(fileItem, x, y, storeMode) !== false) {
+                    if (fileItem.dropCoordinates != null) {
+                        fileItem.dropCoordinates = null;
+                    }
                     placedItems.push(fileItem);
                 } else {
                     this._unplacedCount++;
@@ -720,7 +709,8 @@ export var GridLayout = class {
         }
         DebugLog.debugLog(`[place] ${count} icon(s) could not be placed`);
         const now = GLib.get_monotonic_time();
-        if ((now - this._dm._lastUnplacedNotify) < Constants.UNPLACED_NOTIFY_COOLDOWN_US) {
+        if (this._dm._lastUnplacedNotify &&
+            (now - this._dm._lastUnplacedNotify) < Constants.UNPLACED_NOTIFY_COOLDOWN_US) {
             return;
         }
         this._dm._lastUnplacedNotify = now;
@@ -759,11 +749,11 @@ export var GridLayout = class {
         if (fileItem.dropCoordinates) {
             const [x, y] = fileItem.dropCoordinates;
             DebugLog.debugLog(`[place] ${fileItem.file.get_basename()} drop=(${x},${y})`);
-            fileItem.dropCoordinates = null;
             const desktop = this.findDesktopFor(x, y);
             if (desktop !== null) {
                 if (desktop.addFileItemCloseTo(fileItem, x, y,
                     Enums.StoredCoordinates.OVERWRITE) !== false) {
+                    fileItem.dropCoordinates = null;
                     return fileItem;
                 }
             }

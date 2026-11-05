@@ -153,8 +153,9 @@ export async function readAll(stream) {
  * compare the base names; extensions must match. Ties are broken by the
  * newest timestamp (entry[2]).
  *
- * @param {Object} pendingFiles  _pendingDropFiles map (basename -> [x, y, ts])
+ * @param {Object} pendingFiles  map (basename -> [x, y, ts, excludedUris?])
  * @param {string} basename     basename of the newly created file
+ * @param {string|null} uri     file URI, for excluding pre-existing icons
  * @returns {string|null}       matching key, or null
  */
 export function stripConflictSuffix(stem) {
@@ -162,7 +163,12 @@ export function stripConflictSuffix(stem) {
     return m ? m[1] : stem;
 }
 
-export function matchPendingDropEntry(pendingFiles, basename) {
+export function matchPendingDropEntry(pendingFiles, basename, uri = null) {
+    /* Conflict-renamed copies still match by basename, but pre-existing
+     * desktop files and copied sources must never steal their placement. */
+    if (uri && Object.values(pendingFiles).some(entry => entry[3]?.includes(uri))) {
+        return null;
+    }
     if (basename in pendingFiles) {
         return basename;
     }

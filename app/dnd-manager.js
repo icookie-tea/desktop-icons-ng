@@ -179,10 +179,11 @@ export var DndManager = class {
                 break;
             case Enums.DndTargetInfo.GNOME_ICON_LIST:
             case Enums.DndTargetInfo.URI_LIST:
-                this._dm.clearFileCoordinates(dropInfo.filelist, [xDestination, yDestination]);
                 let data = Gio.File.new_for_uri(dropInfo.filelist[0]).query_info('id::filesystem', Gio.FileQueryInfoFlags.NONE, null);
                 let idFS = data.get_attribute_string('id::filesystem');
-                if ((this._dm.desktopFsId == idFS) || forceMove) {
+                const moving = (this._dm.desktopFsId == idFS) || forceMove;
+                this._dm.clearFileCoordinates(dropInfo.filelist, [xDestination, yDestination], { copy: !moving });
+                if (moving) {
                     DBusUtils.RemoteFileOperations.MoveURIsRemote(dropInfo.filelist, DesktopIconsUtil.getDesktopDir().get_uri());
                 } else {
                     DBusUtils.RemoteFileOperations.CopyURIsRemote(dropInfo.filelist, DesktopIconsUtil.getDesktopDir().get_uri());
